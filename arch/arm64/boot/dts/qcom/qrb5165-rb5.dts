@@ -233,6 +233,12 @@
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
+
+	clk40M: can_clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <40000000>;
+	};
 };
 
 &apps_rsc {
@@ -1236,6 +1242,7 @@
 		function = "gpio";
 		bias-pull-up;
 	};
+
 };
 
 &uart12 {
