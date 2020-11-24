@@ -1072,7 +1072,7 @@
 };
 
 &slpi {
-	status = "okay";
+	/* status = "okay"; */
 	firmware-name = "qcom/sm8250/slpi.mbn";
 };
 
