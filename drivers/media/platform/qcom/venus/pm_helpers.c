@@ -41,10 +41,24 @@ static int core_clks_get(struct venus_core *core)
 static int core_clks_enable(struct venus_core *core)
 {
 	const struct venus_resources *res = core->res;
+	const struct freq_tbl *freq_tbl = NULL;
+	unsigned int freq_tbl_size = 0;
+	unsigned long freq = 0;
 	unsigned int i;
 	int ret;
 
+	freq_tbl = core->res->freq_tbl;
+	freq_tbl_size = core->res->freq_tbl_size;
+	if (!freq_tbl)
+		return -EINVAL;
+
+	freq = freq_tbl[freq_tbl_size - 1].freq;
+
 	for (i = 0; i < res->clks_num; i++) {
+		ret = clk_set_rate(core->clks[i], freq);
+		if (ret)
+			goto err;
+
 		ret = clk_prepare_enable(core->clks[i]);
 		if (ret)
 			goto err;
