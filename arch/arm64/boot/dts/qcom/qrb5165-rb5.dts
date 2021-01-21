@@ -1024,10 +1024,30 @@
 		input-disable;
 		power-source = <0>;
 	};
+
+	pm8150l_pwm1: pm8150l-pwm1 {
+		pins = "gpio6";
+		function = "func1";
+
+		output-low;
+		input-enable;
+		power-source = <0>;
+	};
+	pm8150l_pwm2: pm8150l-pwm2 {
+		pins = "gpio10";
+		function = "func1";
+
+		output-low;
+		input-enable;
+		power-source = <0>;
+	};
 };
 
 &pm8150l_lpg {
 	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pm8150l_pwm1 &pm8150l_pwm2>;
 
 	led@1 {
 		reg = <1>;
