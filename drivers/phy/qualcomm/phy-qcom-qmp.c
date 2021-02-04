@@ -5031,7 +5031,7 @@ static int qcom_qmp_phy_typec_switch_register(struct qcom_qmp *qmp, const struct
 	struct typec_switch_desc sw_desc;
 	struct device *dev = qmp->dev;
 
-	if (cfg->is_dual_lane_phy) {
+	if (cfg->has_phy_dp_com_ctrl) {
 		sw_desc.drvdata = qmp;
 		sw_desc.fwnode = dev->fwnode;
 		sw_desc.set = qcom_qmp_phy_typec_switch_set;
