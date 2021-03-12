@@ -686,7 +686,7 @@ static void dsi_pll_7nm_destroy(struct msm_dsi_pll *pll)
 static int pll_7nm_register(struct dsi_pll_7nm *pll_7nm)
 {
 	char clk_name[32], parent[32], vco_name[32];
-	char parent2[32], parent3[32], parent4[32];
+	char parent2[32];
 	struct clk_init_data vco_init = {
 		.parent_names = (const char *[]){ "bi_tcxo" },
 		.num_parents = 1,
@@ -737,7 +737,7 @@ static int pll_7nm_register(struct dsi_pll_7nm *pll_7nm)
 				     CLK_SET_RATE_PARENT,
 				     pll_7nm->phy_cmn_mmio +
 				     REG_DSI_7nm_PHY_CMN_CLK_CFG0,
-				     0, 4, CLK_DIVIDER_ONE_BASED,
+				     0, 4, CLK_DIVIDER_ONE_BASED | CLK_DIVIDER_ALLOW_ZERO,
 				     &pll_7nm->postdiv_lock);
 	if (IS_ERR(hw)) {
 		ret = PTR_ERR(hw);
@@ -787,15 +787,13 @@ static int pll_7nm_register(struct dsi_pll_7nm *pll_7nm)
 	snprintf(clk_name, 32, "dsi%d_pclk_mux", pll_7nm->id);
 	snprintf(parent, 32, "dsi%d_pll_bit_clk", pll_7nm->id);
 	snprintf(parent2, 32, "dsi%d_pll_by_2_bit_clk", pll_7nm->id);
-	snprintf(parent3, 32, "dsi%d_pll_out_div_clk", pll_7nm->id);
-	snprintf(parent4, 32, "dsi%d_pll_post_out_div_clk", pll_7nm->id);
 
 	hw = clk_hw_register_mux(dev, clk_name,
 				 ((const char *[]){
-				 parent, parent2, parent3, parent4
-				 }), 4, 0, pll_7nm->phy_cmn_mmio +
+				 parent, parent2
+				 }), 2, 0, pll_7nm->phy_cmn_mmio +
 				 REG_DSI_7nm_PHY_CMN_CLK_CFG1,
-				 0, 2, 0, NULL);
+				 0, 1, 0, NULL);
 	if (IS_ERR(hw)) {
 		ret = PTR_ERR(hw);
 		goto err_post_out_div_clk_hw;
