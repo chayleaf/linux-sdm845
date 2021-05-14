@@ -62,6 +62,24 @@
 			#size-cells = <0>;
 
 			status = "disabled";
+			ports {
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					pmic_tcpm_typec: endpoint {
+						remote-endpoint = <&pmic_typec>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					pmic_tcpm_pdphy: endpoint {
+						remote-endpoint = <&pmic_pdphy>;
+					};
+				};
+			};
 		};
 
 		pm8150b_typec: typec@1500 {
@@ -94,6 +112,17 @@
 					  "pmic-typec-legacy-cable-detect",
 					  "pmic-typec-try-snk-src-detect";
 			status = "disabled";
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					pmic_typec: endpoint {
+						remote-endpoint = <&pmic_tcpm_typec>;
+					};
+				};
+			};
 		};
 
 		pm8150b_pdphy: pdphy@1700 {
@@ -124,6 +153,17 @@
 					  "pmic-pdphy-msg-rx-discarded",
 					  "pmic-pdphy-fr-swap";
 			status = "disabled";
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					pmic_pdphy: endpoint {
+						remote-endpoint = <&pmic_tcpm_pdphy>;
+					};
+				};
+			};
 		};
 
 		pm8150b_temp: temp-alarm@2400 {
