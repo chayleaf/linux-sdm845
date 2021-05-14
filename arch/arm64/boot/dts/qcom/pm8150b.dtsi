@@ -7,6 +7,7 @@
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/usb/typec/tcpm/qcom,pmic-usb-typec.h>
 
 / {
 	thermal-zones {
@@ -50,6 +51,38 @@
 			compatible = "qcom,pm8916-pon";
 			reg = <0x0800>;
 
+			status = "disabled";
+		};
+
+		pm8150b_typec: typec@1500 {
+			compatible = "qcom,pm8150b-typec";
+			reg = <0x1500>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x2 0x15 PMIC_TYPEC_OR_RID_IRQ
+				      IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x15 PMIC_TYPEC_VPD_IRQ
+				      IRQ_TYPE_EDGE_BOTH>,
+				     <0x2 0x15 PMIC_TYPEC_CC_STATE_IRQ
+				      IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x15 PMIC_TYPEC_VCONN_OC_IRQ
+				      IRQ_TYPE_EDGE_BOTH>,
+				     <0x2 0x15 PMIC_TYPEC_VBUS_IRQ
+				      IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x15 PMIC_TYPEC_ATTACH_DETACH_IRQ
+				      IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x15 PMIC_TYPEC_LEGACY_CABLE_IRQ
+				      IRQ_TYPE_EDGE_BOTH>,
+				     <0x2 0x15 PMIC_TYPEC_TRY_SNK_SRC_IRQ
+				      IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "pmic-typec-or-rid-detect-change",
+					  "pmic-typec-vpd-detect",
+					  "pmic-typec-cc-state-change",
+					  "pmic-typec-vconn-oc",
+					  "pmic-typec-vbus-change",
+					  "pmic-typec-attach-detach",
+					  "pmic-typec-legacy-cable-detect",
+					  "pmic-typec-try-snk-src-detect";
 			status = "disabled";
 		};
 
