@@ -55,6 +55,15 @@
 			status = "disabled";
 		};
 
+		pm8150b_tcpm: pmic-tcpm {
+			compatible = "qcom,pmic-tcpm";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			status = "disabled";
+		};
+
 		pm8150b_typec: typec@1500 {
 			compatible = "qcom,pm8150b-typec";
 			reg = <0x1500>;
