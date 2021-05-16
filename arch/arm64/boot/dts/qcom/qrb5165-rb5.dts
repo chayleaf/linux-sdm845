@@ -1363,6 +1363,11 @@
 	bias-disable;
 };
 
+&pm8150b_typec {
+	vdd-vbus-supply = <&pm8150b_vbus>;
+	status = "okay";
+};
+
 &pm8150b_vbus {
 	regulator-min-microamp = <500000>;
 	regulator-max-microamp = <3000000>;
