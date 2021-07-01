@@ -20,6 +20,7 @@
 #include <linux/usb/of.h>
 #include <linux/reset.h>
 #include <linux/iopoll.h>
+#include <linux/usb/role.h>
 
 #include "core.h"
 
@@ -81,6 +82,7 @@ struct dwc3_qcom {
 	struct extcon_dev	*host_edev;
 	struct notifier_block	vbus_nb;
 	struct notifier_block	host_nb;
+	struct usb_role_switch	*role_sw;
 
 	const struct dwc3_acpi_pdata *acpi_pdata;
 
@@ -153,6 +155,66 @@ static int dwc3_qcom_host_notifier(struct notifier_block *nb,
 
 	return NOTIFY_DONE;
 }
+
+#if IS_ENABLED(CONFIG_USB_ROLE_SWITCH)
+static int dwc3_qcom_usb_role_switch_set(struct usb_role_switch *sw,
+					 enum usb_role role)
+{
+	struct dwc3_qcom *qcom = usb_role_switch_get_drvdata(sw);
+	bool enable;
+
+	switch (role) {
+	case USB_ROLE_DEVICE:
+		qcom->mode = USB_DR_MODE_PERIPHERAL;
+		enable = true;
+		break;
+	case USB_ROLE_HOST:
+	default:
+		qcom->mode = USB_DR_MODE_HOST;
+		enable = false;
+		break;
+	}
+
+	dwc3_qcom_vbus_override_enable(qcom, enable);
+	return 0;
+}
+
+static enum usb_role dwc3_qcom_usb_role_switch_get(struct usb_role_switch *sw)
+{
+	struct dwc3_qcom *qcom = usb_role_switch_get_drvdata(sw);
+	enum usb_role role;
+
+	switch (qcom->mode) {
+	case USB_DR_MODE_PERIPHERAL:
+		role = USB_ROLE_DEVICE;
+		break;
+	case  USB_DR_MODE_HOST:
+	default:
+		role = USB_ROLE_HOST;
+		break;
+	}
+
+	return role;
+}
+
+static int dwc3_qcom_setup_role_switch(struct dwc3_qcom *qcom)
+{
+	struct usb_role_switch_desc dwc3_qcom_role_switch = {NULL};
+
+	dwc3_qcom_role_switch.fwnode = dev_fwnode(qcom->dev);
+	dwc3_qcom_role_switch.set = dwc3_qcom_usb_role_switch_set;
+	dwc3_qcom_role_switch.get = dwc3_qcom_usb_role_switch_get;
+	dwc3_qcom_role_switch.driver_data = qcom;
+	qcom->role_sw = usb_role_switch_register(qcom->dev,
+						 &dwc3_qcom_role_switch);
+	if (IS_ERR(qcom->role_sw))
+		return PTR_ERR(qcom->role_sw);
+
+	return 0;
+}
+#else
+#define dwc3_qcom_setup_role_switch(x) 0
+#endif
 
 static int dwc3_qcom_register_extcon(struct dwc3_qcom *qcom)
 {
@@ -818,6 +880,10 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 	if (ret)
 		goto interconnect_exit;
 
+	ret = dwc3_qcom_setup_role_switch(qcom);
+	if (ret)
+		goto interconnect_exit;
+
 	device_init_wakeup(&pdev->dev, 1);
 	qcom->is_suspended = false;
 	pm_runtime_set_active(dev);
@@ -849,6 +915,9 @@ static int dwc3_qcom_remove(struct platform_device *pdev)
 	struct dwc3_qcom *qcom = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
 	int i;
+
+	if (qcom->role_sw)
+		usb_role_switch_unregister(qcom->role_sw);
 
 	device_remove_software_node(&qcom->dwc3->dev);
 	of_platform_depopulate(dev);
