@@ -76,7 +76,7 @@
 #define IMX363_REG_ORIENTATION		0x0101
 
 /* default link frequency and external clock */
-#define IMX363_LINK_FREQ_DEFAULT	1040000000 // ((llp * fll * refresh_rate * bits) / lanes) / 2
+#define IMX363_LINK_FREQ_DEFAULT	520000000 // ((llp * fll * refresh_rate * bits) / lanes) / 2
 #define IMX363_EXT_CLK			    24000000
 
 /* Register Map */
@@ -587,7 +587,7 @@ static const struct imx363_mode supported_modes[] = {
 		.height = 3024,
 		.fll_def = 3140,
 		.fll_min = 3140,
-		.llp = 8832,
+		.llp = 4416, //half of what i read from the link freq regs, bcoz i got pixel clock too high if i used that value for calculation
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(mode_4032x3024_regs),
 			.regs = mode_4032x3024_regs,
@@ -1291,7 +1291,7 @@ static int imx363_check_hwcfg(struct device *dev)
 	}
 
 	/* Check the number of MIPI CSI2 data lanes */
-	if (ep_cfg.bus.mipi_csi2.num_data_lanes != 2) {
+	if (ep_cfg.bus.mipi_csi2.num_data_lanes != 4) {
 		dev_err(dev, "only 2 data lanes are currently supported\n");
 		goto error_out;
 	}
@@ -1341,13 +1341,27 @@ static int imx363_probe(struct i2c_client *client)
 		return PTR_ERR(imx363->xclk);
 	}
 
-	imx363->xclk_freq = clk_get_rate(imx363->xclk);
-	if (imx363->xclk_freq != IMX363_EXT_CLK) {
-		dev_err(dev, "xclk frequency not supported: %d Hz\n",
-			imx363->xclk_freq);
-		return -EINVAL;
+	ret = fwnode_property_read_u32(dev_fwnode(dev), "clock-frequency", &imx363->xclk_freq);
+	if (ret) {
+		dev_err(dev, "could not get xclk frequency\n");
+		goto error_power_off;
 	}
 
+	/* this driver currently expects 24MHz; allow 1% tolerance */
+	if (imx363->xclk_freq < 23760000 || imx363->xclk_freq > 24240000) {
+		dev_err(dev, "xclk frequency not supported: %d Hz\n",
+			imx363->xclk_freq);
+		ret = -EINVAL;
+		goto error_power_off;
+	}
+
+	ret = clk_set_rate(imx363->xclk, imx363->xclk_freq);
+	if (ret) {
+		dev_err(dev, "could not set xclk frequency\n");
+		goto error_power_off;
+	}
+
+	imx363->link_def_freq = link_freq_menu_items[0];
 	// ret = imx363_get_regulators(imx363);
 	// if (ret) {
 	// 	dev_err(dev, "failed to get regulators\n");
