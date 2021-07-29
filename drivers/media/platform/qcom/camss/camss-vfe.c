@@ -1309,6 +1309,7 @@ int msm_vfe_subdev_init(struct camss *camss, struct vfe_device *vfe,
 		return PTR_ERR(vfe->base);
 	}
 
+
 	/* Interrupt */
 
 	r = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
@@ -1317,6 +1318,8 @@ int msm_vfe_subdev_init(struct camss *camss, struct vfe_device *vfe,
 		dev_err(dev, "missing IRQ\n");
 		return -EINVAL;
 	}
+
+	vfe->base_unmapped = r->start;
 
 	vfe->irq = r->start;
 	snprintf(vfe->irq_name, sizeof(vfe->irq_name), "%s_%s%d",
