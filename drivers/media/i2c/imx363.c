@@ -587,7 +587,7 @@ static const struct imx363_mode supported_modes[] = {
 		.height = 3024,
 		.fll_def = 3140,
 		.fll_min = 3140,
-		.llp = 4416, //half of what i read from the link freq regs, bcoz i got pixel clock too high if i used that value for calculation
+		.llp = 8832, //half of what i read from the link freq regs, bcoz i got pixel clock too high if i used that value for calculation
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(mode_4032x3024_regs),
 			.regs = mode_4032x3024_regs,
@@ -1032,13 +1032,13 @@ static int imx363_power_on(struct device *dev)
 	struct imx363 *imx363 = to_imx363(sd);
 	int ret;
 
-	// ret = regulator_bulk_enable(IMX363_NUM_SUPPLIES,
-	// 			    imx363->supplies);
-	// if (ret) {
-	// 	dev_err(dev, "%s: failed to enable regulators\n",
-	// 		__func__);
-	// 	return ret;
-	// }
+	ret = regulator_bulk_enable(IMX363_NUM_SUPPLIES,
+				    imx363->supplies);
+	if (ret) {
+		dev_err(dev, "%s: failed to enable regulators\n",
+			__func__);
+		return ret;
+	}
 
 	ret = clk_prepare_enable(imx363->xclk);
 	if (ret) {
@@ -1103,18 +1103,18 @@ error:
 	return ret;
 }
 
-// static int imx363_get_regulators(struct imx363 *imx363)
-// {
-// 	struct i2c_client *client = v4l2_get_subdevdata(&imx363->sd);
-// 	unsigned int i;
+static int imx363_get_regulators(struct imx363 *imx363)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(&imx363->sd);
+	unsigned int i;
 
-// 	for (i = 0; i < IMX363_NUM_SUPPLIES; i++)
-// 		imx363->supplies[i].supply = imx363_supply_name[i];
+	for (i = 0; i < IMX363_NUM_SUPPLIES; i++)
+		imx363->supplies[i].supply = imx363_supply_name[i];
 
-// 	return devm_regulator_bulk_get(&client->dev,
-// 				       IMX363_NUM_SUPPLIES,
-// 				       imx363->supplies);
-// }
+	return devm_regulator_bulk_get(&client->dev,
+				       IMX363_NUM_SUPPLIES,
+				       imx363->supplies);
+}
 
 /* Verify chip ID */
 static int imx363_identify_module(struct imx363 *imx363)
@@ -1362,11 +1362,11 @@ static int imx363_probe(struct i2c_client *client)
 	}
 
 	imx363->link_def_freq = link_freq_menu_items[0];
-	// ret = imx363_get_regulators(imx363);
-	// if (ret) {
-	// 	dev_err(dev, "failed to get regulators\n");
-	// 	return ret;
-	// }
+	ret = imx363_get_regulators(imx363);
+	if (ret) {
+		dev_err(dev, "failed to get regulators\n");
+		return ret;
+	}
 
 	/* Request optional enable pin */
 	imx363->reset_gpio = devm_gpiod_get_optional(dev, "reset",
