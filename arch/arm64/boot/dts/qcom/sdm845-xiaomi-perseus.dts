@@ -36,9 +36,11 @@
 		
 		/delete-node/memory@8df00000;
 
-		removed_region: memory@85fc0000 {
+		/delete-node/memory@88f00000;
+
+		removed_region: memory@88f00000 {
 			no-map;
-			reg = <0 0x85fc0000 0 0x4940000>;
+			reg = <0 0x88f00000 0 0x1a00000>;
 		};
 
 		wlan_msa_mem: memory@8e300000 {
@@ -107,8 +109,6 @@
 		 * but given the same address every time. Hard code it as this address is
 		 * where the modem firmware expects it to be.
 		 */
-
-		/delete-node/memory@88f00000;
 		
 		rmtfs_mem: memory@f7301000 {
 			compatible = "qcom,rmtfs-mem";
@@ -122,6 +122,30 @@
 			reg = <0 0xf7501000 0 0x1000>;
 			no-map;
 		};
+	};
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&vol_up_pin_a>;
+
+		label = "GPIO Buttons";
+
+		vol-up {
+			label = "Volume up";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&pm8998_gpio 6 GPIO_ACTIVE_LOW>;
+		};
+
+		/* This is AI side key, you may use it for whatever reason you want */
+		
+		/*
+		 *  ai_key {
+		 * 	label = "ai_key";
+		 * 	linux,code = <0x2b1>;
+		 *	gpios = <&tlmm 44 GPIO_ACTIVE_LOW>;
+		 * };
+		 */
 	};
 
 	vph_pwr: vph-pwr-regulator {
@@ -630,5 +654,28 @@
         avdd-supply = <&vreg_l28a_3p0>;
         touchscreen-size-x = <1079>;
         touchscreen-size-y = <2339>;
-  };
+	};
+};
+
+&pm8998_gpio {
+	vol_up_pin_a: vol-up-active {
+		pinconf {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			qcom,drive-strength = <0>;
+		};
+
+	};
+};
+
+&pm8998_pon {
+	resin {
+		compatible = "qcom,pm8941-resin";
+		interrupts = <0x0 0x8 1 IRQ_TYPE_EDGE_BOTH>;
+		debounce = <15625>;
+		bias-pull-up;
+		linux,code = <KEY_VOLUMEDOWN>;
+	};
 };
