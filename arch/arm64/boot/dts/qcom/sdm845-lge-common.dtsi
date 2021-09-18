@@ -13,6 +13,19 @@
 #include "pm8998.dtsi"
 #include "pmi8998.dtsi"
 
+/delete-node/ &adsp_mem;
+/delete-node/ &cdsp_mem;
+/delete-node/ &gpu_mem;
+/delete-node/ &ipa_fw_mem;
+/delete-node/ &mba_region;
+/delete-node/ &mpss_region;
+/delete-node/ &qseecom_mem;
+/delete-node/ &rmtfs_mem;
+/delete-node/ &slpi_mem;
+/delete-node/ &spss_mem;
+/delete-node/ &venus_mem;
+/delete-node/ &wlan_msa_mem;
+
 / {
 	chosen {
 		#address-cells = <2>;
@@ -32,73 +45,66 @@
 		#size-cells = <2>;
 		ranges;
 
-		/delete-node/memory@8ab00000;
-
 		qseecom_mem: memory@b2000000 {
 			reg = <0 0xb2000000 0 0x1800000>;
 			no-map;
 		};
 
-		/* adsp_mem remap */
-		memory@8c500000 {
-			reg = <0 0x8c500000 0 0x1e00000>;
+		gpu_mem: memory@8c415000 {
+			reg = <0 0x8c415000 0 0x2000>;
+			no-map;
 		};
 
-		/delete-node/memory@8df00000;
+		ipa_fw_mem: memory@8c400000 {
+			reg = <0 0x8c400000 0 0x10000>;
+			no-map;
+		};
+
+		adsp_mem: memory@8c500000 {
+			reg = <0 0x8c500000 0 0x1e00000>;
+			no-map;
+		};
 
 		wlan_msa_mem: memory@8e300000 {
 			reg = <0 0x8e300000 0 0x100000>;
 			no-map;
 		};
 
-		/delete-node/memory@8e000000;
-
 		mpss_region: memory@8e400000 {
 			reg = <0 0x8e400000 0 0x8900000>;
 			no-map;
 		};
-
-		/delete-node/memory@95800000;
 
 		venus_mem: memory@96d00000 {
 			reg = <0 0x96d00000 0 0x500000>;
 			no-map;
 		};
 
-		/delete-node/memory@95d00000;
-
 		cdsp_mem: memory@97200000 {
 			reg = <0 0x97200000 0 0x800000>;
 			no-map;
 		};
-
-		/delete-node/memory@96500000;
 
 		mba_region: memory@97a00000 {
 			reg = <0 0x97a00000 0 0x200000>;
 			no-map;
 		};
 
-		/delete-node/memory@96700000;
-
 		slpi_mem: memory@97c00000 {
 			reg = <0 0x97c00000 0 0x1400000>;
 			no-map;
 		};
-
-		/delete-node/memory@97b00000;
 
 		spss_mem: memory@99000000 {
 			reg = <0 0x99000000 0 0x100000>;
 			no-map;
 		};
 
-		framebuffer_region@9d400000 {
+		/* Framebuffer region */
+		memory@9d400000 {
 			reg = <0x0 0x9d400000 0x0 0x2400000>;
 			no-map;
 		};
-
-		/delete-node/memory@88f00000;
 
 		/* rmtfs lower guard */
 		memory@f0800000 {
