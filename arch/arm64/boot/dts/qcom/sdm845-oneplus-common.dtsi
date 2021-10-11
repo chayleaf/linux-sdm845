@@ -10,6 +10,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/sound/qcom,q6afe.h>
 #include <dt-bindings/sound/qcom,q6asm.h>
 
@@ -27,6 +28,44 @@
 
 	chosen {
 		stdout-path = "serial0:115200n8";
+	};
+
+	gpio_tristate_key: gpio-keys {
+		compatible = "gpio-keys";
+		label = "Tri-state key";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&tri_state_key_default>;
+
+		state-top {
+			label = "Tri-state key top";
+			linux,code = <KEY_F13>;
+			gpios = <&tlmm 40 GPIO_ACTIVE_LOW>;
+			//interrupt-parent = <&tlmm>;
+			//interrupts = <24 IRQ_TYPE_EDGE_FALLING>;
+			debounce-interval = <100>;
+			linux,can-disable;
+		};
+
+		state-middle {
+			label = "Tri-state key middle";
+			linux,code = <KEY_F14>;
+			gpios = <&tlmm 42 GPIO_ACTIVE_LOW>;
+			//interrupt-parent = <&tlmm>;
+			//interrupts = <52 IRQ_TYPE_EDGE_FALLING>;
+			debounce-interval = <100>;
+			linux,can-disable;
+		};
+
+		state-bottom {
+			label = "Tri-state key bottom";
+			linux,code = <KEY_F15>;
+			gpios = <&tlmm 26 GPIO_ACTIVE_LOW>;
+			//interrupt-parent = <&tlmm>;
+			//interrupts = <126 IRQ_TYPE_EDGE_FALLING>;
+			debounce-interval = <100>;
+			linux,can-disable;
+		};
 	};
 
 	gpio-keys {
