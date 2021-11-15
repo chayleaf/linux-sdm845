@@ -68,7 +68,6 @@
 
 #define RR_ADC_USB_IN_V_CTRL			0x90
 #define RR_ADC_USB_IN_V_TRIGGER		0x91
-#define RR_ADC_USB_IN_V_EVERY_CYCLE_MASK	0x80
 #define RR_ADC_USB_IN_V_EVERY_CYCLE		BIT(7)
 #define RR_ADC_USB_IN_V_STS			0x92
 #define RR_ADC_USB_IN_V_LSB			0x94
@@ -162,11 +161,11 @@
 #define RR_ADC_CHG_TEMP_SMIC_OFFSET_UV	1338433
 #define RR_ADC_CHG_TEMP_SMIC_SLOPE_UV_PER_C	3655
 #define RR_ADC_CHG_TEMP_660_GF_OFFSET_UV	1309001
-#define FG_RR_CHG_TEMP_660_GF_SLOPE_UV_PER_C	3403
+#define RR_ADC_CHG_TEMP_660_GF_SLOPE_UV_PER_C	3403
 #define RR_ADC_CHG_TEMP_660_SMIC_OFFSET_UV	1295898
-#define FG_RR_CHG_TEMP_660_SMIC_SLOPE_UV_PER_C	3596
+#define RR_ADC_CHG_TEMP_660_SMIC_SLOPE_UV_PER_C	3596
 #define RR_ADC_CHG_TEMP_660_MGNA_OFFSET_UV	1314779
-#define FG_RR_CHG_TEMP_660_MGNA_SLOPE_UV_PER_C	3496
+#define RR_ADC_CHG_TEMP_660_MGNA_SLOPE_UV_PER_C	3496
 #define RR_ADC_CHG_TEMP_OFFSET_MILLI_DEGC	25000
 #define RR_ADC_CHG_THRESHOLD_SCALE		4
 
@@ -182,14 +181,16 @@
 #define RR_ADC_GPIO_FS_RANGE			5000
 #define RR_ADC_COHERENT_CHECK_RETRY		5
 #define RR_ADC_MAX_CONTINUOUS_BUFFER_LEN	16
+
 #define RR_ADC_STS_CHANNEL_READING_MASK	0x3
 #define RR_ADC_STS_CHANNEL_STS		0x2
 
-#define FG_RR_CONV_CONTINUOUS_TIME_MIN_MS	50
-#define FG_RR_CONV_MAX_RETRY_CNT		10
-#define FG_RR_TP_REV_VERSION1		21
-#define FG_RR_TP_REV_VERSION2		29
-#define FG_RR_TP_REV_VERSION3		32
+#define RR_ADC_CONV_TIME_MIN_US			499
+#define RR_ADC_CONV_TIME_MAX_US			501
+#define RR_ADC_CONV_MAX_RETRY_CNT		100
+#define RR_ADC_TP_REV_VERSION1		21
+#define RR_ADC_TP_REV_VERSION2		29
+#define RR_ADC_TP_REV_VERSION3		32
 
 #define BATT_ID_SETTLE_SHIFT		5
 #define RRADC_BATT_ID_DELAY_MAX		8
@@ -219,6 +220,20 @@ enum rradc_channel_id {
 
 struct rradc_chip;
 
+/**
+ * struct rradc_channel - rradc channel data
+ * @datasheet_name:	Name of the channel
+ * @type:		Channel type
+ * @info_mask:		Channel mask
+ * @enabled:		Enable/disable flag
+ * @lsb:		Channel least significant byte
+ * @msb:		Channel most significant byte
+ * @status:		Channel status address
+ * @size:		number of bytes to read
+ * @trigger_addr:	Trigger address
+ * @trigger_mask:	Trigger mask
+ * @scale:		Channel scale callback
+ */
 struct rradc_channel {
 	const char			*datasheet_name;
 	enum iio_chan_type		type;
@@ -227,6 +242,9 @@ struct rradc_channel {
 	u8				lsb;
 	u8				msb;
 	u8				status;
+	int				size;
+	int				trigger_addr;
+	int  				trigger_mask;
 	int (*scale)(struct rradc_chip *chip, u16 adc_code, int *result);
 };
 
@@ -238,7 +256,9 @@ struct rradc_chip {
 	int				batt_id_delay;
 	struct iio_chan_spec		*iio_chans;
 	unsigned int			nchannels;
-	bool usb_attached;
+	bool 				usb_attached;
+	bool				usbin_disable;
+	bool				dcin_disable;
 	struct rradc_channel		*chans;
 	u16				batt_id_data;
 };
@@ -355,7 +375,7 @@ static int rradc_post_process_usbin_curr(struct rradc_chip *chip, u16 adc_code,
 	/* scale * V/A; 2.5V ADC full scale */
 	ua = ((int64_t)adc_code * RR_ADC_CURR_USBIN_INPUT_FACTOR_MIL);
 	ua *= (RR_ADC_FS_VOLTAGE_MV * RR_ADC_SCALE_MILLI_FACTOR);
-	ua = div64_s64(ua, (RR_ADC_MAX_READINGS * 1000));
+	ua = div64_s64(ua, (RR_ADC_MAX_READINGS * 10));
 	*result_ua = ua;
 
 	dev_info(chip->dev, "%s(); result_ua = %d, adc_code = %d", __func__, *result_ua, adc_code);
@@ -523,7 +543,7 @@ static int rradc_disable_continuous_mode(struct rradc_chip *chip)
 	return rc;
 }
 
-static int rradc_check_status_ready_with_retry(struct rradc_chip *chip,
+static int rradc_poll_status_ready(struct rradc_chip *chip,
 		enum rradc_channel_id chan_id, u8 *buf)
 {
 	struct rradc_channel *chan = &chip->chans[chan_id];
@@ -540,7 +560,7 @@ static int rradc_check_status_ready_with_retry(struct rradc_chip *chip,
 	}
 
 	while (((buf[0] & mask) != mask) &&
-			(retry_cnt < FG_RR_CONV_MAX_RETRY_CNT)) {
+			(retry_cnt < RR_ADC_CONV_MAX_RETRY_CNT)) {
 		dev_info(chip->dev, "MUTE ME'%s' is not ready; nothing to read:0x%x\n",
 			chan->datasheet_name, buf[0]);
 
@@ -553,7 +573,7 @@ static int rradc_check_status_ready_with_retry(struct rradc_chip *chip,
 			break;
 		}
 
-		msleep(FG_RR_CONV_CONTINUOUS_TIME_MIN_MS);
+		usleep_range(RR_ADC_CONV_TIME_MIN_US, RR_ADC_CONV_TIME_MAX_US);
 		retry_cnt++;
 		rc = rradc_read(chip, chan->status, buf, 1);
 		if (rc < 0) {
@@ -562,7 +582,7 @@ static int rradc_check_status_ready_with_retry(struct rradc_chip *chip,
 		}
 	}
 
-	if (retry_cnt >= FG_RR_CONV_MAX_RETRY_CNT)
+	if (retry_cnt >= RR_ADC_CONV_MAX_RETRY_CNT)
 		rc = -ENODATA;
 
 	return rc;
@@ -587,7 +607,7 @@ static int rradc_read_channel_with_continuous_mode(struct rradc_chip *chip,
 		goto disable;
 	}
 
-	rc = rradc_check_status_ready_with_retry(chip, chan_id,
+	rc = rradc_poll_status_ready(chip, chan_id,
 						buf);
 	if (rc < 0) {
 		dev_err(chip->dev, "Status read failed:%d\n", rc);
@@ -681,6 +701,11 @@ static int rradc_do_batt_id_conversion(struct rradc_chip *chip,
 	return ret;
 }
 
+static int rradc_do_conversion_new(struct rradc_chip *chip, enum rradc_channel_id chan_id, u16 *data)
+{
+	struct rradc_channel *chan = &chip->chans[chan_id];
+}
+
 static int rradc_do_conversion(struct rradc_chip *chip, enum rradc_channel_id chan_id, u16 *data)
 {
 	struct rradc_channel *chan = &chip->chans[chan_id];
@@ -702,7 +727,7 @@ static int rradc_do_conversion(struct rradc_chip *chip, enum rradc_channel_id ch
 	case RR_ADC_USBIN_V:
 		/* Force conversion every cycle */
 		rc = rradc_masked_write(chip, RR_ADC_USB_IN_V_TRIGGER,
-				RR_ADC_USB_IN_V_EVERY_CYCLE_MASK,
+				RR_ADC_USB_IN_V_EVERY_CYCLE,
 				RR_ADC_USB_IN_V_EVERY_CYCLE);
 		if (rc < 0) {
 			dev_err(chip->dev, "Force every cycle update failed:%d\n", rc);
@@ -717,7 +742,7 @@ static int rradc_do_conversion(struct rradc_chip *chip, enum rradc_channel_id ch
 
 		/* Restore usb_in trigger */
 		rc = rradc_masked_write(chip, RR_ADC_USB_IN_V_TRIGGER,
-				RR_ADC_USB_IN_V_EVERY_CYCLE_MASK, 0);
+				RR_ADC_USB_IN_V_EVERY_CYCLE, 0);
 		if (rc < 0) {
 			dev_err(chip->dev, "Restore every cycle update failed:%d\n", rc);
 			goto fail;
@@ -726,7 +751,7 @@ static int rradc_do_conversion(struct rradc_chip *chip, enum rradc_channel_id ch
 	case RR_ADC_DIE_TEMP:
 		/* Force conversion every cycle */
 		rc = rradc_masked_write(chip, RR_ADC_PMI_DIE_TEMP_TRIGGER,
-				RR_ADC_USB_IN_V_EVERY_CYCLE_MASK,
+				RR_ADC_USB_IN_V_EVERY_CYCLE,
 				RR_ADC_USB_IN_V_EVERY_CYCLE);
 		if (rc < 0) {
 			dev_err(chip->dev, "Force every cycle update failed:%d\n", rc);
@@ -741,7 +766,7 @@ static int rradc_do_conversion(struct rradc_chip *chip, enum rradc_channel_id ch
 
 		/* Restore aux_therm trigger */
 		rc = rradc_masked_write(chip, RR_ADC_PMI_DIE_TEMP_TRIGGER,
-				RR_ADC_USB_IN_V_EVERY_CYCLE_MASK, 0);
+				RR_ADC_USB_IN_V_EVERY_CYCLE, 0);
 		if (rc < 0) {
 			dev_err(chip->dev, "Restore every cycle update failed:%d\n", rc);
 			goto fail;
@@ -760,7 +785,7 @@ static int rradc_do_conversion(struct rradc_chip *chip, enum rradc_channel_id ch
 			goto fail;
 		}
 
-		rc = rradc_check_status_ready_with_retry(chip, chan_id,
+		rc = rradc_poll_status_ready(chip, chan_id,
 						buf);
 		if (rc < 0) {
 			dev_err(chip->dev, "Status read failed:%d\n", rc);
@@ -829,7 +854,6 @@ static int rradc_read_raw(struct iio_dev *indio_dev,
 	struct rradc_chip *chip = iio_priv(indio_dev);
 	struct rradc_channel *chan;
 	u16 adc_code;
-	int rc = IIO_VAL_INT;
 
 	if (chan_spec->address >= RR_ADC_MAX) {
 		dev_err(chip->dev, "Invalid channel index:%ld\n", chan_spec->address);
@@ -837,32 +861,31 @@ static int rradc_read_raw(struct iio_dev *indio_dev,
 	}
 
 	chan = &chip->chans[chan_spec->address];
-	rc = rradc_do_conversion(chip, chan_spec->address, &adc_code);
+	if (rradc_do_conversion(chip, chan_spec->address, &adc_code) < 0)
+		return rc;
 	dev_info(chip->dev, "%s() read chan_id = %d, data = %u, mask=%d",
 		__func__, chan_spec->address, adc_code, mask);
-	if (rc < 0)
-		return rc;
 
 	switch (mask) {
-	case IIO_CHAN_INFO_PROCESSED:
-		chan->scale(chip, adc_code, val);
-		break;
 	case IIO_CHAN_INFO_RAW:
 		*val = (int) adc_code;
-		break;
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_PROCESSED:
+		chan->scale(chip, adc_code, val);
+		dev_info(chip->dev, "%s() processed chan_id = %d, data = %d, rc = %d",
+			__func__, chan_spec->address, *val, rc);
+		return IIO_VAL_INT;
 	default:
-		rc = -EINVAL;
-		break;
+		return -EINVAL;
 	}
-
-	return rc;
 }
 
 static const struct iio_info rradc_info = {
 	.read_raw	= &rradc_read_raw,
 };
 
-#define CHAN_INIT(_name, _type, _mask, _scale, _lsb, _msb, _sts) \
+#define CHAN_INIT(_name, _type, _mask, _scale, _lsb, _msb, _sts, _bytes, _trig,
+		  _trig_mask) \
 	(struct rradc_channel) { \
 		.datasheet_name = _name, \
 		.type = _type, \
@@ -872,12 +895,14 @@ static const struct iio_info rradc_info = {
 		.msb = _msb, \
 		.status = _sts, \
 		.enabled = true, \
+		.size = _bytes, \
+		.trigger_addr = _trig, \
+		.trigger_mask = _trig_mask, \
 	};
 
 static int rradc_init_channels(struct rradc_chip *chip)
 {
 	int i = 0;
-
 
 	chip->nchannels = RR_ADC_MAX;
 	chip->chans = devm_kcalloc(chip->dev, chip->nchannels,
@@ -892,77 +917,84 @@ static int rradc_init_channels(struct rradc_chip *chip)
 
 	dev_info(chip->dev, "%s(): after mem alloc\n", __func__);
 
+	if (chan_id == RR_ADC_BATT_ID)
+		bytes_to_read = 6;
+	else if ((chan_id == RR_ADC_CHG_HOT_TEMP) ||
+		(chan_id == RR_ADC_CHG_TOO_HOT_TEMP) ||
+		(chan_id == RR_ADC_SKIN_HOT_TEMP) ||
+		(chan_id == RR_ADC_SKIN_TOO_HOT_TEMP))
+		bytes_to_read = 1;
+	else
+		bytes_to_read = 2;
+
 	chip->chans[RR_ADC_BATT_ID] = 
 		CHAN_INIT("batt_id", IIO_RESISTANCE, BIT(IIO_CHAN_INFO_PROCESSED),
 			rradc_post_process_batt_id, RR_ADC_BATT_ID_5_LSB, RR_ADC_BATT_ID_5_MSB,
-			RR_ADC_BATT_ID_STS);
-
-	dev_info(chip->dev, "%s(): after assigning RR_ADC_BATT_ID\n", __func__);
-
+			RR_ADC_BATT_ID_STS, 6, 0x61, BIT(0));
 	chip->chans[RR_ADC_BATT_THERM] = 
 		CHAN_INIT("batt_therm", IIO_TEMP, BIT(IIO_CHAN_INFO_PROCESSED),
 			rradc_post_process_therm, RR_ADC_BATT_THERM_LSB,
-			RR_ADC_BATT_THERM_MSB, RR_ADC_BATT_THERM_STS);
-
+			RR_ADC_BATT_THERM_MSB, RR_ADC_BATT_THERM_STS, 2,
+			RR_ADC_BATT_THERM_TRIGGER, RR_ADC_BATT_THERM_TRIGGER);
 	chip->chans[RR_ADC_SKIN_TEMP] = 
 		CHAN_INIT("skin_temp", IIO_TEMP, BIT(IIO_CHAN_INFO_PROCESSED),
 			rradc_post_process_therm, RR_ADC_SKIN_TEMP_LSB,
-			RR_ADC_SKIN_TEMP_MSB, RR_ADC_AUX_THERM_STS);
-
+			RR_ADC_SKIN_TEMP_MSB, RR_ADC_AUX_THERM_STS, 2,
+			RR_ADC_AUX_THERM_TRIGGER, RR_ADC_AUX_THERM_TRIGGER);
 	chip->chans[RR_ADC_USBIN_I] = 
 		CHAN_INIT("usbin_i", IIO_CURRENT, BIT(IIO_CHAN_INFO_PROCESSED),
 			rradc_post_process_usbin_curr, RR_ADC_USB_IN_I_LSB,
-			RR_ADC_USB_IN_I_MSB, RR_ADC_USB_IN_I_STS);
-
+			RR_ADC_USB_IN_I_MSB, RR_ADC_USB_IN_I_STS, 2,
+			RR_ADC_USB_IN_I_TRIGGER, RR_ADC_USB_IN_I_TRIGGER);
 	chip->chans[RR_ADC_USBIN_V] = 
 		CHAN_INIT("usbin_v", IIO_VOLTAGE, BIT(IIO_CHAN_INFO_PROCESSED),
 			rradc_post_process_volt, RR_ADC_USB_IN_V_LSB,
-			RR_ADC_USB_IN_V_MSB, RR_ADC_USB_IN_V_STS);
-
+			RR_ADC_USB_IN_V_MSB, RR_ADC_USB_IN_V_STS, 2,
+			RR_ADC_USB_IN_V_TRIGGER, RR_ADC_USB_IN_V_EVERY_CYCLE);
 	chip->chans[RR_ADC_DCIN_I] = 
 		CHAN_INIT("dcin_i", IIO_CURRENT, BIT(IIO_CHAN_INFO_PROCESSED),
 			rradc_post_process_dcin_curr, RR_ADC_DC_IN_I_LSB,
-			RR_ADC_DC_IN_I_MSB, RR_ADC_DC_IN_I_STS);
-
+			RR_ADC_DC_IN_I_MSB, RR_ADC_DC_IN_I_STS, 2,
+			RR_ADC_DC_IN_I_TRIGGER, RR_ADC_DC_IN_I_TRIGGER);
 	chip->chans[RR_ADC_DCIN_V] = 
 		CHAN_INIT("dcin_v", IIO_VOLTAGE, BIT(IIO_CHAN_INFO_PROCESSED),
 			rradc_post_process_volt, RR_ADC_DC_IN_V_LSB,
-			RR_ADC_DC_IN_V_MSB, RR_ADC_DC_IN_V_STS);
-
+			RR_ADC_DC_IN_V_MSB, RR_ADC_DC_IN_V_STS, 2,
+			RR_ADC_DC_IN_V_TRIGGER, RR_ADC_DC_IN_V_TRIGGER);
 	chip->chans[RR_ADC_DIE_TEMP] = 
 		CHAN_INIT("die_temp", IIO_TEMP, BIT(IIO_CHAN_INFO_PROCESSED),
-			rradc_post_process_die_temp, RR_ADC_PMI_DIE_TEMP_LSB, 	RR_ADC_PMI_DIE_TEMP_MSB,
-		RR_ADC_PMI_DIE_TEMP_STS);
-
+			rradc_post_process_die_temp, RR_ADC_PMI_DIE_TEMP_LSB,
+			RR_ADC_PMI_DIE_TEMP_MSB, RR_ADC_PMI_DIE_TEMP_STS, 2,
+			RR_ADC_PMI_DIE_TEMP_TRIGGER, RR_ADC_PMI_DIE_TEMP_TRIGGER);
 	chip->chans[RR_ADC_CHG_TEMP] = 
 		CHAN_INIT("chg_temp", IIO_TEMP, BIT(IIO_CHAN_INFO_PROCESSED),
-			rradc_post_process_chg_temp, RR_ADC_CHARGER_TEMP_LSB, 	RR_ADC_CHARGER_TEMP_MSB,
-		RR_ADC_CHARGER_TEMP_STS);
-
+			rradc_post_process_chg_temp, RR_ADC_CHARGER_TEMP_LSB,
+			RR_ADC_CHARGER_TEMP_MSB, RR_ADC_CHARGER_TEMP_STS, 2,
+			RR_ADC_CHARGER_TEMP_TRIGGER, RR_ADC_CHARGER_TEMP_TRIGGER);
 	chip->chans[RR_ADC_GPIO] = 
 		CHAN_INIT("gpio", IIO_VOLTAGE, BIT(IIO_CHAN_INFO_PROCESSED),
 			rradc_post_process_gpio, RR_ADC_GPIO_LSB, RR_ADC_GPIO_MSB,
-			RR_ADC_GPIO_STS);
-
+			RR_ADC_GPIO_STS, 2, RR_ADC_GPIO_TRIGGER, RR_ADC_GPIO_TRIGGER);
 	chip->chans[RR_ADC_CHG_HOT_TEMP] = 
 		CHAN_INIT("chg_temp_hot", IIO_TEMP, BIT(IIO_CHAN_INFO_PROCESSED),
 			rradc_post_process_chg_temp_hot, RR_ADC_CHARGER_HOT,
-			RR_ADC_CHARGER_HOT, RR_ADC_CHARGER_TEMP_STS);
-
+			RR_ADC_CHARGER_HOT, RR_ADC_CHARGER_TEMP_STS, 1,
+			RR_ADC_CHARGER_TEMP_TRIGGER, RR_ADC_CHARGER_TEMP_TRIGGER);
 	chip->chans[RR_ADC_CHG_TOO_HOT_TEMP] = 
 		CHAN_INIT("chg_temp_too_hot", IIO_TEMP, BIT(IIO_CHAN_INFO_PROCESSED), 
 			rradc_post_process_chg_temp_hot, RR_ADC_CHARGER_TOO_HOT,
-			RR_ADC_CHARGER_TOO_HOT, RR_ADC_CHARGER_TEMP_STS);
-
+			RR_ADC_CHARGER_TOO_HOT, RR_ADC_CHARGER_TEMP_STS, 1,
+			RR_ADC_CHARGER_TEMP_TRIGGER, RR_ADC_CHARGER_TEMP_TRIGGER);
 	chip->chans[RR_ADC_SKIN_HOT_TEMP] = 
 		CHAN_INIT("skin_temp_hot", IIO_TEMP,
 			BIT(IIO_CHAN_INFO_PROCESSED), rradc_post_process_skin_temp_hot,
-			RR_ADC_SKIN_HOT, RR_ADC_SKIN_HOT, RR_ADC_AUX_THERM_STS);
-
+			RR_ADC_SKIN_HOT, RR_ADC_SKIN_HOT, RR_ADC_AUX_THERM_STS, 1,
+			RR_ADC_AUX_THERM_TRIGGER, RR_ADC_AUX_THERM_TRIGGER);
 	chip->chans[RR_ADC_SKIN_TOO_HOT_TEMP] = 
 		CHAN_INIT("skin_temp_too_hot", IIO_TEMP,
 			BIT(IIO_CHAN_INFO_PROCESSED), rradc_post_process_skin_temp_hot,
-			RR_ADC_SKIN_TOO_HOT, RR_ADC_SKIN_TOO_HOT, RR_ADC_AUX_THERM_STS);
+			RR_ADC_SKIN_TOO_HOT, RR_ADC_SKIN_TOO_HOT, RR_ADC_AUX_THERM_STS, 1,
+			RR_ADC_AUX_THERM_TRIGGER, RR_ADC_AUX_THERM_TRIGGER);
 
 	for (i = 0; i < RR_ADC_MAX; i++) {
 		dev_info(chip->dev, "%s() Registering channel %s\n", __func__,
@@ -982,34 +1014,6 @@ static int rradc_get_dt_data(struct rradc_chip *chip, struct device_node *node)
 {
 	unsigned int base;
 	int rc = 0, i;
-
-	/* Get the peripheral address */
-	rc = of_property_read_u32(node, "reg", &base);
-	if (rc < 0) {
-		dev_err(chip->dev,
-			"Couldn't find reg in node = %s rc = %d\n",
-			node->name, rc);
-		return rc;
-	}
-
-	chip->batt_id_delay = -EINVAL;
-
-	chip->usb_attached = true;
-
-	rc = of_property_read_u32(node, "qcom,batt-id-delay-ms",
-			&chip->batt_id_delay);
-	if (!rc) {
-		for (i = 0; i < RRADC_BATT_ID_DELAY_MAX; i++) {
-			if (chip->batt_id_delay == batt_id_delays[i])
-				break;
-		}
-		if (i == RRADC_BATT_ID_DELAY_MAX)
-			dev_err(chip->dev, "Invalid batt_id_delay, rc=%d\n", rc);
-		else
-			chip->batt_id_delay = i;
-	}
-
-	chip->base = base;
 
 	return 0;
 }
@@ -1036,19 +1040,40 @@ static int rradc_probe(struct platform_device *pdev)
 	chip->dev = dev;
 	mutex_init(&chip->lock);
 
-	dev_info(dev, "rradc_init_channels()");
+	/* Get the peripheral address */
+	rc = of_property_read_u32(node, "reg", &base);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't find reg in node = %s rc = %d\n",
+			node->name, rc);
+		return rc;
+	}
+	chip->base = base;
+
+	chip->batt_id_delay = -EINVAL;
+	rc = of_property_read_u32(node, "qcom,batt-id-delay-ms",
+			&chip->batt_id_delay);
+	if (!rc) {
+		for (i = 0; i < RRADC_BATT_ID_DELAY_MAX; i++) {
+			if (chip->batt_id_delay == batt_id_delays[i])
+				break;
+		}
+		if (i == RRADC_BATT_ID_DELAY_MAX)
+			dev_err(chip->dev, "Invalid batt_id_delay, rc=%d\n", rc);
+		else
+			chip->batt_id_delay = i;
+	}
+
+	if (of_property_read_bool(node, "qcom,dcin-disable")
+		chip->dcin_disable = true;
+	if (of_property_read_bool(node, "qcom,usbin-disable")
+		chip->usbin_disable = true;
+
+	chip->usb_attached = true;
 
 	rc = rradc_init_channels(chip);
 	if (rc) {
 		dev_err(dev, "Couldn't initialize channels\n");
-		return rc;
-	}
-
-	dev_info(dev, "rradc_get_dt_data()");
-
-	rc = rradc_get_dt_data(chip, node);
-	if (rc) {
-		dev_err(dev, "Couldn't get device tree data\n");
 		return rc;
 	}
 
