@@ -859,7 +859,7 @@ static void smb2_current_limit_work(struct work_struct *work) {
 
 static const struct power_supply_desc smb2_psy_desc = {
 	.name = "usb",
-	.type = POWER_SUPPLY_TYPE_MAINS,
+	.type = POWER_SUPPLY_TYPE_USB,
 	.usb_types = smb2_usb_types,
 	.num_usb_types = ARRAY_SIZE(smb2_usb_types),
 	.properties = smb2_properties,
