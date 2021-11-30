@@ -28,7 +28,7 @@
 		config {
 			pins = "gpio6", "gpio52";
 			drive-strength = <2>;   /* 2 mA */
-			bias-pull-down;         /* PULL DOWN */
+			bias-pull-down;		/* PULL DOWN */
 		};
 	};
 };
@@ -36,15 +36,18 @@
 
 &display_panel {
 
-        status = "okay";
+	status = "okay";
 
 	reset-gpios = <&tlmm 6 GPIO_ACTIVE_HIGH>;
+
+	lab-supply = <&lab>;
+		ibb-supply = <&ibb>;
 
 	pinctrl-names = "panel_active", "panel_suspend";
 	pinctrl-0 = <&sde_dsi_active>;
 	pinctrl-1 = <&sde_dsi_suspend>;
 
-        compatible = "ebbg,ft8719";
+	compatible = "ebbg,ft8719";
 
 };
 
@@ -116,13 +119,11 @@
 	dma-names = "tx", "rx";
 
 	touchscreen: focaltech@38 {
-		compatible = "focaltech,fts";
+		compatible = "focaltech,fts8719";
 		reg = <0x38>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <31 0>;
 		vddio-supply = <&vreg_l14a_1p8>;
-		lab-supply = <&lab>;
-		ibb-supply = <&ibb>;
 
 		focaltech,reset-gpio = <&tlmm 32 0x01>;
 		focaltech,irq-gpio = <&tlmm 31 0x02>;
