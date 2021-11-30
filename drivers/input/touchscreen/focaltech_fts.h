@@ -34,38 +34,7 @@
 /*****************************************************************************
 * Included header files
 *****************************************************************************/
-#include <linux/i2c.h>
-#include <linux/input.h>
-#include <linux/input/mt.h>
-#include <linux/slab.h>
-#include <linux/interrupt.h>
-#include <linux/delay.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/gpio.h>
-#include <linux/of_gpio.h>
-#include <linux/regulator/consumer.h>
-#include <linux/firmware.h>
-#include <linux/debugfs.h>
-#include <linux/mutex.h>
-#include <linux/wait.h>
-#include <linux/time.h>
-#include <linux/workqueue.h>
-#include <linux/fs.h>
-#include <linux/proc_fs.h>
-#include <asm/uaccess.h>
-#include <linux/version.h>
-#include <linux/types.h>
-#include <linux/sched.h>
-#include <linux/kthread.h>
-#include <linux/init.h>
-#include <linux/cdev.h>
-#include <linux/device.h>
-#include <linux/mount.h>
-#include <linux/netdevice.h>
-#include <linux/unistd.h>
-#include <linux/ioctl.h>
-#include <linux/vmalloc.h>
+
 
 #define BYTE_OFF_0(x)           (u8)((x) & 0xFF)
 #define BYTE_OFF_8(x)           (u8)((x >> 8) & 0xFF)
@@ -82,8 +51,6 @@
 #define IC_TO_SERIALS(x)        ((x) & FLAGBITS(0, FLAG_ICSERIALS_LEN-1))
 #define FTS_CHIP_IDC            ((0x8719080D & FLAGBIT(FLAG_IDC_BIT)) == FLAGBIT(FLAG_IDC_BIT))
 #define FTS_HID_SUPPORTTED      ((0x8719080D & FLAGBIT(FLAG_HID_BIT)) == FLAGBIT(FLAG_HID_BIT))
-
-#define FTS_CHIP_TYPE_MAPPING {{0x0D,0x87, 0x19, 0x87, 0x19, 0x87, 0xA9, 0x87, 0xB9}}
 
 #define I2C_BUFFER_LENGTH_MAXINUM           256
 #define FILE_NAME_LENGTH                    128
@@ -137,7 +104,7 @@
 /*****************************************************************************
 * Global variable or extern global variabls/functions
 *****************************************************************************/
-struct ft_chip_t {
+struct fts_chip_type {
 	u64 type;
 	u8 chip_idh;
 	u8 chip_idl;
@@ -152,7 +119,6 @@ struct ft_chip_t {
 struct ts_ic_info {
 	bool is_incell;
 	bool hid_supported;
-	struct ft_chip_t ids;
 };
 
 /*****************************************************************************
@@ -232,14 +198,14 @@ struct fts_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 	struct fts_ts_platform_data *pdata;
+	struct fts_chip_type *chip_type;
 	struct ts_ic_info ic_info;
 	struct workqueue_struct *ts_workqueue;
 	struct work_struct fwupg_work;
 	struct delayed_work esdcheck_work;
 	struct delayed_work prc_work;
-	struct regulator *vsp;
-	struct regulator *vsn;
-	struct regulator *vddio;
+	struct regulator *vdd;
+	struct regulator *vcc_i2c;
 	spinlock_t irq_lock;
 	struct mutex report_mutex;
 	int irq;
