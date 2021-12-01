@@ -123,7 +123,8 @@
 		reg = <0x38>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <31 0>;
-		vddio-supply = <&vreg_l14a_1p8>;
+		vdd-supply = <&vreg_l28a_3p0>;
+		vcc-i2c-supply = <&vreg_l14a_1p88>;
 
 		focaltech,reset-gpio = <&tlmm 32 0x01>;
 		focaltech,irq-gpio = <&tlmm 31 0x02>;
