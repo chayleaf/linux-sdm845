@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2010-2017, Focaltech Ltd. All rights reserved.
  * Copyright (C) 2018 XiaoMi, Inc.
+ * Copyright (c) 2021 Caleb Connolly <caleb@connolly.tech>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -15,25 +16,9 @@
  * GNU General Public License for more details.
  *
  */
-/*****************************************************************************
-*
-* File Name: focaltech_core.h
-
-* Author: Focaltech Driver Team
-*
-* Created: 2016-08-08
-*
-* Abstract:
-*
-* Reference:
-*
-*****************************************************************************/
 
 #ifndef __LINUX_FOCALTECH_CORE_H__
 #define __LINUX_FOCALTECH_CORE_H__
-/*****************************************************************************
-* Included header files
-*****************************************************************************/
 
 
 #define BYTE_OFF_0(x)           (u8)((x) & 0xFF)
@@ -44,13 +29,9 @@
 #define FLAGBITS(x, y)          ((0xFFFFFFFF >> (32 - (y) - 1)) << (x))
 
 #define FLAG_ICSERIALS_LEN      8
-#define FLAG_HID_BIT            10
-#define FLAG_IDC_BIT            11
 
 #define IC_SERIALS              (FTS_CHIP_TYPE & FLAGBITS(0, FLAG_ICSERIALS_LEN-1))
 #define IC_TO_SERIALS(x)        ((x) & FLAGBITS(0, FLAG_ICSERIALS_LEN-1))
-#define FTS_CHIP_IDC            ((0x8719080D & FLAGBIT(FLAG_IDC_BIT)) == FLAGBIT(FLAG_IDC_BIT))
-#define FTS_HID_SUPPORTTED      ((0x8719080D & FLAGBIT(FLAG_HID_BIT)) == FLAGBIT(FLAG_HID_BIT))
 
 #define I2C_BUFFER_LENGTH_MAXINUM           256
 #define FILE_NAME_LENGTH                    128
@@ -101,29 +82,6 @@
     }\
 } while(0)
 
-/*****************************************************************************
-* Global variable or extern global variabls/functions
-*****************************************************************************/
-struct fts_chip_type {
-	u64 type;
-	u8 chip_idh;
-	u8 chip_idl;
-	u8 rom_idh;
-	u8 rom_idl;
-	u8 pb_idh;
-	u8 pb_idl;
-	u8 bl_idh;
-	u8 bl_idl;
-};
-
-struct ts_ic_info {
-	bool is_incell;
-	bool hid_supported;
-};
-
-/*****************************************************************************
-* DEBUG function define here
-*****************************************************************************/
 #define FTS_DEBUG(fmt, args...) printk("[FTS]"fmt"\n", ##args)
 #define FTS_FUNC_ENTER() printk("[FTS]%s: Enter\n", __func__)
 #define FTS_FUNC_EXIT()  printk("[FTS]%s: Exit(%d)\n", __func__, __LINE__)
@@ -132,12 +90,7 @@ struct ts_ic_info {
 #define FTS_ERROR(fmt, args...) printk(KERN_ERR "[FTS][Error]"fmt"\n", ##args)
 
 
-/*****************************************************************************
-* Private constant and macro definitions using #define
-*****************************************************************************/
 #define FTS_MAX_POINTS_SUPPORT              10	/* constant value, can't be changed */
-#define FTS_MAX_KEYS                        4
-#define FTS_KEY_WIDTH                       50
 #define FTS_ONE_TCH_LEN                     6
 
 #define FTS_MAX_ID                          0x0A
@@ -150,7 +103,7 @@ struct ts_ic_info {
 #define FTS_TOUCH_POINT_NUM                 2
 #define FTS_TOUCH_EVENT_POS                 3
 #define FTS_TOUCH_ID_POS                    5
-#define FTS_COORDS_ARR_SIZE                 4
+#define FTS_COORDS_ARR_SIZE                 2
 
 #define FTS_TOUCH_DOWN                      0
 #define FTS_TOUCH_UP                        1
@@ -161,27 +114,29 @@ struct ts_ic_info {
 #define KEY_EN(data)                        (data->pdata->have_key)
 #define TOUCH_IS_KEY(y, key_y)              (y == key_y)
 #define TOUCH_IN_RANGE(val, key_val, half)  ((val > (key_val - half)) && (val < (key_val + half)))
-#define TOUCH_IN_KEY(x, key_x)              TOUCH_IN_RANGE(x, key_x, FTS_KEY_WIDTH)
 
 #define FTS_LOCKDOWN_INFO_SIZE				8
 #define LOCKDOWN_INFO_ADDR					0x1FA0
-/*****************************************************************************
-* Private enumerations, structures and unions using typedef
-*****************************************************************************/
+
+struct fts_chip_type {
+	u64 type;
+	u8 chip_idh;
+	u8 chip_idl;
+	u8 rom_idh;
+	u8 rom_idl;
+	u8 pb_idh;
+	u8 pb_idl;
+	u8 bl_idh;
+	u8 bl_idl;
+};
+
 struct fts_ts_platform_data {
 	u32 irq_gpio;
 	u32 irq_gpio_flags;
 	u32 reset_gpio;
 	u32 reset_gpio_flags;
-	bool have_key;
-	u32 key_number;
-	u32 keys[FTS_MAX_KEYS];
-	u32 key_y_coord;
-	u32 key_x_coords[FTS_MAX_KEYS];
-	u32 x_max;
-	u32 y_max;
-	u32 x_min;
-	u32 y_min;
+	u32 width;
+	u32 height;
 	u32 max_touch_number;
 };
 
@@ -199,7 +154,6 @@ struct fts_ts_data {
 	struct input_dev *input_dev;
 	struct fts_ts_platform_data *pdata;
 	struct fts_chip_type *chip_type;
-	struct ts_ic_info ic_info;
 	struct workqueue_struct *ts_workqueue;
 	struct work_struct fwupg_work;
 	struct delayed_work esdcheck_work;
@@ -209,13 +163,12 @@ struct fts_ts_data {
 	spinlock_t irq_lock;
 	struct mutex report_mutex;
 	int irq;
-	bool suspended;
-	bool fw_loading;
 	bool irq_disabled;
 	bool power_disabled;
 
 	/* multi-touch */
 	struct ts_event *events;
+	u32 max_touch_number;
 	u8 *point_buf;
 	int pnt_buf_size;
 	int touchs;
@@ -230,7 +183,6 @@ struct fts_ts_data {
 	u8 lockdown_info[FTS_LOCKDOWN_INFO_SIZE];
 	bool dev_pm_suspend;
 	bool lpwg_mode;
-	bool fw_forceupdate;
 	struct work_struct suspend_work;
 	struct work_struct resume_work;
 	struct workqueue_struct *event_wq;
@@ -239,24 +191,10 @@ struct fts_ts_data {
 	struct pinctrl_state *pins_active;
 	struct pinctrl_state *pins_suspend;
 	struct pinctrl_state *pins_release;
-
-#ifdef CONFIG_DRM
-	struct notifier_block fb_notif;
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	struct early_suspend early_suspend;
-#endif
-	struct dentry *debugfs;
 	struct proc_dir_entry *tp_selftest_proc;
 	struct proc_dir_entry *tp_data_dump_proc;
 	struct proc_dir_entry *tp_fw_version_proc;
 	struct proc_dir_entry *tp_lockdown_info_proc;
-
-};
-
-struct fts_mode_switch {
-	struct fts_ts_data *ts_data;
-	unsigned char mode;
-	struct work_struct switch_mode_work;
 };
 
 /*****************************************************************************
