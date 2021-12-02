@@ -609,9 +609,6 @@ static int fts_input_report_b(struct fts_ts_data *data)
 
 			touchs |= BIT(events[i].id);
 			data->touchs |= BIT(events[i].id);
-
-			/*FTS_DEBUG("[B]P%d(%d, %d)[p:%d,tm:%d] DOWN!", events[i].id, events[i].x,
-			   events[i].y, events[i].p, events[i].area); */
 		} else {
 			uppoint++;
 
@@ -620,14 +617,12 @@ static int fts_input_report_b(struct fts_ts_data *data)
 			input_mt_report_slot_state(data->input_dev,
 						   MT_TOOL_FINGER, false);
 			data->touchs &= ~BIT(events[i].id);
-			/*FTS_DEBUG("[B]P%d UP!", events[i].id); */
 		}
 	}
 
-	if (unlikely(data->touchs ^ touchs)) {
+	if (data->touchs ^ touchs) {
 		for (i = 0; i < data->pdata->max_touch_number; i++) {
 			if (BIT(i) & (data->touchs ^ touchs)) {
-				/*FTS_DEBUG("[B]P%d UP!", i); */
 				va_reported = true;
 				input_mt_slot(data->input_dev, i);
 				input_mt_report_slot_state(
@@ -638,13 +633,13 @@ static int fts_input_report_b(struct fts_ts_data *data)
 	data->touchs = touchs;
 
 	if (va_reported) {
-		/* touchs==0, there's no point but key */
 		if (EVENT_NO_DOWN(data) || (!touchs)) {
-			/*FTS_DEBUG("[B]Points All Up!"); */
 			input_report_key(data->input_dev, BTN_TOUCH, 0);
 		} else {
 			input_report_key(data->input_dev, BTN_TOUCH, 1);
 		}
+	} else {
+		FTS_ERROR("va not reported, but touchs=%d", touchs);
 	}
 
 	input_sync(data->input_dev);
@@ -674,19 +669,8 @@ static int fts_read_touchdata(struct fts_ts_data *data)
 	}
 	data->point_num = buf[FTS_TOUCH_POINT_NUM] & 0x0F;
 
-	// if (data->ic_info.is_incell) {
-	// 	if ((data->point_num == 0x0F) && (buf[1] == 0xFF) &&
-	// 	    (buf[2] == 0xFF) && (buf[3] == 0xFF) && (buf[4] == 0xFF) &&
-	// 	    (buf[5] == 0xFF) && (buf[6] == 0xFF)) {
-	// 		FTS_INFO("touch buff is 0xff, need recovery state");
-	// 		fts_tp_state_recovery(client);
-	// 		return -EIO;
-	// 	}
-	// }
-
 	if (data->point_num > max_touch_num) {
-		FTS_INFO("invalid point_num(%d)", data->point_num);
-		return -EIO;
+		return -EINVAL;
 	}
 
 	for (i = 0; i < max_touch_num; i++) {
@@ -696,7 +680,6 @@ static int fts_read_touchdata(struct fts_ts_data *data)
 		if (pointid >= FTS_MAX_ID)
 			break;
 		else if (pointid >= max_touch_num) {
-			FTS_ERROR("ID(%d) beyond max_touch_num", pointid);
 			return -EINVAL;
 		}
 
