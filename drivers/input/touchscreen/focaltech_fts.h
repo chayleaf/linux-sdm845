@@ -17,10 +17,6 @@
  *
  */
 
-#ifndef __LINUX_FOCALTECH_CORE_H__
-#define __LINUX_FOCALTECH_CORE_H__
-
-
 #define BYTE_OFF_0(x)           (u8)((x) & 0xFF)
 #define BYTE_OFF_8(x)           (u8)((x >> 8) & 0xFF)
 #define BYTE_OFF_16(x)          (u8)((x >> 16) & 0xFF)
@@ -130,16 +126,6 @@ struct fts_chip_type {
 	u8 bl_idl;
 };
 
-struct fts_ts_platform_data {
-	u32 irq_gpio;
-	u32 irq_gpio_flags;
-	u32 reset_gpio;
-	u32 reset_gpio_flags;
-	u32 width;
-	u32 height;
-	u32 max_touch_number;
-};
-
 struct ts_event {
 	int x;			/*x coordinate */
 	int y;			/*y coordinate */
@@ -195,28 +181,12 @@ struct fts_ts_data {
 	struct proc_dir_entry *tp_data_dump_proc;
 	struct proc_dir_entry *tp_fw_version_proc;
 	struct proc_dir_entry *tp_lockdown_info_proc;
+
+	// DT data
+	u32 irq_gpio;
+	u32 irq_gpio_flags;
+	u32 reset_gpio;
+	u32 reset_gpio_flags;
+	u32 width;
+	u32 height;
 };
-
-/*****************************************************************************
-* Global variable or extern global variabls/functions
-*****************************************************************************/
-extern struct fts_ts_data *fts_data;
-
-/* i2c communication*/
-int fts_i2c_write_reg(struct i2c_client *client, u8 regaddr, u8 regvalue);
-int fts_i2c_read_reg(struct i2c_client *client, u8 regaddr, u8 *regvalue);
-int fts_i2c_read(struct i2c_client *client, char *writebuf, int writelen, char *readbuf, int readlen);
-int fts_i2c_write(struct i2c_client *client, char *writebuf, int writelen);
-void fts_i2c_hid2std(struct i2c_client *client);
-int fts_i2c_init(void);
-int fts_i2c_exit(void);
-
-/* Other */
-int fts_reset_proc(int hdelayms);
-int fts_wait_tp_to_valid(struct i2c_client *client);
-void fts_tp_state_recovery(struct i2c_client *client);
-
-void fts_irq_disable(void);
-void fts_irq_enable(void);
-
-#endif /* __LINUX_FOCALTECH_CORE_H__ */
