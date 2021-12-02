@@ -143,7 +143,7 @@
 		focaltech,irq-gpio = <&tlmm 31 0x02>;
 		focaltech,max-touch-number = <10>;
 		focaltech,display-size = <1080 2246>;
-		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-names = "ts_active", "ts_suspend";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 	};
