@@ -68,7 +68,63 @@
 #include <linux/vmalloc.h>
 #include <linux/notifier.h>
 
-#include "focaltech_fts.h"
+#define FTS_CMD_START1 0x55
+#define FTS_CMD_START2 0xAA
+#define FTS_CMD_START_DELAY 10
+#define FTS_CMD_READ_ID 0x90
+#define FTS_CMD_READ_ID_LEN 4
+
+#define FTS_REG_INT_CNT 0x8F
+#define FTS_REG_FLOW_WORK_CNT 0x91
+#define FTS_REG_WORKMODE 0x00
+#define FTS_REG_WORKMODE_FACTORY_VALUE 0x40
+#define FTS_REG_WORKMODE_WORK_VALUE 0x00
+#define FTS_REG_ESDCHECK_DISABLE 0x8D
+#define FTS_REG_CHIP_ID 0xA3
+#define FTS_REG_CHIP_ID2 0x9F
+#define FTS_REG_POWER_MODE 0xA5
+#define FTS_REG_POWER_MODE_SLEEP_VALUE 0x03
+#define FTS_REG_FW_VER 0xA6
+#define FTS_REG_VENDOR_ID 0xA8
+#define FTS_REG_LCD_BUSY_NUM 0xAB
+#define FTS_REG_FACE_DEC_MODE_EN 0xB0
+#define FTS_REG_FACE_DEC_MODE_STATUS 0x01
+#define FTS_REG_IDE_PARA_VER_ID 0xB5
+#define FTS_REG_IDE_PARA_STATUS 0xB6
+#define FTS_REG_GLOVE_MODE_EN 0xC0
+#define FTS_REG_COVER_MODE_EN 0xC1
+#define FTS_REG_CHARGER_MODE_EN 0x8B
+#define FTS_REG_GESTURE_EN 0xD0
+#define FTS_REG_GESTURE_OUTPUT_ADDRESS 0xD3
+#define FTS_REG_MODULE_ID 0xE3
+#define FTS_REG_LIC_VER 0xE4
+#define FTS_REG_ESD_SATURATE 0xED
+
+#define FTS_MAX_POINTS_SUPPORT 10
+#define FTS_ONE_TCH_LEN 6
+
+#define FTS_MAX_ID 0x0A
+#define FTS_TOUCH_X_H_POS 3
+#define FTS_TOUCH_X_L_POS 4
+#define FTS_TOUCH_Y_H_POS 5
+#define FTS_TOUCH_Y_L_POS 6
+#define FTS_TOUCH_PRE_POS 7
+#define FTS_TOUCH_AREA_POS 8
+#define FTS_TOUCH_POINT_NUM 2
+#define FTS_TOUCH_EVENT_POS 3
+#define FTS_TOUCH_ID_POS 5
+#define FTS_COORDS_ARR_SIZE 2
+
+#define FTS_TOUCH_DOWN 0
+#define FTS_TOUCH_UP 1
+#define FTS_TOUCH_CONTACT 2
+
+#define EVENT_DOWN(flag) ((FTS_TOUCH_DOWN == flag) || (FTS_TOUCH_CONTACT == flag))
+#define EVENT_UP(flag) (FTS_TOUCH_UP == flag)
+#define EVENT_NO_DOWN(data) (!data->point_num)
+
+#define FTS_LOCKDOWN_INFO_SIZE 8
+#define LOCKDOWN_INFO_ADDR 0x1FA0
 
 #define FTS_DRIVER_NAME "fts_ts"
 #define INTERVAL_READ_REG 100 /* unit:ms */
@@ -78,26 +134,52 @@
 #define FTS_I2C_VCC_MIN_UV 1800000
 #define FTS_I2C_VCC_MAX_UV 1800000
 
-#define INPUT_EVENT_START 0
-#define INPUT_EVENT_SENSITIVE_MODE_OFF 0
-#define INPUT_EVENT_SENSITIVE_MODE_ON 1
-#define INPUT_EVENT_STYLUS_MODE_OFF 2
-#define INPUT_EVENT_STYLUS_MODE_ON 3
-#define INPUT_EVENT_WAKUP_MODE_OFF 4
-#define INPUT_EVENT_WAKUP_MODE_ON 5
-#define INPUT_EVENT_COVER_MODE_OFF 6
-#define INPUT_EVENT_COVER_MODE_ON 7
-#define INPUT_EVENT_SLIDE_FOR_VOLUME 8
-#define INPUT_EVENT_DOUBLE_TAP_FOR_VOLUME 9
-#define INPUT_EVENT_SINGLE_TAP_FOR_VOLUME 10
-#define INPUT_EVENT_LONG_SINGLE_TAP_FOR_VOLUME 11
-#define INPUT_EVENT_PALM_OFF 12
-#define INPUT_EVENT_PALM_ON 13
-#define INPUT_EVENT_END 13
 #define I2C_RETRY_NUMBER 3
 
-static int fts_ts_suspend(struct device *dev);
-static int fts_ts_resume(struct device *dev);
+struct ts_event {
+	int x; /*x coordinate */
+	int y; /*y coordinate */
+	int p; /* pressure */
+	int flag; /* touch event flag: 0 -- down; 1-- up; 2 -- contact */
+	int id; /*touch ID */
+	int area;
+};
+
+struct fts_ts_data {
+	struct i2c_client *client;
+	struct input_dev *input_dev;
+	struct workqueue_struct *ts_workqueue;
+	struct regulator *vdd;
+	struct regulator *vcc_i2c;
+	spinlock_t irq_lock;
+	struct mutex report_mutex;
+	int irq;
+	bool irq_disabled;
+	bool power_disabled;
+
+	/* multi-touch */
+	struct ts_event *events;
+	u32 max_touch_number;
+	u8 *point_buf;
+	int pnt_buf_size;
+	int touchs;
+	int touch_point;
+	int point_num;
+	bool dev_pm_suspend;
+	bool low_power_mode;
+	struct workqueue_struct *event_wq;
+	struct completion dev_pm_suspend_completion;
+	struct pinctrl *pinctrl;
+
+	// DT data
+	u32 irq_gpio;
+	u32 reset_gpio;
+	u32 width;
+	u32 height;
+};
+
+#define CHIP_TYPE_5452 0x5452
+#define CHIP_TYPE_8719 0x8719
 
 static DEFINE_MUTEX(i2c_rw_access);
 
@@ -152,7 +234,7 @@ int fts_i2c_write(struct i2c_client *client, char *writebuf, int writelen)
 	//for (i = 0; i < I2C_RETRY_NUMBER; i++) {
 	ret = i2c_transfer(client->adapter, &msg, 1);
 	if (ret < 0) {
-		FTS_ERROR(
+		dev_err(&client->dev, 
 			"%s: fts_i2c_write failed, ret=%d",
 			__func__, ret);
 	}
@@ -176,19 +258,33 @@ int fts_i2c_read_reg(struct i2c_client *client, u8 regaddr, u8 *regvalue)
 	return fts_i2c_read(client, &regaddr, 1, regvalue, 1);
 }
 
+static bool fts_chip_is_valid(struct fts_ts_data *data, u16 id)
+{
+	if (id == 0) {
+		dev_err(&data->client->dev, "chip id is 0");
+		return false;
+	}
+
+	if (id != CHIP_TYPE_5452 && id != CHIP_TYPE_8719) {
+		dev_err(&data->client->dev, "Unsupported IC, id = 0x%x", id);
+		return false;
+	}
+
+	return true;
+}
+
 int fts_wait_ready(struct fts_ts_data *data)
 {
 	int ret = 0;
 	int cnt = 0;
 	u8 reg_value = 0;
 	struct i2c_client *client = data->client;
-	u8 chip_id = data->chip_type->chip_idh;
 
 	do {
 		ret = fts_i2c_read_reg(client, FTS_REG_CHIP_ID, &reg_value);
 		if ((ret < 0) || (reg_value != chip_id)) {
-		} else if (reg_value == chip_id) {
-			FTS_DEBUG("TP Ready, Device ID = 0x%x, count = %d", reg_value, cnt);
+		} else if (fts_chip_is_valid(data, reg_value)) {
+			dev_dbg(&data->client->dev, "TP Ready, Device ID = 0x%x, count = %d", reg_value, cnt);
 			return 0;
 		}
 		cnt++;
@@ -198,61 +294,6 @@ int fts_wait_ready(struct fts_ts_data *data)
 	return -EIO;
 }
 
-static int fts_get_chip_types(struct fts_ts_data *ts_data, u8 id_h, u8 id_l,
-			      bool fw_valid)
-{
-	if ((0x0 == id_h) || (0x0 == id_l)) {
-		FTS_ERROR("id_h or id_l is 0");
-		return -EINVAL;
-	}
-
-	FTS_DEBUG("verify id:0x%02x%02x", id_h, id_l);
-	if (((id_h != ts_data->chip_type->rom_idh) ||
-		(id_l != ts_data->chip_type->rom_idl)) &&
-		((id_h != ts_data->chip_type->pb_idh) ||
-		(id_l != ts_data->chip_type->pb_idl)) &&
-		((id_h != ts_data->chip_type->bl_idh) ||
-		(id_l != ts_data->chip_type->bl_idl)))
-		return -EINVAL;
-
-	return 0;
-}
-
-static int fts_get_ic_information(struct fts_ts_data *ts_data)
-{
-	int ret = 0;
-	u8 chip_id[2] = { 0 };
-	struct i2c_client *client = ts_data->client;
-
-	fts_wait_ready(ts_data);
-
-	ret = fts_i2c_read_reg(client, FTS_REG_CHIP_ID, &chip_id[0]);
-	if (ret < 0) {
-		FTS_ERROR("Failed to read chip ID(0x%02x),ret=%d",
-			  chip_id[0], ret);
-		return ret;
-	}
-	ret = fts_i2c_read_reg(client, FTS_REG_CHIP_ID2, &chip_id[1]);
-	if (ret < 0 || chip_id[0] == 0 || chip_id[1] == 0) {
-		FTS_ERROR("Failed to read chip ID(0x%02x),ret=%d",
-			  chip_id[0], ret);
-		return ret;
-	}
-	ret = fts_get_chip_types(ts_data, chip_id[0],
-					chip_id[1], VALID);
-	if (ret < 0) {
-		FTS_ERROR("TP STILL not ready, read:0x%02x%02x",
-				chip_id[0], chip_id[1]);
-		return -EINVAL;
-	}
-
-	ts_data->chipid = (short)(chip_id[0] << 8 | chip_id[1]);
-	FTS_INFO("get ic information, chip id = 0x%02x%02x",
-		 ts_data->chip_type->chip_idh, ts_data->chip_type->chip_idl);
-
-	return 0;
-}
-
 static int fts_power_source_init(struct fts_ts_data *data)
 {
 	int ret = 0;
@@ -260,7 +301,7 @@ static int fts_power_source_init(struct fts_ts_data *data)
 	data->vdd = devm_regulator_get(&data->client->dev, "vdd");
 	if (IS_ERR_OR_NULL(data->vdd)) {
 		ret = PTR_ERR(data->vdd);
-		FTS_ERROR("get vdd regulator failed,ret=%d", ret);
+		dev_err(&data->client->dev, "get vdd regulator failed,ret=%d", ret);
 		return ret;
 	}
 
@@ -268,7 +309,7 @@ static int fts_power_source_init(struct fts_ts_data *data)
 		ret = regulator_set_voltage(data->vdd, FTS_VDD_MIN_UV,
 					    FTS_VDD_MAX_UV);
 		if (ret) {
-			FTS_ERROR("vdd regulator set_VDD failed ret=%d", ret);
+			dev_err(&data->client->dev, "vdd regulator set_VDD failed ret=%d", ret);
 			goto exit;
 		}
 	}
@@ -276,7 +317,7 @@ static int fts_power_source_init(struct fts_ts_data *data)
 	data->vcc_i2c = devm_regulator_get(&data->client->dev, "vcc-i2c");
 	if (IS_ERR(data->vcc_i2c)) {
 		ret = PTR_ERR(data->vcc_i2c);
-		FTS_ERROR("get vcc_i2c regulator failed,ret=%d", ret);
+		dev_err(&data->client->dev, "get vcc_i2c regulator failed,ret=%d", ret);
 		return ret;
 	}
 
@@ -284,7 +325,7 @@ static int fts_power_source_init(struct fts_ts_data *data)
 		ret = regulator_set_voltage(data->vcc_i2c, FTS_I2C_VCC_MIN_UV,
 					    FTS_I2C_VCC_MAX_UV);
 		if (ret) {
-			FTS_ERROR("vcc_i2c regulator set_vcc_i2c failed ret=%d", ret);
+			dev_err(&data->client->dev, "vcc_i2c regulator set_vcc_i2c failed ret=%d", ret);
 			goto exit;
 		}
 	}
@@ -304,7 +345,7 @@ static int fts_power_source_release(struct fts_ts_data *data)
 	return 0;
 }
 
-static int fts_power_source_ctrl(struct fts_ts_data *data, int enable)
+static int fts_power_source_ctrl(struct fts_ts_data *data, bool enable)
 {
 	int ret = 0;
 
@@ -312,14 +353,14 @@ static int fts_power_source_ctrl(struct fts_ts_data *data, int enable)
 		if (data->power_disabled) {
 			ret = regulator_enable(data->vdd);
 			if (ret) {
-				FTS_ERROR(
+				dev_err(&data->client->dev, 
 					"enable vdd regulator failed,ret=%d",
 					ret);
 			}
 
 			ret = regulator_enable(data->vcc_i2c);
 			if (ret) {
-				FTS_ERROR("enable vcc_i2c regulator failed,ret=%d",
+				dev_err(&data->client->dev, "enable vcc_i2c regulator failed,ret=%d",
 					  ret);
 			}
 			data->power_disabled = false;
@@ -328,14 +369,14 @@ static int fts_power_source_ctrl(struct fts_ts_data *data, int enable)
 		if (!data->power_disabled) {
 			ret = regulator_disable(data->vdd);
 			if (ret) {
-				FTS_ERROR(
+				dev_err(&data->client->dev, 
 					"disable vdd regulator failed,ret=%d",
 					ret);
 			}
 
 			ret = regulator_disable(data->vcc_i2c);
 			if (ret) {
-				FTS_ERROR("disable vcc_i2c regulator failed,ret=%d",
+				dev_err(&data->client->dev, "disable vcc_i2c regulator failed,ret=%d",
 					  ret);
 			}
 
@@ -346,93 +387,34 @@ static int fts_power_source_ctrl(struct fts_ts_data *data, int enable)
 	return ret;
 }
 
-static int fts_pinctrl_init(struct fts_ts_data *ts)
+static int fts_pinctrl_init(struct fts_ts_data *data)
 {
 	int ret = 0;
-	struct i2c_client *client = ts->client;
+	struct i2c_client *client = data->client;
 
-	ts->pinctrl = devm_pinctrl_get(&client->dev);
-	if (IS_ERR_OR_NULL(ts->pinctrl)) {
-		FTS_ERROR("Failed to get pinctrl, please check dts");
-		ret = PTR_ERR(ts->pinctrl);
-		goto err_pinctrl_get;
-	}
-
-	ts->pins_active = pinctrl_lookup_state(ts->pinctrl, "pmx_ts_active");
-	if (IS_ERR_OR_NULL(ts->pins_active)) {
-		FTS_ERROR("Pin state[active] not found");
-		ret = PTR_ERR(ts->pins_active);
-		goto err_pinctrl_lookup;
-	}
-
-	ts->pins_suspend = pinctrl_lookup_state(ts->pinctrl, "pmx_ts_suspend");
-	if (IS_ERR_OR_NULL(ts->pins_suspend)) {
-		FTS_ERROR("Pin state[suspend] not found");
-		ret = PTR_ERR(ts->pins_suspend);
-		goto err_pinctrl_lookup;
-	}
-
-	ts->pins_release = pinctrl_lookup_state(ts->pinctrl, "pmx_ts_release");
-	if (IS_ERR_OR_NULL(ts->pins_release)) {
-		FTS_ERROR("Pin state[release] not found");
-		ret = PTR_ERR(ts->pins_release);
-	}
+	
 
 	return 0;
 err_pinctrl_lookup:
-	if (ts->pinctrl) {
-		devm_pinctrl_put(ts->pinctrl);
+	if (data->pinctrl) {
+		devm_pinctrl_put(data->pinctrl);
 	}
 err_pinctrl_get:
-	ts->pinctrl = NULL;
-	ts->pins_release = NULL;
-	ts->pins_suspend = NULL;
-	ts->pins_active = NULL;
 	return ret;
 }
 
-static int fts_pinctrl_select_normal(struct fts_ts_data *ts)
+static int fts_pinctrl_set_active(struct fts_ts_data *data, bool enable)
 {
 	int ret = 0;
+	struct pinctrl_state *state = pinctrl_lookup_state(data->pinctrl, 
+		enable ? "ts_active" : "ts_suspend");
 
-	if (ts->pinctrl && ts->pins_active) {
-		ret = pinctrl_select_state(ts->pinctrl, ts->pins_active);
+	if (data->pinctrl && data->pins_active) {
+		ret = pinctrl_select_state(data->pinctrl, state);
 		if (ret < 0) {
-			FTS_ERROR("Set normal pin state error:%d", ret);
-		}
-	}
-
-	return ret;
-}
-
-static int fts_pinctrl_select_suspend(struct fts_ts_data *ts)
-{
-	int ret = 0;
-
-	if (ts->pinctrl && ts->pins_suspend) {
-		ret = pinctrl_select_state(ts->pinctrl, ts->pins_suspend);
-		if (ret < 0) {
-			FTS_ERROR("Set suspend pin state error:%d", ret);
-		}
-	}
-
-	return ret;
-}
-
-static int fts_pinctrl_select_release(struct fts_ts_data *ts)
-{
-	int ret = 0;
-
-	if (ts->pinctrl) {
-		if (IS_ERR_OR_NULL(ts->pins_release)) {
-			devm_pinctrl_put(ts->pinctrl);
-			ts->pinctrl = NULL;
-		} else {
-			ret = pinctrl_select_state(ts->pinctrl,
-						   ts->pins_release);
-			if (ret < 0)
-				FTS_ERROR("Set gesture pin state error:%d",
-					  ret);
+			dev_err(&data->client->dev,
+				"Failed to set pinctrl state: enable = %d, ret = %d",
+				enable, ret);
 		}
 	}
 
@@ -525,7 +507,7 @@ static int fts_input_report_b(struct fts_ts_data *data)
 			input_report_key(data->input_dev, BTN_TOUCH, 1);
 		}
 	} else {
-		FTS_ERROR("va not reported, but touchs=%d", touchs);
+		dev_err(&data->client->dev, "va not reported, but touchs=%d", touchs);
 	}
 
 	input_sync(data->input_dev);
@@ -550,7 +532,7 @@ static int fts_read_touchdata(struct fts_ts_data *data)
 
 	ret = fts_i2c_read(data->client, buf, 1, buf, data->pnt_buf_size);
 	if (ret < 0) {
-		FTS_ERROR("read touchdata failed, ret:%d", ret);
+		dev_err(&data->client->dev, "read touchdata failed, ret:%d", ret);
 		return ret;
 	}
 	data->point_num = buf[FTS_TOUCH_POINT_NUM] & 0x0F;
@@ -581,12 +563,12 @@ static int fts_read_touchdata(struct fts_ts_data *data)
 		events[i].p = buf[FTS_TOUCH_PRE_POS + base];
 
 		if (EVENT_DOWN(events[i].flag) && (data->point_num == 0)) {
-			FTS_INFO("abnormal touch data from fw");
+			dev_info(&data->client->dev, "abnormal touch data from fw");
 			return -EIO;
 		}
 	}
 	if (data->touch_point == 0) {
-		FTS_INFO("no touch point information");
+		dev_info(&data->client->dev, "no touch point information");
 		return -EIO;
 	}
 
@@ -598,32 +580,32 @@ static void fts_report_event(struct fts_ts_data *data)
 	fts_input_report_b(data);
 }
 
-static irqreturn_t fts_ts_interrupt(int irq, void *data)
+static irqreturn_t fts_ts_interrupt(int irq, void *d)
 {
 	int ret = 0;
-	struct fts_ts_data *ts_data = (struct fts_ts_data *)data;
+	struct fts_ts_data *data = (struct fts_ts_data *)d;
 
-	if (!ts_data) {
-		FTS_ERROR("[INTR]: Invalid fts_ts_data");
+	if (!data) {
+		dev_err(&data->client->dev, "%s() Invalid fts_ts_data", __func__);
 		return IRQ_HANDLED;
 	}
 
-	if (ts_data->dev_pm_suspend) {
+	if (data->dev_pm_suspend) {
 		ret = wait_for_completion_timeout(
-			&ts_data->dev_pm_suspend_completion,
+			&data->dev_pm_suspend_completion,
 			msecs_to_jiffies(700));
 		if (!ret) {
-			FTS_ERROR(
-				"system(i2c) can't finished resuming procedure, skip it");
+			dev_err(&data->client->dev, 
+				"Didn't resume in time, skipping wakeup event handling\n");
 			return IRQ_HANDLED;
 		}
 	}
 
-	ret = fts_read_touchdata(ts_data);
+	ret = fts_read_touchdata(data);
 	if (ret == 0) {
-		mutex_lock(&ts_data->report_mutex);
-		fts_report_event(ts_data);
-		mutex_unlock(&ts_data->report_mutex);
+		mutex_lock(&data->report_mutex);
+		fts_report_event(data);
+		mutex_unlock(&data->report_mutex);
 	}
 
 	return IRQ_HANDLED;
@@ -636,7 +618,7 @@ static int fts_input_init(struct fts_ts_data *data)
 
 	input_dev = input_allocate_device();
 	if (!input_dev) {
-		FTS_ERROR("Failed to allocate memory for input device");
+		dev_err(&data->client->dev, "Failed to allocate memory for input device");
 		return -ENOMEM;
 	}
 
@@ -667,7 +649,7 @@ static int fts_input_init(struct fts_ts_data *data)
 	data->pnt_buf_size = data->max_touch_number * FTS_ONE_TCH_LEN + 3;
 	data->point_buf = (u8 *)kzalloc(data->pnt_buf_size, GFP_KERNEL);
 	if (!data->point_buf) {
-		FTS_ERROR("failed to alloc memory for point buf!");
+		dev_err(&data->client->dev, "Failed to alloc memory for point buf!");
 		ret = -ENOMEM;
 		goto err_point_buf;
 	}
@@ -675,13 +657,13 @@ static int fts_input_init(struct fts_ts_data *data)
 	data->events = (struct ts_event *)kzalloc(
 		data->max_touch_number * sizeof(struct ts_event), GFP_KERNEL);
 	if (!data->events) {
-		FTS_ERROR("failed to alloc memory for point events!");
+		dev_err(&data->client->dev, "Failed to alloc memory for point events!");
 		ret = -ENOMEM;
 		goto err_event_buf;
 	}
 	ret = input_register_device(input_dev);
 	if (ret) {
-		FTS_ERROR("Input device registration failed");
+		dev_err(&data->client->dev, "Input device registration failed");
 		goto err_input_reg;
 	}
 
@@ -690,10 +672,10 @@ static int fts_input_init(struct fts_ts_data *data)
 	return 0;
 
 err_input_reg:
-	kfree_safe(data->events);
+	kfree(data->events);
 
 err_event_buf:
-	kfree_safe(data->point_buf);
+	kfree(data->point_buf);
 
 err_point_buf:
 	input_set_drvdata(input_dev, NULL);
@@ -711,13 +693,13 @@ static int fts_gpio_configure(struct fts_ts_data *data)
 	if (gpio_is_valid(data->irq_gpio)) {
 		ret = gpio_request(data->irq_gpio, "fts_irq_gpio");
 		if (ret) {
-			FTS_ERROR("[GPIO]irq gpio request failed");
+			dev_err(&data->client->dev, "Failed to request IRQ GPIO");
 			goto err_irq_gpio_req;
 		}
 
 		ret = gpio_direction_input(data->irq_gpio);
 		if (ret) {
-			FTS_ERROR("[GPIO]set_direction for irq gpio failed");
+			dev_err(&data->client->dev, "gpio_direction_input for IRQ gpio failed");
 			goto err_irq_gpio_dir;
 		}
 	}
@@ -726,21 +708,21 @@ static int fts_gpio_configure(struct fts_ts_data *data)
 	if (gpio_is_valid(data->reset_gpio)) {
 		ret = gpio_request(data->reset_gpio, "fts_reset_gpio");
 		if (ret) {
-			FTS_ERROR("[GPIO]reset gpio request failed");
+			dev_err(&data->client->dev, "Failed to request reset GPIO");
 			goto err_irq_gpio_dir;
 		}
 
-		ret = gpio_direction_output(data->reset_gpio, 0);
-		if (ret) {
-			FTS_ERROR("[GPIO]set_direction for reset gpio failed");
-			goto err_reset_gpio_dir;
-		}
+		// ret = gpio_direction_output(data->reset_gpio, 0);
+		// if (ret) {
+		// 	dev_err(&data->client->dev, "gpio_direction_output for reset gpio failed");
+		// 	goto err_reset_gpio_dir;
+		// }
 
-		msleep(20);
+		// msleep(20);
 
 		ret = gpio_direction_output(data->reset_gpio, 1);
 		if (ret) {
-			FTS_ERROR("[GPIO]set_direction for reset gpio failed");
+			dev_err(&data->client->dev, "gpio_direction_output for reset GPIO failed");
 			goto err_reset_gpio_dir;
 		}
 	}
@@ -766,17 +748,17 @@ static int fts_parse_dt(struct fts_ts_data *data)
 
 	ret = of_property_read_u32_array(np, "focaltech,display-size", size, 2);
 	if (ret && (ret != -EINVAL)) {
-		FTS_ERROR("Unable to read property 'focaltech,display-size'");
+		dev_err(&data->client->dev, "Unable to read property 'focaltech,display-size'");
 		return -ENODATA;
 	}
 	data->width = size[0];
 	data->height = size[1];
 
-	FTS_DEBUG("display-size:%dx%d", data->width, data->height);
+	dev_dbg(&data->client->dev, "display-size:%dx%d", data->width, data->height);
 
 	ret = of_property_read_u32(np, "focaltech,max-touch-number", &val);
 	if (ret < 0) {
-		FTS_ERROR("Unable to read property 'focaltech,max-touch-number'");
+		dev_err(&data->client->dev, "Unable to read property 'focaltech,max-touch-number'");
 		return -ENODATA;
 	}
 	if (val < 2)
@@ -787,15 +769,13 @@ static int fts_parse_dt(struct fts_ts_data *data)
 		data->max_touch_number = val;
 
 	/* reset, irq gpio info */
-	data->reset_gpio = of_get_named_gpio_flags(
-		np, "focaltech,reset-gpio", 0, &data->reset_gpio_flags);
+	data->reset_gpio = of_get_named_gpio(np, "focaltech,reset-gpio", 0);
 	if (data->reset_gpio < 0)
-		FTS_ERROR("Unable to get reset_gpio");
+		dev_err(&data->client->dev, "Unable to get reset_gpio");
 
-	data->irq_gpio = of_get_named_gpio_flags(np, "focaltech,irq-gpio", 0,
-						  &data->irq_gpio_flags);
+	data->irq_gpio = of_get_named_gpio(np, "focaltech,irq-gpio", 0;
 	if (data->irq_gpio < 0)
-		FTS_ERROR("Unable to get irq_gpio");
+		dev_err(&data->client->dev, "Unable to get irq_gpio");
 
 	return 0;
 }
@@ -807,13 +787,13 @@ static int fts_ts_probe(struct i2c_client *client,
 	struct fts_ts_data *data;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
-		FTS_ERROR("I2C not supported");
+		dev_err(&data->client->dev, "I2C not supported");
 		return -ENODEV;
 	}
 
 	data = devm_kzalloc(&client->dev, sizeof(*data), GFP_KERNEL);
 	if (!data) {
-		FTS_ERROR(
+		dev_err(&data->client->dev, 
 			"Failed to allocate memory for driver data");
 		return -ENOMEM;
 	}
@@ -821,15 +801,13 @@ static int fts_ts_probe(struct i2c_client *client,
 	data->client = client;
 	ret = fts_parse_dt(data);
 	if (ret)
-		FTS_ERROR("[DTS]DT parsing failed");
-
-	data->chip_type = (struct fts_chip_type*) of_device_get_match_data(&client->dev);
+		dev_err(&data->client->dev, "[DTS]DT parsing failed");
 
 	i2c_set_clientdata(client, data);
 
 	data->ts_workqueue = create_singlethread_workqueue("fts_wq");
 	if (NULL == data->ts_workqueue) {
-		FTS_ERROR("failed to create fts workqueue");
+		dev_err(&data->client->dev, "Failed to create fts workqueue");
 	}
 
 	spin_lock_init(&data->irq_lock);
@@ -837,59 +815,56 @@ static int fts_ts_probe(struct i2c_client *client,
 
 	ret = fts_input_init(data);
 	if (ret) {
-		FTS_ERROR("fts input initialize fail");
+		dev_err(&data->client->dev, "fts input initialize fail");
 		goto err_input_init;
 	}
 
 	ret = fts_power_source_init(data);
 	if (ret) {
-		FTS_ERROR("fail to get vdd/vcc_i2c regulator");
+		dev_err(&data->client->dev, "fail to get vdd/vcc_i2c regulator");
 		goto err_power_init;
 	}
 
 	data->power_disabled = true;
-	ret = fts_power_source_ctrl(data, ENABLE);
+	ret = fts_power_source_ctrl(data, true);
 	if (ret) {
-		FTS_ERROR("fail to enable vdd/vcc_i2c regulator");
+		dev_err(&data->client->dev, "fail to enable vdd/vcc_i2c regulator");
 		goto err_power_ctrl;
 	}
-	ret = fts_pinctrl_init(data);
-	if (0 == ret) {
-		fts_pinctrl_select_normal(data);
+
+	data->pinctrl = devm_pinctrl_get(&client->dev);
+	if (IS_ERR_OR_NULL(data->pinctrl)) {
+		dev_err(&data->client->dev, "Failed to get pinctrl, please check dts");
+		ret = PTR_ERR(data->pinctrl);
+		goto err_power_ctrl;
 	}
+
+	fts_pinctrl_set_active(data, true);
 
 	ret = fts_gpio_configure(data);
 	if (ret) {
-		FTS_ERROR("[GPIO]Failed to configure the gpios");
+		dev_err(&data->client->dev, "Failed to configure the gpios");
 		goto err_gpio_config;
-	}
-
-	ret = fts_get_ic_information(data);
-	if (ret) {
-		FTS_ERROR("can't get ic information");
-		goto err_irq_req;
 	}
 
 	data->event_wq =
 		alloc_workqueue("fts-event-queue",
 				WQ_UNBOUND | WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
 	if (!data->event_wq) {
-		FTS_ERROR("ERROR: Cannot create work thread\n");
+		dev_err(&data->client->dev, "ERROR: Cannot create work thread\n");
 		goto err_irq_req;
 	}
 
 	data->irq = gpio_to_irq(data->irq_gpio);
 	if (data->irq != data->client->irq)
-		FTS_ERROR(
+		dev_err(&data->client->dev, 
 			"IRQs are inconsistent, please check <interrupts> & <focaltech,irq-gpio> in DTS");
 
-	if (0 == data->irq_gpio_flags)
-		data->irq_gpio_flags = IRQF_TRIGGER_FALLING;
 	ret = request_threaded_irq(data->irq, NULL, fts_ts_interrupt,
 				   data->irq_gpio_flags | IRQF_ONESHOT,
 				   data->client->name, data);
 	if (ret) {
-		FTS_ERROR("request irq failed");
+		dev_err(&data->client->dev, "request irq failed");
 		goto err_event_wq;
 	}
 
@@ -909,14 +884,12 @@ err_irq_req:
 		gpio_free(data->irq_gpio);
 err_gpio_config:
 
-	fts_pinctrl_select_release(data);
-
-	fts_power_source_ctrl(data, DISABLE);
+	fts_power_source_ctrl(data, false);
 err_power_ctrl:
 	fts_power_source_release(data);
 err_power_init:
-	kfree_safe(data->point_buf);
-	kfree_safe(data->events);
+	kfree(data->point_buf);
+	kfree(data->events);
 	input_unregister_device(data->input_dev);
 err_input_init:
 	if (data->ts_workqueue)
@@ -928,31 +901,30 @@ err_input_init:
 
 static int fts_ts_remove(struct i2c_client *client)
 {
-	struct fts_ts_data *ts_data = i2c_get_clientdata(client);
+	struct fts_ts_data *data = i2c_get_clientdata(client);
 
 
-	destroy_workqueue(ts_data->event_wq);
+	destroy_workqueue(data->event_wq);
 
-	free_irq(client->irq, ts_data);
-	input_unregister_device(ts_data->input_dev);
+	free_irq(client->irq, data);
+	input_unregister_device(data->input_dev);
 
-	if (gpio_is_valid(ts_data->reset_gpio))
-		gpio_free(ts_data->reset_gpio);
+	if (gpio_is_valid(data->reset_gpio))
+		gpio_free(data->reset_gpio);
 
-	if (gpio_is_valid(ts_data->irq_gpio))
-		gpio_free(ts_data->irq_gpio);
+	if (gpio_is_valid(data->irq_gpio))
+		gpio_free(data->irq_gpio);
 
-	if (ts_data->ts_workqueue)
-		destroy_workqueue(ts_data->ts_workqueue);
+	if (data->ts_workqueue)
+		destroy_workqueue(data->ts_workqueue);
 
-	fts_pinctrl_select_release(ts_data);
-	fts_power_source_ctrl(ts_data, DISABLE);
-	fts_power_source_release(ts_data);
+	fts_power_source_ctrl(data, false);
+	fts_power_source_release(data);
 
-	kfree_safe(ts_data->point_buf);
-	kfree_safe(ts_data->events);
+	kfree(data->point_buf);
+	kfree(data->events);
 
-	devm_kfree(&client->dev, ts_data);
+	devm_kfree(&client->dev, data);
 
 	return 0;
 }
@@ -961,72 +933,72 @@ static int fts_ts_remove(struct i2c_client *client)
 static int fts_ts_suspend(struct device *dev)
 {
 	int ret = 0;
-	struct fts_ts_data *ts_data = dev_get_drvdata(dev);
+	struct fts_ts_data *data = dev_get_drvdata(dev);
 
-	disable_irq(ts_data->irq);
+	disable_irq(data->irq);
 
-	ret = fts_power_source_ctrl(ts_data, DISABLE);
+	ret = fts_power_source_ctrl(data, false);
 	if (ret < 0) {
-		FTS_ERROR("power off fail, ret=%d", ret);
+		dev_err(&data->client->dev, "power off fail, ret=%d", ret);
 	}
-	fts_pinctrl_select_suspend(ts_data);
+	fts_pinctrl_set_active(data, false);
 
 	return 0;
 }
 
 static int fts_ts_resume(struct device *dev)
 {
-	struct fts_ts_data *ts_data = dev_get_drvdata(dev);
+	struct fts_ts_data *data = dev_get_drvdata(dev);
 	unsigned long irqflags = 0;
 
-	fts_release_all_finger(ts_data);
-	fts_power_source_ctrl(ts_data, ENABLE);
-	fts_pinctrl_select_normal(ts_data);
-	fts_wait_ready(ts_data);
+	fts_release_all_finger(data);
+	fts_power_source_ctrl(data, true);
+	fts_pinctrl_set_active(data, true);
+	fts_wait_ready(data);
 
-	spin_lock_irqsave(&ts_data->irq_lock, irqflags);
-	enable_irq(ts_data->irq);
-	spin_unlock_irqrestore(&ts_data->irq_lock, irqflags);
+	spin_lock_irqsave(&data->irq_lock, irqflags);
+	enable_irq(data->irq);
+	spin_unlock_irqrestore(&data->irq_lock, irqflags);
 
 	return 0;
 }
 
 static int fts_pm_suspend(struct device *dev)
 {
-	struct fts_ts_data *ts_data = dev_get_drvdata(dev);
+	struct fts_ts_data *data = dev_get_drvdata(dev);
 	int ret = 0;
 
-	ts_data->dev_pm_suspend = true;
+	data->dev_pm_suspend = true;
 
-	if (ts_data->lpwg_mode) {
-		ret = enable_irq_wake(ts_data->irq);
+	if (data->low_power_mode) {
+		ret = enable_irq_wake(data->irq);
 		if (ret) {
-			FTS_ERROR("enable_irq_wake(irq:%d) failed",
-				 ts_data->irq);
+			dev_err(&data->client->dev, "enable_irq_wake(irq:%d) failed",
+				 data->irq);
 		}
 	}
 
-	reinit_completion(&ts_data->dev_pm_suspend_completion);
+	reinit_completion(&data->dev_pm_suspend_completion);
 
 	return ret;
 }
 
 static int fts_pm_resume(struct device *dev)
 {
-	struct fts_ts_data *ts_data = dev_get_drvdata(dev);
+	struct fts_ts_data *data = dev_get_drvdata(dev);
 	int ret = 0;
 
-	ts_data->dev_pm_suspend = false;
+	data->dev_pm_suspend = false;
 
-	if (ts_data->lpwg_mode) {
-		ret = disable_irq_wake(ts_data->irq);
+	if (data->low_power_mode) {
+		ret = disable_irq_wake(data->irq);
 		if (ret) {
-			FTS_ERROR("disable_irq_wake(irq:%d) failed",
-				 ts_data->irq);
+			dev_err(&data->client->dev, "disable_irq_wake(irq:%d) failed",
+				 data->irq);
 		}
 	}
 
-	complete(&ts_data->dev_pm_suspend_completion);
+	complete(&data->dev_pm_suspend_completion);
 
 	return 0;
 }
@@ -1036,38 +1008,9 @@ static const struct dev_pm_ops fts_dev_pm_ops = {
 	.resume = fts_pm_resume,
 };
 
-static const struct fts_chip_type chip_type_fts8719 = {
-	.type = 0x0D,
-	.chip_idh = 0x87,
-	.chip_idl = 0x19,
-	.rom_idh = 0x87,
-	.rom_idl = 0x19,
-	.pb_idh = 0x87,
-	.pb_idl = 0xA9,
-	.bl_idh = 0x87,
-	.bl_idl = 0xB9,
-};
-
-static const struct fts_chip_type chip_type_fts3518 = {
-	.type = 0x81,
-	.chip_idh = 0x54,
-	.chip_idl = 0x52,
-	.rom_idh = 0x54,
-	.rom_idl = 0x52,
-	.pb_idh = 0x00,
-	.pb_idl = 0x00,
-	.bl_idh = 0x54,
-	.bl_idl = 0x5C,
-};
-
 static struct of_device_id fts_match_table[] = {
 	{
-		.compatible = "focaltech,fts8719",
-		.data = &chip_type_fts8719,
-	},
-	{
-		.compatible = "focaltech,fts3518",
-		.data = &chip_type_fts3518,
+		.compatible = "focaltech,fts",
 	},
 	{ /* sentinel */ },
 };
