@@ -132,7 +132,7 @@
 	dma-names = "tx", "rx";
 
 	touchscreen: focaltech@38 {
-		compatible = "focaltech,fts8719";
+		compatible = "focaltech,fts";
 		reg = <0x38>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <31 0>;
