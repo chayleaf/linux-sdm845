@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mfd/qcom,spmi-pmic.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Qualcomm SPMI PMICs multi-function device bindings
+
+# We match the properties of an SPMI child node
+allOf:
+  - $ref: "/schemas/spmi/spmi.yaml#/patternProperties"
+
+description: |
+  Some Qualcomm PMICs used with the Snapdragon series SoCs are interfaced
+  to the chip via the SPMI (System Power Management Interface) bus.
+  Support for multiple independent functions are implemented by splitting the
+  16-bit SPMI peripheral address space into 256 smaller fixed-size regions, 256 bytes
+  each. A function can consume one or more of these fixed-size register regions.
+
+  The Qualcomm SPMI series includes the PM8941, PM8841, PMA8084, PM8998 and other
+  PMICs.  These PMICs use a "QPNP" scheme through SPMI interface.
+  QPNP is effectively a partitioning scheme for dividing the SPMI extended
+  register space up into logical pieces, and set of fixed register
+  locations/definitions within these regions, with some of these regions
+  specifically used for interrupt handling.
+
+maintainers:
+  - Caleb Connolly <caleb@connolly.tech>
+
+properties:
+  compatible:
+    items:
+      - enum:
+          - qcom,pm8941
+          - qcom,pm8841
+          - qcom,pma8084
+          - qcom,pm8019
+          - qcom,pm8226
+          - qcom,pm8110
+          - qcom,pma8084
+          - qcom,pmi8962
+          - qcom,pmd9635
+          - qcom,pm8994
+          - qcom,pmi8994
+          - qcom,pm8916
+          - qcom,pm8004
+          - qcom,pm8909
+          - qcom,pm8950
+          - qcom,pmi8950
+          - qcom,pm8998
+          - qcom,pmi8998
+          - qcom,pm8005
+          - qcom,pm8350c
+          - qcom,pmk8350
+          - qcom,pm7325
+          - qcom,pmr735a
+      - const: qcom,spmi-pmic
+
+  child-node:
+    description: |
+      Each child node of the PMIC represents a function of it. See examples below.
+    type: object
+    properties:
+      interrupts:
+        description: |
+          Interrupts are specified as a 4-tuple. for more information see:
+          Documentation/devicetree/bindings/spmi/qcom,spmi-pmic-arb.txt
+      interrupt-names:
+        description: Tuple of names for the interrupts.
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/spmi/spmi.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    spmi_bus: spmi@c440000 {
+      compatible = "qcom,spmi-pmic-arb";
+      reg = <0x0c440000 0x1100>;
+      reg-names = "core";
+      interrupt-names = "periph_irq";
+      interrupts = <GIC_SPI 481 IRQ_TYPE_LEVEL_HIGH>;
+      qcom,ee = <0>;
+      qcom,channel = <0>;
+      #address-cells = <2>;
+      #size-cells = <0>;
+      interrupt-controller;
+      #interrupt-cells = <4>;
+      cell-index = <0>;
+
+      pmi8998_lsid0: pmic@2 {
+        compatible = "qcom,pmi8998", "qcom,spmi-pmic";
+        reg = <0x2 SPMI_USID>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        pmi8998_gpio: gpios@c000 {
+          compatible = "qcom,pmi8998-gpio", "qcom,spmi-gpio";
+          reg = <0xc000>;
+          gpio-controller;
+          gpio-ranges = <&pmi8998_gpio 0 0 14>;
+          #gpio-cells = <2>;
+          interrupt-controller;
+          #interrupt-cells = <2>;
+        };
+      };
+    };
