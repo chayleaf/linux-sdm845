@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2020 Unisoc Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/spmi/qcom,spmi-pmic-arb.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Qualcomm SPMI Controller (PMIC Arbiter)
+
+description: |
+  The SPMI PMIC Arbiter is found on Snapdragon chipsets.  It is an SPMI
+  controller with wrapping arbitration logic to allow for multiple on-chip
+  devices to control a single SPMI master.
+
+  The PMIC Arbiter can also act as an interrupt controller, providing interrupts
+  to slave devices.
+
+  See Documentation/devicetree/bindings/spmi/spmi.yaml for the generic SPMI
+  controller binding requirements for child nodes.
+
+  See Documentation/devicetree/bindings/interrupt-controller/interrupts.txt for
+  generic interrupt controller binding documentation.
+
+maintainers:
+  - Caleb Connolly <caleb@connolly.tech>
+
+allOf:
+  - $ref: "/schemas/spmi/spmi.yaml#"
+
+properties:
+  compatible:
+    items:
+      - const: qcom,spmi-pmic-arb
+
+  reg:
+    items:
+      - description: "Core registers."
+      - description: "Interrupt controller registers."
+      - description: "Configuration registers."
+      - description: "tx-channel per virtual peripheral registers."
+      - description: "rx-channel (observer) per virtual peripheral registers."
+    description:
+      address, size pairs describing the PMIC arb register sets. The last two
+      items are only required for v2 arbs.
+
+  reg-names:
+    items:
+      - enum:
+          - core
+          - intr
+          - cnfg
+          - chnls
+          - obsrvr
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/spmi/spmi.h>
+
+    spmi_bus: spmi@c440000 {
+        compatible = "qcom,spmi-pmic-arb";
+        reg = <0 0x0c440000 0 0x1100>;
+        reg-names = "core";
+
+        interrupt-names = "periph_irq";
+        interrupts = <0 190 0>;
+
+        qcom,ee = <0>;
+        qcom,channel = <0>;
+
+        #address-cells = <2>;
+        #size-cells = <0>;
+
+        interrupt-controller;
+        #interrupt-cells = <4>;
+    };
