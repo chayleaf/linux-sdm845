@@ -33,8 +33,8 @@
 
 #include <media/videobuf2-v4l2.h>
 
-static int debug;
-module_param(debug, int, 0644);
+static int debug = 99;
+//module_param(debug, int, 0644);
 
 #define dprintk(q, level, fmt, arg...)					      \
 	do {								      \

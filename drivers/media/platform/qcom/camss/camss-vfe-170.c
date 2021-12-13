@@ -219,6 +219,13 @@ static void vfe_global_reset(struct vfe_device *vfe)
 			 GLOBAL_RESET_CMD_RDI1		|
 			 GLOBAL_RESET_CMD_RDI2;
 
+	//vfe->isr_ops.reset_ack(vfe);
+	
+	// u32 reset_bits = GLOBAL_RESET_CMD_CORE		|
+	// 		 GLOBAL_RESET_CMD_CAMIF		|
+	// 		 GLOBAL_RESET_CMD_REGISTER	|
+	// 		 GLOBAL_RESET_CMD_RDI0;
+
 	debug_writel(BIT(31), vfe->base + VFE_IRQ_MASK_0, vfe->base_unmapped, vfe->base);
 	wmb();
 	debug_writel(reset_bits, vfe->base + VFE_GLOBAL_RESET_CMD, vfe->base_unmapped, vfe->base);
@@ -398,7 +405,7 @@ static irqreturn_t vfe_isr(int irq, void *dev)
 	if (status0 & STATUS_0_RESET_ACK)
 		vfe->isr_ops.reset_ack(vfe);
 
-	dev_info(vfe->camss->dev, "vfe_isr() status0 = %u, reset_done = %u", status0, status0 & STATUS_0_RESET_ACK > 0);
+	dev_info(vfe->camss->dev, "vfe_isr() status0 = 0x%x, reset_done = %u", status0, (status0 & STATUS_0_RESET_ACK > 0));
 
 	for (i = VFE_LINE_RDI0; i <= VFE_LINE_RDI2; i++)
 		if (status0 & STATUS_0_RDI_REG_UPDATE(i))

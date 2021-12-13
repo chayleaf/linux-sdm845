@@ -596,20 +596,20 @@ static irqreturn_t csid_isr(int irq, void *dev)
 	u8 reset_done;
 
 	val = readl_relaxed(csid->base + CSID_TOP_IRQ_STATUS);
-	debug_writel(val, csid->base + CSID_TOP_IRQ_CLEAR, csid->base_unmapped, csid->base);
+	writel_relaxed(val, csid->base + CSID_TOP_IRQ_CLEAR); //, csid->base_unmapped, csid->base);
 	reset_done = val & BIT(TOP_IRQ_STATUS_RESET_DONE);
 
 	dev_info(csid->camss->dev, "csid_isr(), irq_status = 0x%x, reset_done = %d", val, reset_done);
 	reset_done = 1;
 
 	val = readl_relaxed(csid->base + CSID_CSI2_RX_IRQ_STATUS);
-	debug_writel(val, csid->base + CSID_CSI2_RX_IRQ_CLEAR, csid->base_unmapped, csid->base);
+	writel_relaxed(val, csid->base + CSID_CSI2_RX_IRQ_CLEAR); //, csid->base_unmapped, csid->base);
 
 	val = readl_relaxed(csid->base + CSID_CSI2_RDIN_IRQ_STATUS(0));
-	debug_writel(val, csid->base + CSID_CSI2_RDIN_IRQ_CLEAR(0), csid->base_unmapped, csid->base);
+	writel_relaxed(val, csid->base + CSID_CSI2_RDIN_IRQ_CLEAR(0)); //, csid->base_unmapped, csid->base);
 
 	val = 1 << IRQ_CMD_CLEAR;
-	debug_writel(val, csid->base + CSID_IRQ_CMD, csid->base_unmapped, csid->base);
+	writel_relaxed(val, csid->base + CSID_IRQ_CMD); //, csid->base_unmapped, csid->base);
 
 	if (reset_done)
 		complete(&csid->reset_complete);

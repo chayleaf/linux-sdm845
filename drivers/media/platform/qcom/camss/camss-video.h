@@ -1097,7 +1097,7 @@ static void reg_addr_decode(u64 reg_base_unmapped, u32 reg, u32 val) {
 	}
 }
 
-#if 1
+#if 0
 #define debug_writel(val, reg_addr, reg_base_unmapped, reg_base) {\
 	u32 reg = reg_addr - reg_base; \
 	reg_addr_decode(reg_base_unmapped, reg, val); \
