@@ -774,7 +774,7 @@ int v4l2_subdev_link_validate_default(struct v4l2_subdev *sd,
 
 	/* The width, height and code must match. */
 	if (source_fmt->format.width != sink_fmt->format.width) {
-		dev_dbg(sd->entity.graph_obj.mdev->dev,
+		dev_info(sd->entity.graph_obj.mdev->dev,
 			"%s: width does not match (source %u, sink %u)\n",
 			__func__,
 			source_fmt->format.width, sink_fmt->format.width);
@@ -782,7 +782,7 @@ int v4l2_subdev_link_validate_default(struct v4l2_subdev *sd,
 	}
 
 	if (source_fmt->format.height != sink_fmt->format.height) {
-		dev_dbg(sd->entity.graph_obj.mdev->dev,
+		dev_info(sd->entity.graph_obj.mdev->dev,
 			"%s: height does not match (source %u, sink %u)\n",
 			__func__,
 			source_fmt->format.height, sink_fmt->format.height);
@@ -790,7 +790,7 @@ int v4l2_subdev_link_validate_default(struct v4l2_subdev *sd,
 	}
 
 	if (source_fmt->format.code != sink_fmt->format.code) {
-		dev_dbg(sd->entity.graph_obj.mdev->dev,
+		dev_info(sd->entity.graph_obj.mdev->dev,
 			"%s: media bus code does not match (source 0x%8.8x, sink 0x%8.8x)\n",
 			__func__,
 			source_fmt->format.code, sink_fmt->format.code);
@@ -803,7 +803,7 @@ int v4l2_subdev_link_validate_default(struct v4l2_subdev *sd,
 	 */
 	if (source_fmt->format.field != sink_fmt->format.field &&
 	    sink_fmt->format.field != V4L2_FIELD_NONE) {
-		dev_dbg(sd->entity.graph_obj.mdev->dev,
+		dev_info(sd->entity.graph_obj.mdev->dev,
 			"%s: field does not match (source %u, sink %u)\n",
 			__func__,
 			source_fmt->format.field, sink_fmt->format.field);
@@ -813,7 +813,7 @@ int v4l2_subdev_link_validate_default(struct v4l2_subdev *sd,
 	if (pass)
 		return 0;
 
-	dev_dbg(sd->entity.graph_obj.mdev->dev,
+	dev_info(sd->entity.graph_obj.mdev->dev,
 		"%s: link was \"%s\":%u -> \"%s\":%u\n", __func__,
 		link->source->entity->name, link->source->index,
 		link->sink->entity->name, link->sink->index);
@@ -850,20 +850,32 @@ int v4l2_subdev_link_validate(struct media_link *link)
 
 	rval = v4l2_subdev_link_validate_get_format(
 		link->source, &source_fmt);
-	if (rval < 0)
+	if (rval < 0) {
+		dev_err(link->source->entity->graph_obj.mdev->dev,
+			"%s: get_fmt failed on source pad %u\n",
+			__func__, link->source->index);
 		return 0;
+	}
 
 	rval = v4l2_subdev_link_validate_get_format(
 		link->sink, &sink_fmt);
-	if (rval < 0)
+	if (rval < 0) {
+		dev_err(link->sink->entity->graph_obj.mdev->dev,
+			"%s: get_fmt failed on sink pad %u\n",
+			__func__, link->sink->index);
 		return 0;
+	}
 
 	sink = media_entity_to_v4l2_subdev(link->sink->entity);
 
 	rval = v4l2_subdev_call(sink, pad, link_validate, link,
 				&source_fmt, &sink_fmt);
-	if (rval != -ENOIOCTLCMD)
+	if (rval != -ENOIOCTLCMD) {
+		dev_err(sink->entity.graph_obj.mdev->dev,
+			"%s: link_validate failed on sink pad %u\n",
+			__func__, link->sink->index);
 		return rval;
+	}
 
 	return v4l2_subdev_link_validate_default(
 		sink, link, &source_fmt, &sink_fmt);

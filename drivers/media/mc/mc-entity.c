@@ -474,7 +474,7 @@ __must_check int __media_pipeline_start(struct media_entity *entity,
 
 			ret = entity->ops->link_validate(link);
 			if (ret < 0 && ret != -ENOIOCTLCMD) {
-				dev_dbg(entity->graph_obj.mdev->dev,
+				dev_info(entity->graph_obj.mdev->dev,
 					"link validation failed for '%s':%u -> '%s':%u, error %d\n",
 					link->source->entity->name,
 					link->source->index,
@@ -488,7 +488,7 @@ __must_check int __media_pipeline_start(struct media_entity *entity,
 
 		if (!bitmap_full(active, entity->num_pads)) {
 			ret = -ENOLINK;
-			dev_dbg(entity->graph_obj.mdev->dev,
+			dev_info(entity->graph_obj.mdev->dev,
 				"'%s':%u must be connected by an enabled link\n",
 				entity->name,
 				(unsigned)find_first_zero_bit(

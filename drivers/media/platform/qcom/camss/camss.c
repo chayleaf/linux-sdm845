@@ -1295,6 +1295,8 @@ static int camss_probe(struct platform_device *pdev)
 	struct camss *camss;
 	int num_subdevs, ret;
 
+	dev_info(dev, "Probing CAMSS\n");
+
 	camss = kzalloc(sizeof(*camss), GFP_KERNEL);
 	if (!camss)
 		return -ENOMEM;

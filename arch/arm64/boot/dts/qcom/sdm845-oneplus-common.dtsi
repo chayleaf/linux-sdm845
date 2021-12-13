@@ -238,6 +238,9 @@
 			regulator-max-microvolt = <1028000>;
 		};
 
+		vdda_mipi_csi0_0p9:
+		vdda_mipi_csi1_0p9:
+		vdda_mipi_csi2_0p9:
 		vdda_mipi_dsi0_pll:
 		vdda_qlink_lv:
 		vdda_ufs1_core:
@@ -303,6 +306,10 @@
 			regulator-min-microvolt = <2704000>;
 			regulator-max-microvolt = <2960000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			/*
+			 * HACK ON FOR CAMERA DEV, NOT SURE IF NEEDED
+			 */
+			 regulator-always-on;
 		};
 
 		vdda_qusb_hs0_3p1:
@@ -392,8 +399,7 @@
 		port@0 {
 			reg = <0>;
 			csiphy0_ep: endpoint {
-				clock-lanes = <7>;
-				data-lanes = <0 1 2>;
+				data-lanes = <0 1>;
 				remote-endpoint = <&imx519_ep>;
 			};
 		};
@@ -405,30 +411,28 @@
 		compatible = "sony,imx519";
 		reg = <0x1a>;
 
-		reset-gpios = <&tlmm 28 0>;
+		reset-gpios = <&tlmm 28 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cam0_default>;
 
 		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
-		clock-names = "xvclk";
+		clock-names = "xclk";
 		clock-frequency = <24000000>;
 
 		power-domains = <&clock_camcc TITAN_TOP_GDSC>;
 
-		vdig-supply = <&cam_vio_1p8>; // lvs1
+		VDDL-supply = <&cam_vio_1p8>; // lvs1
 		ldo-supply = <&vreg_l21a_2p95>;
-		vana-supply = <&cam0_2p8_en>;
-		vio-supply = <&cam0_1p05_en>;
+		VANA-supply = <&cam0_2p8_en>;
+		VDIG-supply = <&cam0_1p05_en>;
 
 		status = "okay";
 
 		port {
 			imx519_ep: endpoint {
-				clock-lanes = <0>;
-				data-lanes = <1 2 3>;
-				link-frequencies =
-							/bits/ 64 <456000000>;
 				remote-endpoint = <&csiphy0_ep>;
+				data-lanes = <1 2>;      //   428750000
+				link-frequencies = /bits/ 64 <493500000>;
 			};
 		};
 	};
@@ -830,6 +834,24 @@
 
 &tlmm {
 	gpio-reserved-ranges = <0 4>, <81 4>;
+
+	cam0_default: cam0_default {
+		rst {
+			pins = "gpio28";
+			function = "gpio";
+
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		mclk0 {
+			pins = "gpio13";
+			function = "cam_mclk";
+
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
 
 	wcd_intr_default: wcd_intr_default {
 		pins = <54>;

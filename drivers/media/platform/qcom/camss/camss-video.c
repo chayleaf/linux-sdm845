@@ -469,15 +469,29 @@ static int video_check_format(struct camss_video *video)
 
 	sd_pix->pixelformat = pix->pixelformat;
 	ret = video_get_subdev_format(video, &format);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(video->camss->dev,
+			"failed to get subdev format");
 		return ret;
+	}
 
 	if (pix->pixelformat != sd_pix->pixelformat ||
 	    pix->height != sd_pix->height ||
 	    pix->width != sd_pix->width ||
 	    pix->num_planes != sd_pix->num_planes ||
-	    pix->field != format.fmt.pix_mp.field)
+	    pix->field != format.fmt.pix_mp.field) {
+		dev_err(video->camss->dev,
+			"pixel format: %c%c%c%c, %dx%d, field: %d\n",
+			pix->pixelformat, pix->pixelformat >> 8,
+			pix->pixelformat >> 16, pix->pixelformat >> 24,
+			pix->width, pix->height, pix->field);
+		dev_err(video->camss->dev,
+			"pixel format: %c%c%c%c, %dx%d, field: %d\n",
+			sd_pix->pixelformat, sd_pix->pixelformat >> 8,
+			sd_pix->pixelformat >> 16, sd_pix->pixelformat >> 24,
+			sd_pix->width, sd_pix->height, sd_pix->field);
 		return -EPIPE;
+	}
 
 	return 0;
 }
@@ -492,30 +506,48 @@ static int video_start_streaming(struct vb2_queue *q, unsigned int count)
 	int ret;
 
 	ret = media_pipeline_start(&vdev->entity, &video->pipe);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(video->camss->dev, "failed to start media pipeline");
 		return ret;
+	}
 
 	ret = video_check_format(video);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(video->camss->dev, "failed to check format");
 		goto error;
+	}
 
 	entity = &vdev->entity;
 	while (1) {
 		pad = &entity->pads[0];
-		if (!(pad->flags & MEDIA_PAD_FL_SINK))
+		dev_info(video->camss->dev, "entity: %s, pad: %d\n",
+			 entity->name, pad->index);
+		if (!(pad->flags & MEDIA_PAD_FL_SINK)) {
+			dev_info(video->camss->dev,
+				"Reached end of chain, name = %s, flags = 0x%x",
+					pad->entity->name, pad->flags);
 			break;
+		}
 
 		pad = media_entity_remote_pad(pad);
-		if (!pad || !is_media_entity_v4l2_subdev(pad->entity))
+		if (!pad || !is_media_entity_v4l2_subdev(pad->entity)) {
+			dev_err(video->camss->dev,
+				"failed to find remote pad");
 			break;
+		}
 
 		entity = pad->entity;
 		subdev = media_entity_to_v4l2_subdev(entity);
 
 		ret = v4l2_subdev_call(subdev, video, s_stream, 1);
-		if (ret < 0 && ret != -ENOIOCTLCMD)
+		if (ret < 0 && ret != -ENOIOCTLCMD) {
+			dev_err(video->camss->dev,
+				"failed to call subdev");
 			goto error;
+		}
 	}
+
+	dev_info(video->camss->dev, "Started streaming!");
 
 	return 0;
 
