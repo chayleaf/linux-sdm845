@@ -982,6 +982,7 @@ struct imx519 {
 	struct v4l2_ctrl_handler ctrl_handler;
 	/* V4L2 Controls */
 	struct v4l2_ctrl *pixel_rate;
+	struct v4l2_ctrl *link_freq;
 	struct v4l2_ctrl *exposure;
 	struct v4l2_ctrl *vflip;
 	struct v4l2_ctrl *hflip;
@@ -1704,6 +1705,10 @@ static const struct v4l2_subdev_internal_ops imx519_internal_ops = {
 	.open = imx519_open,
 };
 
+static const struct media_entity_operations imx519_subdev_entity_ops = {
+	.link_validate = v4l2_subdev_link_validate,
+};
+
 /* Initialize control handlers */
 static int imx519_init_controls(struct imx519 *imx519)
 {
@@ -1712,6 +1717,9 @@ static int imx519_init_controls(struct imx519 *imx519)
 	struct v4l2_fwnode_device_properties props;
 	unsigned int i;
 	int ret;
+	static const u64 link_freq[] = {
+		IMX519_DEFAULT_LINK_FREQ,
+	};
 
 	ctrl_hdlr = &imx519->ctrl_handler;
 	ret = v4l2_ctrl_handler_init(ctrl_hdlr, 16);
@@ -1727,6 +1735,13 @@ static int imx519_init_controls(struct imx519 *imx519)
 					       IMX519_PIXEL_RATE,
 					       IMX519_PIXEL_RATE, 1,
 					       IMX519_PIXEL_RATE);
+
+	imx519->link_freq = v4l2_ctrl_new_int_menu(ctrl_hdlr, NULL,
+					       V4L2_CID_LINK_FREQ,
+					       ARRAY_SIZE(link_freq) - 1,
+						   0, link_freq);
+	if (imx519->link_freq)
+		imx519->link_freq->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
 	/*
 	 * Create the controls here, but mode specific limits are setup
@@ -1902,6 +1917,12 @@ static int imx519_probe(struct i2c_client *client)
 		dev_err(dev, "failed to get xclk\n");
 		return PTR_ERR(imx519->xclk);
 	}
+	
+	ret = clk_set_rate(imx519->xclk, IMX519_XCLK_FREQ);
+	if (ret < 0) {
+		dev_err(dev, "failed to set xclk rate\n");
+		return ret;
+	}
 
 	xclk_freq = clk_get_rate(imx519->xclk);
 	if (xclk_freq != IMX519_XCLK_FREQ) {
@@ -1950,6 +1971,7 @@ static int imx519_probe(struct i2c_client *client)
 	imx519->sd.internal_ops = &imx519_internal_ops;
 	imx519->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE |
 			    V4L2_SUBDEV_FL_HAS_EVENTS;
+	imx519->sd.entity.ops = &imx519_subdev_entity_ops;
 	imx519->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 
 	/* Initialize source pads */
