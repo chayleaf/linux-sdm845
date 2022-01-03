@@ -174,14 +174,13 @@ static int ath10k_qmi_msa_mem_info_send_sync_msg(struct ath10k_qmi *qmi)
 		qmi->mem_region[i].addr = resp.mem_region_info[i].region_addr;
 		qmi->mem_region[i].size = resp.mem_region_info[i].size;
 		qmi->mem_region[i].secure = resp.mem_region_info[i].secure_flag;
-		ath10k_dbg(ar, ATH10K_DBG_QMI,
-			   "qmi msa mem region %d addr 0x%pa size 0x%x flag 0x%08x\n",
+		/**/ath10k_info(ar, 			   "qmi msa mem region %d addr 0x%pa size 0x%x flag 0x%08x\n",
 			   i, &qmi->mem_region[i].addr,
 			   qmi->mem_region[i].size,
 			   qmi->mem_region[i].secure);
 	}
 
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "qmi msa mem info request completed\n");
+	/**/ath10k_info(ar, "qmi msa mem info request completed\n");
 	return 0;
 
 fail_unwind:
@@ -222,7 +221,7 @@ static int ath10k_qmi_msa_ready_send_sync_msg(struct ath10k_qmi *qmi)
 		ret = -EINVAL;
 	}
 
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "qmi msa mem ready request completed\n");
+	/**/ath10k_info(ar, "qmi msa mem ready request completed\n");
 	return 0;
 
 out:
@@ -305,7 +304,7 @@ static int ath10k_qmi_bdf_dnld_send_sync(struct ath10k_qmi *qmi)
 		req->seg_id++;
 	}
 
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "qmi bdf download request completed\n");
+	/**/ath10k_info(ar, "qmi bdf download request completed\n");
 
 	kfree(req);
 	return 0;
@@ -364,7 +363,7 @@ static int ath10k_qmi_send_cal_report_req(struct ath10k_qmi *qmi)
 		goto out;
 	}
 
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "qmi cal report request completed\n");
+	/**/ath10k_info(ar, "qmi cal report request completed\n");
 	return 0;
 
 out:
@@ -411,7 +410,7 @@ ath10k_qmi_mode_send_sync_msg(struct ath10k *ar, enum wlfw_driver_mode_enum_v01 
 		goto out;
 	}
 
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "qmi wlan mode req completed: %d\n", mode);
+	/**/ath10k_info(ar, "qmi wlan mode req completed: %d\n", mode);
 	return 0;
 
 out:
@@ -497,7 +496,7 @@ ath10k_qmi_cfg_send_sync_msg(struct ath10k *ar,
 		goto out;
 	}
 
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "qmi config request completed\n");
+	/**/ath10k_info(ar, "qmi config request completed\n");
 	kfree(req);
 	return 0;
 
@@ -513,7 +512,7 @@ int ath10k_qmi_wlan_enable(struct ath10k *ar,
 {
 	int ret;
 
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "qmi mode %d config %p\n",
+	/**/ath10k_info(ar, "qmi mode %d config %p\n",
 		   mode, config);
 
 	ret = ath10k_qmi_cfg_send_sync_msg(ar, config, version);
@@ -659,7 +658,7 @@ static int ath10k_qmi_host_cap_send_sync(struct ath10k_qmi *qmi)
 		goto out;
 	}
 
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "qmi host capability request completed\n");
+	/**/ath10k_info(ar, "qmi host capability request completed\n");
 	return 0;
 
 out:
@@ -703,7 +702,7 @@ int ath10k_qmi_set_fw_log_mode(struct ath10k *ar, u8 fw_log_mode)
 		ret = -EINVAL;
 		goto out;
 	}
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "qmi fw log request completed, mode: %d\n",
+	/**/ath10k_info(ar, "qmi fw log request completed, mode: %d\n",
 		   fw_log_mode);
 	return 0;
 
@@ -762,7 +761,7 @@ ath10k_qmi_ind_register_send_sync_msg(struct ath10k_qmi *qmi)
 		if (resp.fw_status & QMI_WLFW_FW_READY_V01)
 			qmi->fw_ready = true;
 	}
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "qmi indication register request completed\n");
+	/**/ath10k_info(ar, "qmi indication register request completed\n");
 	return 0;
 
 out:
@@ -836,7 +835,7 @@ static int ath10k_qmi_fetch_board_file(struct ath10k_qmi *qmi)
 
 	ret = ath10k_core_check_dt(ar);
 	if (ret)
-		ath10k_dbg(ar, ATH10K_DBG_QMI, "DT bdf variant name not set.\n");
+		/**/ath10k_info(ar, "DT bdf variant name not set.\n");
 
 	return ath10k_core_fetch_board_file(qmi->ar, ATH10K_BD_IE_BOARD);
 }
@@ -876,7 +875,7 @@ static void ath10k_qmi_event_server_exit(struct ath10k_qmi *qmi)
 		ath10k_snoc_fw_crashed_dump(ar);
 
 	ath10k_snoc_fw_indication(ar, ATH10K_QMI_EVENT_FW_DOWN_IND);
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "wifi fw qmi service disconnected\n");
+	/**/ath10k_info(ar, "wifi fw qmi service disconnected\n");
 }
 
 static void ath10k_qmi_event_msa_ready(struct ath10k_qmi *qmi)
@@ -891,6 +890,7 @@ static void ath10k_qmi_event_msa_ready(struct ath10k_qmi *qmi)
 	if (ret)
 		goto out;
 
+	ath10k_info(qmi->ar, "Not skipping cal report req\n");
 	ret = ath10k_qmi_send_cal_report_req(qmi);
 
 out:
@@ -901,7 +901,7 @@ static int ath10k_qmi_event_fw_ready_ind(struct ath10k_qmi *qmi)
 {
 	struct ath10k *ar = qmi->ar;
 
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "wifi fw ready event received\n");
+	/**/ath10k_info(ar, "wifi fw ready event received\n");
 	ath10k_snoc_fw_indication(ar, ATH10K_QMI_EVENT_FW_READY_IND);
 
 	return 0;
@@ -955,7 +955,7 @@ static int ath10k_qmi_new_server(struct qmi_handle *qmi_hdl,
 	sq->sq_node = service->node;
 	sq->sq_port = service->port;
 
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "wifi fw qmi service found\n");
+	/**/ath10k_info(ar, "wifi fw qmi service found\n");
 
 	ret = kernel_connect(qmi_hdl->sock, (struct sockaddr *)&qmi->sq,
 			     sizeof(qmi->sq), 0);
@@ -964,7 +964,7 @@ static int ath10k_qmi_new_server(struct qmi_handle *qmi_hdl,
 		return ret;
 	}
 
-	ath10k_dbg(ar, ATH10K_DBG_QMI, "qmi wifi fw qmi service connected\n");
+	/**/ath10k_info(ar, "qmi wifi fw qmi service connected\n");
 	ath10k_qmi_driver_event_post(qmi, ATH10K_QMI_EVENT_SERVER_ARRIVE, NULL);
 
 	return ret;

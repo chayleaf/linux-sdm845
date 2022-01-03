@@ -743,6 +743,9 @@ static ssize_t qmi_send_message(struct qmi_handle *qmi,
 	void *msg;
 	int ret;
 
+	pr_info("%s: type=%d msg_id=%d len=%zu\n", __func__, type, msg_id,
+		len);
+
 	msg = qmi_encode_message(type,
 				 msg_id, &len,
 				 txn->id, ei,

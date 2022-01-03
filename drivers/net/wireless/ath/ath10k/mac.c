@@ -290,7 +290,13 @@ static int ath10k_send_key(struct ath10k_vif *arvif,
 		arg.key_data = NULL;
 	}
 
-	return ath10k_wmi_vdev_install_key(arvif->ar, &arg);
+	ath10k_info(arvif->ar, "key: vdev_id %i key_idx %d key_len %d key_cipher %d key_flags 0x%x mac_addr %pM\n",
+		    arg.vdev_id, arg.key_idx, arg.key_len, arg.key_cipher,
+		    arg.key_flags, arg.macaddr);
+	ath10k_info(arvif->ar, "SKIPPING install key");
+	return 0;
+
+	//return ath10k_wmi_vdev_install_key(arvif->ar, &arg);
 }
 
 static int ath10k_install_key(struct ath10k_vif *arvif,
@@ -5503,12 +5509,15 @@ static int ath10k_add_interface(struct ieee80211_hw *hw,
 	}
 	bit = __ffs64(ar->free_vdev_map);
 
-	ath10k_dbg(ar, ATH10K_DBG_MAC, "mac create vdev %i map %llx\n",
+	ath10k_info(ar, "mac create vdev %i map %llx\n",
 		   bit, ar->free_vdev_map);
 
 	arvif->vdev_id = bit;
 	arvif->vdev_subtype =
 		ath10k_wmi_get_vdev_subtype(ar, WMI_VDEV_SUBTYPE_NONE);
+	
+	ath10k_info(ar, "got vdev_subtype");
+	ath10k_info(ar, "vif->type: %d", vif->type);
 
 	switch (vif->type) {
 	case NL80211_IFTYPE_P2P_DEVICE:
@@ -5616,7 +5625,7 @@ static int ath10k_add_interface(struct ieee80211_hw *hw,
 		goto err;
 	}
 
-	ath10k_dbg(ar, ATH10K_DBG_MAC, "mac vdev create %d (add interface) type %d subtype %d bcnmode %s\n",
+	ath10k_info(ar, "mac vdev create %d (add interface) type %d subtype %d bcnmode %s\n",
 		   arvif->vdev_id, arvif->vdev_type, arvif->vdev_subtype,
 		   arvif->beacon_buf ? "single-buf" : "per-skb");
 
@@ -5647,12 +5656,12 @@ static int ath10k_add_interface(struct ieee80211_hw *hw,
 	/* It makes no sense to have firmware do keepalives. mac80211 already
 	 * takes care of this with idle connection polling.
 	 */
-	ret = ath10k_mac_vif_disable_keepalive(arvif);
-	if (ret) {
-		ath10k_warn(ar, "failed to disable keepalive on vdev %i: %d\n",
-			    arvif->vdev_id, ret);
-		goto err_vdev_delete;
-	}
+	// ret = ath10k_mac_vif_disable_keepalive(arvif);
+	// if (ret) {
+	// 	ath10k_warn(ar, "failed to disable keepalive on vdev %i: %d\n",
+	// 		    arvif->vdev_id, ret);
+	// 	goto err_vdev_delete;
+	// }
 
 	arvif->def_wep_key_idx = -1;
 

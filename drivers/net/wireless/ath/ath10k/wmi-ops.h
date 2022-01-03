@@ -761,6 +761,8 @@ ath10k_wmi_vdev_set_param(struct ath10k *ar, u32 vdev_id, u32 param_id,
 					      param_value);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
+	
+	ath10k_info(ar, "%s(): vdev_id: %d, param_id: %d, param_value: %d\n", __func__, vdev_id, param_id, param_value);
 
 	return ath10k_wmi_cmd_send(ar, skb, ar->wmi.cmd->vdev_set_param_cmdid);
 }
