@@ -21,6 +21,7 @@
 #define AFE_PORT_ID_TERTIARY_MI2S_TX        0x1005
 #define AFE_PORT_ID_QUATERNARY_MI2S_RX      0x1006
 #define AFE_PORT_ID_QUATERNARY_MI2S_TX      0x1007
+#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_0_TX      0x4001
 
 struct q6voice_path_runtime {
 	struct q6voice_session *sessions[Q6VOICE_SERVICE_COUNT];
@@ -60,8 +61,8 @@ static int q6voice_path_start(struct q6voice_path *p)
 	cvp = p->runtime->sessions[Q6VOICE_SERVICE_CVP];
 	if (!cvp) {
 		/* FIXME: Stop hardcoding */
-		cvp = q6cvp_session_create(p->type, AFE_PORT_ID_TERTIARY_MI2S_TX,
-					   AFE_PORT_ID_PRIMARY_MI2S_RX);
+		cvp = q6cvp_session_create(p->type, AFE_PORT_ID_SLIMBUS_MULTI_CHAN_0_TX,
+					   AFE_PORT_ID_QUATERNARY_MI2S_RX);
 		if (IS_ERR(cvp))
 			return PTR_ERR(cvp);
 		p->runtime->sessions[Q6VOICE_SERVICE_CVP] = cvp;

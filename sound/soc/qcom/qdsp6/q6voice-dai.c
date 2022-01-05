@@ -83,8 +83,8 @@ static const struct snd_soc_dapm_widget q6voice_dapm_widgets[] = {
 
 static const struct snd_soc_dapm_route q6voice_dapm_routes[] = {
 	/* TODO: Make routing configurable */
-	{"VOICEMMODE1_UL", NULL, "TERT_MI2S_TX"},
-	{"PRI_MI2S_RX", NULL, "VOICEMMODE1_DL"},
+	{"VOICEMMODE1_UL", NULL, "SLIMBUS_0_TX"},
+	{"QUAT_MI2S_RX", NULL, "VOICEMMODE1_DL"},
 };
 
 static const struct snd_soc_component_driver q6voice_dai_component = {
