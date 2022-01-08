@@ -599,8 +599,8 @@ static irqreturn_t csid_isr(int irq, void *dev)
 	writel_relaxed(val, csid->base + CSID_TOP_IRQ_CLEAR); //, csid->base_unmapped, csid->base);
 	reset_done = val & BIT(TOP_IRQ_STATUS_RESET_DONE);
 
-	dev_info(csid->camss->dev, "csid_isr(), irq_status = 0x%x, reset_done = %d", val, reset_done);
-	reset_done = 1;
+	//dev_info(csid->camss->dev, "csid_isr(), irq_status = 0x%x, reset_done = %d", val, reset_done);
+	//reset_done = 1;
 
 	val = readl_relaxed(csid->base + CSID_CSI2_RX_IRQ_STATUS);
 	writel_relaxed(val, csid->base + CSID_CSI2_RX_IRQ_CLEAR); //, csid->base_unmapped, csid->base);

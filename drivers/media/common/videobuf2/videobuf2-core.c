@@ -1565,6 +1565,7 @@ static int vb2_start_streaming(struct vb2_queue *q)
 {
 	struct vb2_buffer *vb;
 	int ret;
+	WARN(1, "GIVE STACK TRACE");
 
 	/*
 	 * If any buffers were queued before streamon,
