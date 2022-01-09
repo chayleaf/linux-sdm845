@@ -1098,7 +1098,7 @@ static ssize_t boot_lun_enabled_store(struct device *dev,
 	ufshcd_rpm_get_sync(hba);
 
 	ret = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
-				      QUERY_ATTR_IDN_BOOT_LU_EN, 0, 0, &slot);
+				      QUERY_ATTR_IDN_BOOT_LU_EN, index, 0, &slot);
 	ufshcd_rpm_put_sync(hba);
 	if (ret) {
 		ret = -EINVAL;
