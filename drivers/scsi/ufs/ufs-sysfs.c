@@ -1088,6 +1088,9 @@ static ssize_t boot_lun_enabled_store(struct device *dev,
 	int ret;
 	u8 index = 0;
 
+	if (kstrtouint(buf, 0, &slot))
+		return -EINVAL;
+
 	down(&hba->host_sem);
 	if (!ufshcd_is_user_access_allowed(hba)) {
 		up(&hba->host_sem);
