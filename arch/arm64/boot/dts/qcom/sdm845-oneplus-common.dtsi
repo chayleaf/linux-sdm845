@@ -411,6 +411,7 @@
 		compatible = "sony,imx519";
 		reg = <0x1a>;
 
+		// GPIO 40 seems to be "CAM1_PWDN", probably we need to deal with that
 		reset-gpios = <&tlmm 28 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cam0_default>;
