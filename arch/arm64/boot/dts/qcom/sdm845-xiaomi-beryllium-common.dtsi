@@ -321,6 +321,10 @@
 	firmware-name = "qcom/sdm845/beryllium/ipa_fws.mbn";
 };
 
+&slpi_pas {
+	status = "okay";
+	firmware-name = "qcom/sdm845/beryllium/slpi.mbn";
+};
 
 &i2c5 {
 	#dma-cells = <3>;
