@@ -215,20 +215,6 @@ static unsigned int p_tas2559_default_data[] = {
 	0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF
 };
 
-static unsigned int p_tas2559_irq_config[] = {
-	DevA, TAS2559_CLK_HALT_REG, 0x71,/* enable clk halt detect2 interrupt */
-	DevA, TAS2559_INT_GEN1_REG, 0x11,/* enable spk OC and OV*/
-	DevA, TAS2559_INT_GEN2_REG, 0x11,/* enable clk err1 and die OT*/
-	DevA, TAS2559_INT_GEN3_REG, 0x11,/* enable clk err2 and brownout*/
-	DevA, TAS2559_INT_GEN4_REG, 0x01,/* disable SAR, enable clk halt*/
-	DevB, TAS2560_INT_GEN_REG, 0xff,/* enable spk OC and OV*/
-	DevA, TAS2559_GPIO4_PIN_REG, 0x07,/* set GPIO4 as int1, default*/
-	DevB, TAS2560_IRQ_PIN_REG, 0x41,
-	DevA, TAS2559_INT_MODE_REG, 0x80,/* active high until INT_STICKY_1 and INT_STICKY_2 are read to be cleared. */
-	DevB, TAS2560_INT_MODE_REG, 0x80,/* active high until INT_STICKY_1 and INT_STICKY_2 are read to be cleared. */
-	0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF
-};
-
 static unsigned int p_tas2559_startup_data[] = {
 	DevA, TAS2559_GPIO1_PIN_REG, 0x01,/* enable BCLK */
 	DevA, TAS2559_GPIO2_PIN_REG, 0x01,/* enable WCLK */
@@ -678,62 +664,6 @@ void tas2559_clearIRQ(struct tas2559_priv *pTAS2559)
 		tas2559_dev_read(pTAS2559, DevB, TAS2560_FLAGS_2, &nValue);
 }
 
-void tas2559_enableIRQ(struct tas2559_priv *pTAS2559, enum channel chl, bool enable)
-{
-	static bool bDevAEnable;
-	static bool bDevBEnable;
-
-	if (enable) {
-		if (pTAS2559->mbIRQEnable)
-			return;
-
-		if (chl & DevA) {
-			if (gpio_is_valid(pTAS2559->mnDevAGPIOIRQ)) {
-				enable_irq(pTAS2559->mnDevAIRQ);
-				bDevAEnable = true;
-			}
-		}
-		if (chl & DevB) {
-			if (gpio_is_valid(pTAS2559->mnDevBGPIOIRQ)) {
-				if (pTAS2559->mnDevAGPIOIRQ == pTAS2559->mnDevBGPIOIRQ) {
-					if (!bDevAEnable) {
-						enable_irq(pTAS2559->mnDevBIRQ);
-						bDevBEnable = true;
-					} else
-						bDevBEnable = false;
-				} else {
-					enable_irq(pTAS2559->mnDevBIRQ);
-					bDevBEnable = true;
-				}
-			}
-		}
-
-		if (bDevAEnable || bDevBEnable) {
-			/* check after 10 ms */
-			if (gpio_is_valid(pTAS2559->mnDevAGPIOIRQ)
-				|| gpio_is_valid(pTAS2559->mnDevBGPIOIRQ))
-				schedule_delayed_work(&pTAS2559->irq_work, msecs_to_jiffies(10));
-		}
-		pTAS2559->mbIRQEnable = true;
-	} else {
-		if (gpio_is_valid(pTAS2559->mnDevAGPIOIRQ)) {
-			if (bDevAEnable) {
-				disable_irq_nosync(pTAS2559->mnDevAIRQ);
-				bDevAEnable = false;
-			}
-		}
-
-		if (gpio_is_valid(pTAS2559->mnDevBGPIOIRQ)) {
-			if (bDevBEnable) {
-				disable_irq_nosync(pTAS2559->mnDevBIRQ);
-				bDevBEnable = false;
-			}
-		}
-
-		pTAS2559->mbIRQEnable = false;
-	}
-}
-
 static void tas2559_hw_reset(struct tas2559_priv *pTAS2559)
 {
 	dev_dbg(pTAS2559->dev, "%s\n", __func__);
@@ -778,14 +708,6 @@ static int tas2559_runtime_suspend(struct tas2559_priv *pTAS2559)
 	if (work_pending(&pTAS2559->mtimerwork)) {
 		dev_dbg(pTAS2559->dev, "cancel timer work\n");
 		cancel_work_sync(&pTAS2559->mtimerwork);
-	}
-
-	if (gpio_is_valid(pTAS2559->mnDevAGPIOIRQ)
-		|| gpio_is_valid(pTAS2559->mnDevBGPIOIRQ)) {
-		if (delayed_work_pending(&pTAS2559->irq_work)) {
-			dev_dbg(pTAS2559->dev, "cancel IRQ work\n");
-			cancel_delayed_work_sync(&pTAS2559->irq_work);
-		}
 	}
 
 	return 0;
@@ -891,11 +813,6 @@ static int tas2559_DevShutdown(struct tas2559_priv *pTAS2559,
 		nResult = tas2559_dev_load_data(pTAS2559, dev, p_tas2559_shutdown_data);
 
 	return nResult;
-}
-
-int tas2559_configIRQ(struct tas2559_priv *pTAS2559, enum channel dev)
-{
-	return tas2559_dev_load_data(pTAS2559, dev, p_tas2559_irq_config);
 }
 
 int tas2559_SA_DevChnSetup(struct tas2559_priv *pTAS2559, unsigned int mode)
@@ -1449,30 +1366,14 @@ end:
 int tas2559_load_platdata(struct tas2559_priv *pTAS2559)
 {
 	int nResult = 0;
-	int nDev = 0;
 
 	dev_dbg(pTAS2559->dev, "%s\n", __func__);
 
-	if (gpio_is_valid(pTAS2559->mnDevAGPIOIRQ))
-		nDev |= DevA;
-
-	if (gpio_is_valid(pTAS2559->mnDevBGPIOIRQ))
-		nDev |= DevB;
-
-	if (nDev) {
-		nResult = tas2559_configIRQ(pTAS2559, nDev);
-
-		if (nResult < 0)
-			goto end;
-	}
-
 	nResult = tas2559_set_bit_rate(pTAS2559, pTAS2559->mnBitRate);
-
 	if (nResult < 0)
 		goto end;
 
 	nResult = tas2559_SA_ctl_echoRef(pTAS2559);
-
 	if (nResult < 0)
 		goto end;
 
@@ -2212,7 +2113,6 @@ static void failsafe(struct tas2559_priv *pTAS2559)
 		return;
 	}
 
-	tas2559_enableIRQ(pTAS2559, DevBoth, false);
 	tas2559_DevShutdown(pTAS2559, DevBoth);
 	pTAS2559->mbPowerUp = false;
 	tas2559_hw_reset(pTAS2559);
@@ -2336,9 +2236,6 @@ static int tas2559_load_coefficient(struct tas2559_priv *pTAS2559,
 		if (hrtimer_active(&pTAS2559->mtimer))
 			hrtimer_cancel(&pTAS2559->mtimer);
 
-		if (pProgram->mnAppMode == TAS2559_APP_TUNINGMODE)
-			tas2559_enableIRQ(pTAS2559, DevBoth, false);
-
 		nResult = tas2559_DevShutdown(pTAS2559, chl);
 
 		if (nResult < 0)
@@ -2446,9 +2343,6 @@ prog_coefficient:
 
 		if (nResult < 0)
 			goto end;
-
-		if (pProgram->mnAppMode == TAS2559_APP_TUNINGMODE) {
-			tas2559_enableIRQ(pTAS2559, pNewConfiguration->mnDevices, true);
 
 			if (!hrtimer_active(&pTAS2559->mtimer)) {
 				pTAS2559->mnDieTvReadCounter = 0;
@@ -2619,9 +2513,6 @@ int tas2559_set_program(struct tas2559_priv *pTAS2559,
 		if (hrtimer_active(&pTAS2559->mtimer))
 			hrtimer_cancel(&pTAS2559->mtimer);
 
-		if (pProgram->mnAppMode == TAS2559_APP_TUNINGMODE)
-			tas2559_enableIRQ(pTAS2559, DevBoth, false);
-
 		nResult = tas2559_DevShutdown(pTAS2559, DevBoth);
 
 		if (nResult < 0)
@@ -2686,9 +2577,6 @@ int tas2559_set_program(struct tas2559_priv *pTAS2559,
 		nResult = tas2559_DevMute(pTAS2559, pConfiguration->mnDevices, false);
 		if (nResult < 0)
 			goto end;
-
-		if (pProgram->mnAppMode == TAS2559_APP_TUNINGMODE) {
-			tas2559_enableIRQ(pTAS2559, pConfiguration->mnDevices, true);
 
 			if (!hrtimer_active(&pTAS2559->mtimer)) {
 				pTAS2559->mnDieTvReadCounter = 0;
@@ -3253,8 +3141,6 @@ int tas2559_enable(struct tas2559_priv *pTAS2559, bool bEnable)
 			}
 
 			if (pProgram->mnAppMode == TAS2559_APP_TUNINGMODE) {
-				/* turn on IRQ */
-				tas2559_enableIRQ(pTAS2559, pConfiguration->mnDevices, true);
 				if (!hrtimer_active(&pTAS2559->mtimer)) {
 					pTAS2559->mnDieTvReadCounter = 0;
 					hrtimer_start(&pTAS2559->mtimer,
@@ -3270,11 +3156,6 @@ int tas2559_enable(struct tas2559_priv *pTAS2559, bool bEnable)
 				hrtimer_cancel(&pTAS2559->mtimer);
 
 			pConfiguration = &(pTAS2559->mpFirmware->mpConfigurations[pTAS2559->mnCurrentConfiguration]);
-
-			if (pProgram->mnAppMode == TAS2559_APP_TUNINGMODE) {
-				/* turn off IRQ */
-				tas2559_enableIRQ(pTAS2559, DevBoth, false);
-			}
 
 			nResult = tas2559_DevShutdown(pTAS2559, pConfiguration->mnDevices);
 			if (nResult < 0)
@@ -3488,16 +3369,6 @@ int tas2559_parse_dt(struct device *dev, struct tas2559_priv *pTAS2559)
 	else
 		dev_dbg(pTAS2559->dev, "%s, tas2560 reset gpio %d\n", __func__, pTAS2559->mnDevBGPIORST);
 
-	pTAS2559->mnDevAGPIOIRQ = of_get_named_gpio(np, "ti,tas2559-irq-gpio", 0);
-	if (!gpio_is_valid(pTAS2559->mnDevAGPIOIRQ))
-		dev_err(pTAS2559->dev, "Looking up %s property in node %s failed %d\n",
-			"ti,tas2559-irq-gpio", np->full_name, pTAS2559->mnDevAGPIOIRQ);
-
-	pTAS2559->mnDevBGPIOIRQ = of_get_named_gpio(np, "ti,tas2560-irq-gpio", 0);
-	if (!gpio_is_valid(pTAS2559->mnDevBGPIOIRQ))
-		dev_err(pTAS2559->dev, "Looking up %s property in node %s failed %d\n",
-			"ti,tas2560-irq-gpio", np->full_name, pTAS2559->mnDevBGPIOIRQ);
-
 	rc = of_property_read_u32(np, "ti,tas2559-addr", &value);
 	if (rc) {
 		dev_err(pTAS2559->dev, "Looking up %s property in node %s failed %d\n",
@@ -3576,28 +3447,6 @@ end:
 
 // Codec related
 
-static unsigned int tas2559_codec_read(struct snd_soc_component *pCodec,
-				       unsigned int nRegister)
-{
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(pCodec);
-
-	mutex_lock(&pTAS2559->codec_lock);
-	dev_err(pTAS2559->dev, "%s, ERROR, shouldn't be here\n", __func__);
-	mutex_unlock(&pTAS2559->codec_lock);
-	return 0;
-}
-
-static int tas2559_codec_write(struct snd_soc_component *pCodec, unsigned int nRegister,
-			       unsigned int nValue)
-{
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(pCodec);
-
-	mutex_lock(&pTAS2559->codec_lock);
-	dev_err(pTAS2559->dev, "%s, ERROR, shouldn't be here\n", __func__);
-	mutex_unlock(&pTAS2559->codec_lock);
-	return 0;
-}
-
 static int tas2559_codec_suspend(struct snd_soc_component *pCodec)
 {
 	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(pCodec);
@@ -3647,29 +3496,6 @@ static const struct snd_soc_dapm_route tas2559_audio_map[] = {
 	{"DAC", NULL, "NDivider"},
 };
 
-static int tas2559_startup(struct snd_pcm_substream *substream,
-			   struct snd_soc_dai *dai)
-{
-	struct snd_soc_component *codec = dai->component;
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(codec);
-
-	mutex_lock(&pTAS2559->codec_lock);
-	dev_dbg(pTAS2559->dev, "%s\n", __func__);
-	mutex_unlock(&pTAS2559->codec_lock);
-	return 0;
-}
-
-static void tas2559_shutdown(struct snd_pcm_substream *substream,
-			     struct snd_soc_dai *dai)
-{
-	struct snd_soc_component *codec = dai->component;
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(codec);
-
-	mutex_lock(&pTAS2559->codec_lock);
-	dev_dbg(pTAS2559->dev, "%s\n", __func__);
-	mutex_unlock(&pTAS2559->codec_lock);
-}
-
 static int tas2559_mute(struct snd_soc_dai *dai, int mute, int direction)
 {
 	struct snd_soc_component *codec = dai->component;
@@ -3680,18 +3506,6 @@ static int tas2559_mute(struct snd_soc_dai *dai, int mute, int direction)
 	dev_dbg(pTAS2559->dev, "%s\n", __func__);
 	tas2559_enable(pTAS2559, !mute);
 
-	mutex_unlock(&pTAS2559->codec_lock);
-	return 0;
-}
-
-static int tas2559_set_dai_sysclk(struct snd_soc_dai *pDAI,
-				  int nClkID, unsigned int nFreqency, int nDir)
-{
-	struct snd_soc_component *pCodec = pDAI->component;
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(pCodec);
-
-	mutex_lock(&pTAS2559->codec_lock);
-	dev_dbg(pTAS2559->dev, "%s: freq = %u\n", __func__, nFreqency);
 	mutex_unlock(&pTAS2559->codec_lock);
 	return 0;
 }
@@ -3711,53 +3525,6 @@ static int tas2559_hw_params(struct snd_pcm_substream *pSubstream,
 
 	mutex_unlock(&pTAS2559->codec_lock);
 	return 0;
-}
-
-static int tas2559_set_dai_fmt(struct snd_soc_dai *pDAI, unsigned int nFormat)
-{
-	struct snd_soc_component *codec = pDAI->component;
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(codec);
-
-	mutex_lock(&pTAS2559->codec_lock);
-	dev_dbg(pTAS2559->dev, "%s\n", __func__);
-	mutex_unlock(&pTAS2559->codec_lock);
-	return 0;
-}
-
-static int tas2559_prepare(struct snd_pcm_substream *pSubstream,
-			   struct snd_soc_dai *pDAI)
-{
-	struct snd_soc_component *codec = pDAI->component;
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(codec);
-
-	mutex_lock(&pTAS2559->codec_lock);
-	dev_dbg(pTAS2559->dev, "%s\n", __func__);
-	mutex_unlock(&pTAS2559->codec_lock);
-	return 0;
-}
-
-static int tas2559_set_bias_level(struct snd_soc_component *pCodec,
-				  enum snd_soc_bias_level eLevel)
-{
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(pCodec);
-
-	mutex_lock(&pTAS2559->codec_lock);
-	dev_dbg(pTAS2559->dev, "%s: %d\n", __func__, eLevel);
-	mutex_unlock(&pTAS2559->codec_lock);
-	return 0;
-}
-
-static int tas2559_codec_probe(struct snd_soc_component *pCodec)
-{
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(pCodec);
-
-	dev_err(pTAS2559->dev, "%s\n", __func__);
-	return 0;
-}
-
-static void tas2559_codec_remove(struct snd_soc_component *pCodec)
-{
-	//Downstream kernel - Do Nothing? Why even bother adding a function?
 }
 
 static int tas2559_power_ctrl_get(struct snd_kcontrol *pKcontrol,
@@ -4392,13 +4159,8 @@ static const struct snd_kcontrol_new tas2559_snd_controls[] = {
 };
 
 static const struct snd_soc_component_driver soc_codec_driver_tas2559 = {
-	.probe = tas2559_codec_probe,
-	.remove = tas2559_codec_remove,
-	.read = tas2559_codec_read,
-	.write = tas2559_codec_write,
 	.suspend = tas2559_codec_suspend,
 	.resume = tas2559_codec_resume,
-	.set_bias_level = tas2559_set_bias_level,
 	.idle_bias_on = false,
 	.controls = tas2559_snd_controls,
 	.num_controls = ARRAY_SIZE(tas2559_snd_controls),
@@ -4409,13 +4171,8 @@ static const struct snd_soc_component_driver soc_codec_driver_tas2559 = {
 };
 
 static struct snd_soc_dai_ops tas2559_dai_ops = {
-	.startup = tas2559_startup,
-	.shutdown = tas2559_shutdown,
 	.mute_stream = tas2559_mute,
 	.hw_params = tas2559_hw_params,
-	.prepare = tas2559_prepare,
-	.set_sysclk = tas2559_set_dai_sysclk,
-	.set_fmt = tas2559_set_dai_fmt,
 };
 
 #define TAS2559_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |\
@@ -4480,267 +4237,6 @@ int tas2559_deregister_codec(struct tas2559_priv *pTAS2559)
 }
 
 //I2C Driver
-
-static void irq_work_routine(struct work_struct *work)
-{
-	struct tas2559_priv *pTAS2559 =
-		container_of(work, struct tas2559_priv, irq_work.work);
-	struct TConfiguration *pConfiguration;
-	unsigned int nDevLInt1Status = 0, nDevLInt2Status = 0;
-	unsigned int nDevRInt1Status = 0, nDevRInt2Status = 0;
-	int nCounter = 2;
-	int nResult = 0;
-
-	mutex_lock(&pTAS2559->codec_lock);
-
-	if (pTAS2559->mbRuntimeSuspend) {
-		dev_info(pTAS2559->dev, "%s, Runtime Suspended\n", __func__);
-		goto end;
-	}
-
-	if(pTAS2559->mnErrCode & ERROR_FAILSAFE)
-		goto program;
-
-	if (!pTAS2559->mbPowerUp) {
-		dev_info(pTAS2559->dev, "%s, device not powered\n", __func__);
-		goto end;
-	}
-
-	if ((!pTAS2559->mpFirmware->mnConfigurations)
-	    || (!pTAS2559->mpFirmware->mnPrograms)) {
-		dev_info(pTAS2559->dev, "%s, firmware not loaded\n", __func__);
-		goto end;
-	}
-
-	pConfiguration = &(pTAS2559->mpFirmware->mpConfigurations[pTAS2559->mnCurrentConfiguration]);
-
-	if (pConfiguration->mnDevices & DevA) {
-		nResult = tas2559_dev_read(pTAS2559, DevA, TAS2559_FLAGS_1, &nDevLInt1Status);
-
-		if (nResult >= 0)
-			nResult = tas2559_dev_read(pTAS2559, DevA, TAS2559_FLAGS_2, &nDevLInt2Status);
-		else
-			goto program;
-
-		if (((nDevLInt1Status & 0xfc) != 0) || ((nDevLInt2Status & 0x0c) != 0)) {
-			/* in case of INT_OC, INT_UV, INT_OT, INT_BO, INT_CL, INT_CLK1, INT_CLK2 */
-			dev_dbg(pTAS2559->dev, "IRQ critical Error DevA: 0x%x, 0x%x\n",
-				nDevLInt1Status, nDevLInt2Status);
-
-			if (nDevLInt1Status & 0x80) {
-				pTAS2559->mnErrCode |= ERROR_OVER_CURRENT;
-				dev_err(pTAS2559->dev, "DEVA SPK over current!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_OVER_CURRENT;
-
-			if (nDevLInt1Status & 0x40) {
-				pTAS2559->mnErrCode |= ERROR_UNDER_VOLTAGE;
-				dev_err(pTAS2559->dev, "DEVA SPK under voltage!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_UNDER_VOLTAGE;
-
-			if (nDevLInt1Status & 0x20) {
-				pTAS2559->mnErrCode |= ERROR_CLK_HALT;
-				dev_err(pTAS2559->dev, "DEVA clk halted!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_CLK_HALT;
-
-			if (nDevLInt1Status & 0x10) {
-				pTAS2559->mnErrCode |= ERROR_DIE_OVERTEMP;
-				dev_err(pTAS2559->dev, "DEVA die over temperature!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_DIE_OVERTEMP;
-
-			if (nDevLInt1Status & 0x08) {
-				pTAS2559->mnErrCode |= ERROR_BROWNOUT;
-				dev_err(pTAS2559->dev, "DEVA brownout!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_BROWNOUT;
-
-			if (nDevLInt1Status & 0x04) {
-				pTAS2559->mnErrCode |= ERROR_CLK_LOST;
-				dev_err(pTAS2559->dev, "DEVA clock lost!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_CLK_LOST;
-
-			if (nDevLInt2Status & 0x08) {
-				pTAS2559->mnErrCode |= ERROR_CLK_DET1;
-				dev_err(pTAS2559->dev, "DEVA clk detection 1!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_CLK_DET1;
-
-			if (nDevLInt2Status & 0x04) {
-				pTAS2559->mnErrCode |= ERROR_CLK_DET2;
-				dev_err(pTAS2559->dev, "DEVA clk detection 2!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_CLK_DET2;
-
-			goto program;
-		} else {
-			dev_dbg(pTAS2559->dev, "IRQ status DevA: 0x%x, 0x%x\n",
-				nDevLInt1Status, nDevLInt2Status);
-			nCounter = 2;
-
-			while (nCounter > 0) {
-				nResult = tas2559_dev_read(pTAS2559, DevA, TAS2559_POWER_UP_FLAG_REG, &nDevLInt1Status);
-
-				if (nResult < 0)
-					goto program;
-
-				if ((nDevLInt1Status & 0xc0) == 0xc0)
-					break;
-
-				nCounter--;
-
-				if (nCounter > 0) {
-					/* in case check pow status just after power on TAS2559 */
-					dev_dbg(pTAS2559->dev, "PowSts A: 0x%x, check again after 10ms\n",
-						nDevLInt1Status);
-					msleep(10);
-				}
-			}
-
-			if ((nDevLInt1Status & 0xc0) != 0xc0) {
-				dev_err(pTAS2559->dev, "%s, Critical DevA ERROR B[%d]_P[%d]_R[%d]= 0x%x\n",
-					__func__,
-					TAS2559_BOOK_ID(TAS2559_POWER_UP_FLAG_REG),
-					TAS2559_PAGE_ID(TAS2559_POWER_UP_FLAG_REG),
-					TAS2559_PAGE_REG(TAS2559_POWER_UP_FLAG_REG),
-					nDevLInt1Status);
-				pTAS2559->mnErrCode |= ERROR_CLASSD_PWR;
-				goto program;
-			}
-
-			pTAS2559->mnErrCode &= ~ERROR_CLASSD_PWR;
-		}
-	}
-
-	if (pConfiguration->mnDevices & DevB) {
-		nResult = tas2559_dev_read(pTAS2559, DevB, TAS2560_FLAGS_1, &nDevRInt1Status);
-
-		if (nResult >= 0)
-			nResult = tas2559_dev_read(pTAS2559, DevB, TAS2560_FLAGS_2, &nDevRInt2Status);
-		else
-			goto program;
-
-		if (((nDevRInt1Status & 0xfc) != 0) || ((nDevRInt2Status & 0xc0) != 0)) {
-			/* in case of INT_OC, INT_UV, INT_OT, INT_BO, INT_CL, INT_CLK1, INT_CLK2 */
-			dev_dbg(pTAS2559->dev, "IRQ critical Error DevB: 0x%x, 0x%x\n",
-				nDevRInt1Status, nDevRInt2Status);
-
-			if (nDevRInt1Status & 0x80) {
-				pTAS2559->mnErrCode |= ERROR_OVER_CURRENT;
-				dev_err(pTAS2559->dev, "DEVB SPK over current!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_OVER_CURRENT;
-
-			if (nDevRInt1Status & 0x40) {
-				pTAS2559->mnErrCode |= ERROR_UNDER_VOLTAGE;
-				dev_err(pTAS2559->dev, "DEVB SPK under voltage!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_UNDER_VOLTAGE;
-
-			if (nDevRInt1Status & 0x20) {
-				pTAS2559->mnErrCode |= ERROR_CLK_HALT;
-				dev_err(pTAS2559->dev, "DEVB clk halted!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_CLK_HALT;
-
-			if (nDevRInt1Status & 0x10) {
-				pTAS2559->mnErrCode |= ERROR_DIE_OVERTEMP;
-				dev_err(pTAS2559->dev, "DEVB die over temperature!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_DIE_OVERTEMP;
-
-			if (nDevRInt1Status & 0x08) {
-				pTAS2559->mnErrCode |= ERROR_BROWNOUT;
-				dev_err(pTAS2559->dev, "DEVB brownout!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_BROWNOUT;
-
-			if (nDevRInt1Status & 0x04) {
-				pTAS2559->mnErrCode |= ERROR_CLK_LOST;
-				dev_err(pTAS2559->dev, "DEVB clock lost!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_CLK_LOST;
-
-			if (nDevRInt2Status & 0x80) {
-				pTAS2559->mnErrCode |= ERROR_CLK_DET1;
-				dev_err(pTAS2559->dev, "DEVB clk detection 1!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_CLK_DET1;
-
-			if (nDevRInt2Status & 0x40) {
-				pTAS2559->mnErrCode |= ERROR_CLK_DET2;
-				dev_err(pTAS2559->dev, "DEVB clk detection 2!\n");
-			} else
-				pTAS2559->mnErrCode &= ~ERROR_CLK_DET2;
-
-			goto program;
-		} else {
-			dev_dbg(pTAS2559->dev, "IRQ status DevB: 0x%x, 0x%x\n",
-				nDevRInt1Status, nDevRInt2Status);
-			nCounter = 2;
-
-			while (nCounter > 0) {
-				nResult = tas2559_dev_read(pTAS2559, DevB, TAS2560_POWER_UP_FLAG_REG, &nDevRInt1Status);
-
-				if (nResult < 0)
-					goto program;
-
-				if ((nDevRInt1Status & 0xc0) == 0xc0)
-					break;
-
-				nCounter--;
-
-				if (nCounter > 0) {
-					/* in case check pow status just after power on TAS2560 */
-					dev_dbg(pTAS2559->dev, "PowSts B: 0x%x, check again after 10ms\n",
-						nDevRInt1Status);
-					msleep(10);
-				}
-			}
-
-			if ((nDevRInt1Status & 0xc0) != 0xc0) {
-				dev_err(pTAS2559->dev, "%s, Critical DevB ERROR B[%d]_P[%d]_R[%d]= 0x%x\n",
-					__func__,
-					TAS2559_BOOK_ID(TAS2560_POWER_UP_FLAG_REG),
-					TAS2559_PAGE_ID(TAS2560_POWER_UP_FLAG_REG),
-					TAS2559_PAGE_REG(TAS2560_POWER_UP_FLAG_REG),
-					nDevRInt1Status);
-				pTAS2559->mnErrCode |= ERROR_CLASSD_PWR;
-				goto program;
-			}
-
-			pTAS2559->mnErrCode &= ~ERROR_CLASSD_PWR;
-		}
-	}
-
-	goto end;
-
-program:
-	/* hardware reset and reload */
-	tas2559_set_program(pTAS2559, pTAS2559->mnCurrentProgram, pTAS2559->mnCurrentConfiguration);
-
-end:
-	mutex_unlock(&pTAS2559->codec_lock);
-}
-
-static irqreturn_t tas2559_irq_handler(int irq, void *dev_id)
-{
-	struct tas2559_priv *pTAS2559 = (struct tas2559_priv *)dev_id;
-
-	tas2559_enableIRQ(pTAS2559, DevBoth, false);
-
-	/* get IRQ status after 100 ms */
-	if (gpio_is_valid(pTAS2559->mnDevAGPIOIRQ)
-		|| gpio_is_valid(pTAS2559->mnDevBGPIOIRQ)) {
-		if (!delayed_work_pending(&pTAS2559->irq_work))
-			schedule_delayed_work(&pTAS2559->irq_work, msecs_to_jiffies(100));
-	}
-
-	return IRQ_HANDLED;
-}
 
 static void timer_work_routine(struct work_struct *work)
 {
@@ -4828,12 +4324,6 @@ static enum hrtimer_restart temperature_timer_func(struct hrtimer *timer)
 
 	if (pTAS2559->mbPowerUp) {
 		schedule_work(&pTAS2559->mtimerwork);
-
-		if (gpio_is_valid(pTAS2559->mnDevAGPIOIRQ)
-			|| gpio_is_valid(pTAS2559->mnDevBGPIOIRQ)) {
-			if (!delayed_work_pending(&pTAS2559->irq_work))
-				schedule_delayed_work(&pTAS2559->irq_work, msecs_to_jiffies(20));
-		}
 	}
 
 	return HRTIMER_NORESTART;
@@ -4941,66 +4431,6 @@ static int tas2559_i2c_probe(struct i2c_client *pClient,
 	nResult = tas2559_dev_read(pTAS2559, DevB, TAS2560_ID_REG, &nValue);
 	pTAS2559->mnDevBPGID = nValue;
 	dev_info(pTAS2559->dev, "TAS2560 PGID=0x%02x\n", nValue);
-
-	if (gpio_is_valid(pTAS2559->mnDevAGPIOIRQ)) {
-		nResult = gpio_request(pTAS2559->mnDevAGPIOIRQ, "TAS2559-IRQ");
-
-		if (nResult < 0) {
-			dev_err(pTAS2559->dev,
-				"%s: GPIO %d request INT error\n",
-				__func__, pTAS2559->mnDevAGPIOIRQ);
-			goto err;
-		}
-
-		gpio_direction_input(pTAS2559->mnDevAGPIOIRQ);
-		pTAS2559->mnDevAIRQ = gpio_to_irq(pTAS2559->mnDevAGPIOIRQ);
-		dev_dbg(pTAS2559->dev, "irq = %d\n", pTAS2559->mnDevAIRQ);
-		nResult = request_threaded_irq(pTAS2559->mnDevAIRQ, tas2559_irq_handler,
-					       NULL, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-					       pClient->name, pTAS2559);
-
-		if (nResult < 0) {
-			dev_err(pTAS2559->dev,
-				"request_irq failed, %d\n", nResult);
-			goto err;
-		}
-
-		disable_irq_nosync(pTAS2559->mnDevAIRQ);
-	}
-
-	if (gpio_is_valid(pTAS2559->mnDevBGPIOIRQ)) {
-		if (pTAS2559->mnDevAGPIOIRQ != pTAS2559->mnDevBGPIOIRQ) {
-			nResult = gpio_request(pTAS2559->mnDevBGPIOIRQ, "TAS2560-IRQ");
-
-			if (nResult < 0) {
-				dev_err(pTAS2559->dev,
-					"%s: GPIO %d request INT error\n",
-					__func__, pTAS2559->mnDevBGPIOIRQ);
-				goto err;
-			}
-
-			gpio_direction_input(pTAS2559->mnDevBGPIOIRQ);
-			pTAS2559->mnDevBIRQ = gpio_to_irq(pTAS2559->mnDevBGPIOIRQ);
-			dev_dbg(pTAS2559->dev, "irq = %d\n", pTAS2559->mnDevBIRQ);
-			nResult = request_threaded_irq(pTAS2559->mnDevBIRQ, tas2559_irq_handler,
-						       NULL, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-						       pClient->name, pTAS2559);
-
-			if (nResult < 0) {
-				dev_err(pTAS2559->dev,
-					"request_irq failed, %d\n", nResult);
-				goto err;
-			}
-
-			disable_irq_nosync(pTAS2559->mnDevBIRQ);
-		} else
-			pTAS2559->mnDevBIRQ = pTAS2559->mnDevAIRQ;
-	}
-
-	if (gpio_is_valid(pTAS2559->mnDevAGPIOIRQ)
-	    || gpio_is_valid(pTAS2559->mnDevBGPIOIRQ)) {
-		INIT_DELAYED_WORK(&pTAS2559->irq_work, irq_work_routine);
-	}
 
 	pTAS2559->mpFirmware = devm_kzalloc(&pClient->dev, sizeof(struct TFirmware), GFP_KERNEL);
 
