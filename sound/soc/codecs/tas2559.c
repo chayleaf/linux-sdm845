@@ -151,17 +151,13 @@ struct tas2559_priv {
 	unsigned int mnBitRate;
 	bool mbPowerUp;
 	bool mbLoadConfigurationPrePowerUp;
-	struct delayed_work irq_work;
 	unsigned int mnEchoRef;
 	bool mbYCRCEnable;
-	bool mbIRQEnable;
 	bool mbCalibrationLoaded;
 
 	/* parameters for TAS2559 */
 	int mnDevAPGID;
 	int mnDevAGPIORST;
-	int mnDevAGPIOIRQ;
-	int mnDevAIRQ;
 	unsigned char mnDevAAddr;
 	unsigned char mnDevAChl;
 	unsigned char mnDevACurrentBook;
@@ -170,8 +166,6 @@ struct tas2559_priv {
 	/* parameters for TAS2560 */
 	int mnDevBPGID;
 	int mnDevBGPIORST;
-	int mnDevBGPIOIRQ;
-	int mnDevBIRQ;
 	unsigned char mnDevBAddr;
 	unsigned char mnDevBChl;
 	unsigned char mnDevBLoad;
@@ -646,22 +640,6 @@ static int tas2559_dev_update_bits(
 
 	mutex_unlock(&pTAS2559->dev_lock);
 	return nResult;
-}
-
-void tas2559_clearIRQ(struct tas2559_priv *pTAS2559)
-{
-	unsigned int nValue;
-	int nResult = 0;
-
-	nResult = tas2559_dev_read(pTAS2559, DevA, TAS2559_FLAGS_1, &nValue);
-
-	if (nResult >= 0)
-		tas2559_dev_read(pTAS2559, DevA, TAS2559_FLAGS_2, &nValue);
-
-	nResult = tas2559_dev_read(pTAS2559, DevB, TAS2560_FLAGS_1, &nValue);
-
-	if (nResult >= 0)
-		tas2559_dev_read(pTAS2559, DevB, TAS2560_FLAGS_2, &nValue);
 }
 
 static void tas2559_hw_reset(struct tas2559_priv *pTAS2559)
@@ -2104,15 +2082,6 @@ static void failsafe(struct tas2559_priv *pTAS2559)
 	if (hrtimer_active(&pTAS2559->mtimer))
 		hrtimer_cancel(&pTAS2559->mtimer);
 
-	if(pTAS2559->mnRestart < RESTART_MAX)
-	{
-		pTAS2559->mnRestart ++;
-		msleep(100);
-		dev_err(pTAS2559->dev, "I2C COMM error, restart SmartAmp.\n");
-		schedule_delayed_work(&pTAS2559->irq_work, msecs_to_jiffies(100));
-		return;
-	}
-
 	tas2559_DevShutdown(pTAS2559, DevBoth);
 	pTAS2559->mbPowerUp = false;
 	tas2559_hw_reset(pTAS2559);
@@ -2314,7 +2283,6 @@ prog_coefficient:
 		if (nResult < 0)
 			goto end;
 
-		tas2559_clearIRQ(pTAS2559);
 		nResult = tas2559_DevStartup(pTAS2559, pNewConfiguration->mnDevices);
 		if (nResult < 0)
 			goto end;
@@ -2552,7 +2520,6 @@ int tas2559_set_program(struct tas2559_priv *pTAS2559,
 		if (nResult < 0)
 			goto end;
 
-		tas2559_clearIRQ(pTAS2559);
 		pConfiguration = &(pTAS2559->mpFirmware->mpConfigurations[pTAS2559->mnCurrentConfiguration]);
 		nResult = tas2559_DevStartup(pTAS2559, pConfiguration->mnDevices);
 		if (nResult < 0)
@@ -3104,7 +3071,6 @@ int tas2559_enable(struct tas2559_priv *pTAS2559, bool bEnable)
 			tas2559_dev_read(pTAS2559, DevA, TAS2559_VBOOST_CTL_REG, &nValue);
 			dev_dbg(pTAS2559->dev, "VBoost ctrl register after set VBoost: 0x%x\n", nValue);
 
-			tas2559_clearIRQ(pTAS2559);
 			pConfiguration = &(pTAS2559->mpFirmware->mpConfigurations[pTAS2559->mnCurrentConfiguration]);
 			nResult = tas2559_DevStartup(pTAS2559, pConfiguration->mnDevices);
 			if (nResult < 0)
