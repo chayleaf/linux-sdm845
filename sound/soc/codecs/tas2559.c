@@ -141,7 +141,6 @@ struct tas2559_priv {
 	struct i2c_client *client;
 	struct mutex dev_lock;
 	struct TFirmware *mpFirmware;
-	struct TFirmware *mpCalFirmware;
 	unsigned int mnCurrentProgram;
 	unsigned int mnCurrentSampleRate;
 	unsigned int mnCurrentConfiguration;
@@ -2014,49 +2013,7 @@ int tas2559_checkPLL(struct tas2559_priv *pTAS2559)
 	return nResult;
 }
 
-int tas2559_set_calibration(struct tas2559_priv *pTAS2559, int nCalibration)
-{
-	struct TCalibration *pCalibration = NULL;
-	struct TConfiguration *pConfiguration;
-	struct TProgram *pProgram;
-	int nResult = 0;
 
-	if ((!pTAS2559->mpFirmware->mpPrograms)
-	    || (!pTAS2559->mpFirmware->mpConfigurations)) {
-		dev_err(pTAS2559->dev, "Firmware not loaded\n\r");
-		nResult = 0;
-		goto end;
-	}
-
-	if (nCalibration >= pTAS2559->mpCalFirmware->mnCalibrations) {
-		dev_err(pTAS2559->dev,
-			"Calibration %d doesn't exist\n", nCalibration);
-		nResult = 0;
-		goto end;
-	}
-
-	pTAS2559->mnCurrentCalibration = nCalibration;
-
-	if (pTAS2559->mbLoadConfigurationPrePowerUp)
-		goto end;
-
-	pCalibration = &(pTAS2559->mpCalFirmware->mpCalibrations[nCalibration]);
-	pProgram = &(pTAS2559->mpFirmware->mpPrograms[pTAS2559->mnCurrentProgram]);
-	pConfiguration = &(pTAS2559->mpFirmware->mpConfigurations[pTAS2559->mnCurrentConfiguration]);
-
-	if (pProgram->mnAppMode == TAS2559_APP_TUNINGMODE) {
-		dev_dbg(pTAS2559->dev, "Enable: load calibration\n");
-		nResult = tas2559_load_data(pTAS2559, &(pCalibration->mData), TAS2559_BLOCK_CFG_COEFF_DEV_A);
-	}
-
-end:
-
-	if (nResult < 0) {
-		tas2559_clear_firmware(pTAS2559->mpCalFirmware);
-	}
-
-	return nResult;
-}
 
 /*
 * tas2559_load_coefficient
@@ -2174,12 +2131,6 @@ prog_coefficient:
 			goto end;
 	} else {
 		nResult = tas2559_SA_DevChnSetup(pTAS2559, pTAS2559->mnChannelState);
-		if (nResult < 0)
-			goto end;
-	}
-
-	if (pTAS2559->mpCalFirmware->mnCalibrations) {
-		nResult = tas2559_set_calibration(pTAS2559, pTAS2559->mnCurrentCalibration);
 		if (nResult < 0)
 			goto end;
 	}
@@ -2927,10 +2878,6 @@ int tas2559_enable(struct tas2559_priv *pTAS2559, bool bEnable)
 	pProgram = &(pTAS2559->mpFirmware->mpPrograms[pTAS2559->mnCurrentProgram]);
 	if (bEnable) {
 		if (!pTAS2559->mbPowerUp) {
-			if (!pTAS2559->mbCalibrationLoaded) {
-				tas2559_set_calibration(pTAS2559, 0xFF);
-				pTAS2559->mbCalibrationLoaded = true;
-			}
 
 			tas2559_dev_read(pTAS2559, DevA, TAS2559_VBOOST_CTL_REG, &nValue);
 			dev_dbg(pTAS2559->dev, "VBoost ctrl register before coeff set: 0x%x\n", nValue);
@@ -3102,85 +3049,6 @@ int tas2559_set_config(struct tas2559_priv *pTAS2559, int config)
 	nResult = tas2559_load_configuration(pTAS2559, nConfiguration, false);
 
 end:
-
-	return nResult;
-}
-
-int tas2559_get_Cali_prm_r0(struct tas2559_priv *pTAS2559, enum channel chl, int *prm_r0)
-{
-	int nResult = 0;
-	int n, nn;
-	struct TCalibration *pCalibration;
-	struct TData *pData;
-	struct TBlock *pBlock;
-	int nReg;
-	int nBook, nPage, nOffset;
-	unsigned char *pCommands;
-	int nCali_Re;
-	bool bFound = false;
-	int len;
-
-	if (!pTAS2559->mpCalFirmware->mnCalibrations) {
-		dev_err(pTAS2559->dev, "%s, no calibration data\n", __func__);
-		goto end;
-	}
-
-	if (chl == DevA)
-		nReg = TAS2559_DEVA_CALI_R0_REG;
-	else if (chl == DevB)
-		nReg = TAS2559_DEVB_CALI_R0_REG;
-	else
-		goto end;
-
-	pCalibration = &(pTAS2559->mpCalFirmware->mpCalibrations[pTAS2559->mnCurrentCalibration]);
-	pData = &(pCalibration->mData);
-
-	for (n = 0; n < pData->mnBlocks; n++) {
-		pBlock = &(pData->mpBlocks[n]);
-		pCommands = pBlock->mpData;
-
-		for (nn = 0 ; nn < pBlock->mnCommands;) {
-			nBook = pCommands[4 * nn + 0];
-			nPage = pCommands[4 * nn + 1];
-			nOffset = pCommands[4 * nn + 2];
-
-			if ((nOffset < 0x7f) || (nOffset == 0x81))
-				nn++;
-			else
-				if (nOffset == 0x85) {
-					len = ((int)nBook << 8) | nPage;
-
-					nBook = pCommands[4 * nn + 4];
-					nPage = pCommands[4 * nn + 5];
-					nOffset = pCommands[4 * nn + 6];
-
-					if ((nBook == TAS2559_BOOK_ID(nReg))
-					    && (nPage == TAS2559_PAGE_ID(nReg))
-					    && (nOffset == TAS2559_PAGE_REG(nReg))) {
-						nCali_Re = ((int)pCommands[4 * nn + 7] << 24)
-							   | ((int)pCommands[4 * nn + 8] << 16)
-							   | ((int)pCommands[4 * nn + 9] << 8)
-							   | (int)pCommands[4 * nn + 10];
-						bFound = true;
-						goto end;
-					}
-
-					nn += 2;
-					nn += ((len - 1) / 4);
-
-					if ((len - 1) % 4)
-						nn++;
-				} else {
-					dev_err(pTAS2559->dev, "%s, format error %d\n", __func__, nOffset);
-					break;
-				}
-		}
-	}
-
-end:
-
-	if (bFound)
-		*prm_r0 = nCali_Re;
 
 	return nResult;
 }
@@ -3403,42 +3271,6 @@ static int tas2559_fs_put(struct snd_kcontrol *pKcontrol,
 	return ret;
 }
 
-static int tas2559_DevA_Cali_get(struct snd_kcontrol *pKcontrol,
-				 struct snd_ctl_elem_value *pValue)
-{
-    struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(codec);
-	int ret = 0;
-	int prm_r0 = 0;
-
-	mutex_lock(&pTAS2559->codec_lock);
-
-	ret = tas2559_get_Cali_prm_r0(pTAS2559, DevA, &prm_r0);
-	pValue->value.integer.value[0] = prm_r0;
-	dev_dbg(pTAS2559->dev, "%s = 0x%x\n", __func__, prm_r0);
-
-	mutex_unlock(&pTAS2559->codec_lock);
-	return ret;
-}
-
-static int tas2559_DevB_Cali_get(struct snd_kcontrol *pKcontrol,
-				 struct snd_ctl_elem_value *pValue)
-{
-    struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(codec);
-	int ret = 0;
-	int prm_r0 = 0;
-
-	mutex_lock(&pTAS2559->codec_lock);
-
-	ret = tas2559_get_Cali_prm_r0(pTAS2559, DevB, &prm_r0);
-	pValue->value.integer.value[0] = prm_r0;
-	dev_dbg(pTAS2559->dev, "%s = 0x%x\n", __func__, prm_r0);
-
-	mutex_unlock(&pTAS2559->codec_lock);
-	return ret;
-}
-
 static int tas2559_program_get(struct snd_kcontrol *pKcontrol,
 			       struct snd_ctl_elem_value *pValue)
 {
@@ -3502,38 +3334,6 @@ static int tas2559_configuration_put(struct snd_kcontrol *pKcontrol,
 
 	dev_info(pTAS2559->dev, "%s = %d\n", __func__, nConfiguration);
 	ret = tas2559_set_config(pTAS2559, nConfiguration);
-
-	mutex_unlock(&pTAS2559->codec_lock);
-	return ret;
-}
-
-static int tas2559_calibration_get(struct snd_kcontrol *pKcontrol,
-				   struct snd_ctl_elem_value *pValue)
-{
-    struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(codec);
-
-	mutex_lock(&pTAS2559->codec_lock);
-
-	pValue->value.integer.value[0] = pTAS2559->mnCurrentCalibration;
-	dev_info(pTAS2559->dev, "%s = %d\n", __func__,
-		 pTAS2559->mnCurrentCalibration);
-
-	mutex_unlock(&pTAS2559->codec_lock);
-	return 0;
-}
-
-static int tas2559_calibration_put(struct snd_kcontrol *pKcontrol,
-				   struct snd_ctl_elem_value *pValue)
-{
-    struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(codec);
-	unsigned int nCalibration = pValue->value.integer.value[0];
-	int ret = 0;
-
-	mutex_lock(&pTAS2559->codec_lock);
-
-	ret = tas2559_set_calibration(pTAS2559, nCalibration);
 
 	mutex_unlock(&pTAS2559->codec_lock);
 	return ret;
@@ -3943,12 +3743,6 @@ static const struct snd_kcontrol_new tas2559_snd_controls[] = {
 		tas2559_configuration_get, tas2559_configuration_put),
 	SOC_SINGLE_EXT("FS", SND_SOC_NOPM, 8000, 48000, 0,
 		tas2559_fs_get, tas2559_fs_put),
-	SOC_SINGLE_EXT("Get DevA Cali_Re", SND_SOC_NOPM, 0, 0x7f000000, 0,
-		tas2559_DevA_Cali_get, NULL),
-	SOC_SINGLE_EXT("Get DevB Cali_Re", SND_SOC_NOPM, 0, 0x7f000000, 0,
-		tas2559_DevB_Cali_get, NULL),
-	SOC_SINGLE_EXT("Calibration", SND_SOC_NOPM, 0, 0x00FF, 0,
-		tas2559_calibration_get, tas2559_calibration_put),
 	SOC_ENUM_EXT("Stereo DSPChl Setup", chl_setup_enum[0],
 		tas2559_dsp_chl_setup_get, tas2559_dsp_chl_setup_put),
 	SOC_ENUM_EXT("VBoost Ctrl", vboost_ctl_enum[0],
@@ -4149,14 +3943,6 @@ static int tas2559_i2c_probe(struct i2c_client *pClient,
 
 	if (!pTAS2559->mpFirmware) {
 		dev_err(&pClient->dev, "mpFirmware ENOMEM\n");
-		nResult = -ENOMEM;
-		goto err;
-	}
-
-	pTAS2559->mpCalFirmware = devm_kzalloc(&pClient->dev, sizeof(struct TFirmware), GFP_KERNEL);
-
-	if (!pTAS2559->mpCalFirmware) {
-		dev_err(&pClient->dev, "mpCalFirmware ENOMEM\n");
 		nResult = -ENOMEM;
 		goto err;
 	}
