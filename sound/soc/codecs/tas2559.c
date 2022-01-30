@@ -182,14 +182,9 @@ struct tas2559_priv {
 	unsigned int mnDevGain;
 	unsigned int mnDevCurrentGain;
 	unsigned int mnDieTvReadCounter;
-	struct hrtimer mtimer;
-	struct work_struct mtimerwork;
 
 	unsigned int mnChannelState;
 	unsigned char mnDefaultChlData[16];
-
-	/* device is working, but system is suspended */
-	bool mbRuntimeSuspend;
 
 	unsigned int mnErrCode;
 
@@ -673,55 +668,6 @@ static void tas2559_hw_reset(struct tas2559_priv *pTAS2559)
 	pTAS2559->mnErrCode = 0;
 }
 
-static int tas2559_runtime_suspend(struct tas2559_priv *pTAS2559)
-{
-	dev_dbg(pTAS2559->dev, "%s\n", __func__);
-
-	pTAS2559->mbRuntimeSuspend = true;
-
-	if (hrtimer_active(&pTAS2559->mtimer)) {
-		dev_dbg(pTAS2559->dev, "cancel die temp timer\n");
-		hrtimer_cancel(&pTAS2559->mtimer);
-	}
-	if (work_pending(&pTAS2559->mtimerwork)) {
-		dev_dbg(pTAS2559->dev, "cancel timer work\n");
-		cancel_work_sync(&pTAS2559->mtimerwork);
-	}
-
-	return 0;
-}
-
-static int tas2559_runtime_resume(struct tas2559_priv *pTAS2559)
-{
-	struct TProgram *pProgram;
-
-	dev_dbg(pTAS2559->dev, "%s\n", __func__);
-	if (!pTAS2559->mpFirmware->mpPrograms) {
-		dev_dbg(pTAS2559->dev, "%s, firmware not loaded\n", __func__);
-		goto end;
-	}
-
-	if (pTAS2559->mnCurrentProgram >= pTAS2559->mpFirmware->mnPrograms) {
-		dev_err(pTAS2559->dev, "%s, firmware corrupted\n", __func__);
-		goto end;
-	}
-
-	pProgram = &(pTAS2559->mpFirmware->mpPrograms[pTAS2559->mnCurrentProgram]);
-	if (pTAS2559->mbPowerUp && (pProgram->mnAppMode == TAS2559_APP_TUNINGMODE)) {
-		if (!hrtimer_active(&pTAS2559->mtimer)) {
-			dev_dbg(pTAS2559->dev, "%s, start Die Temp check timer\n", __func__);
-			pTAS2559->mnDieTvReadCounter = 0;
-			hrtimer_start(&pTAS2559->mtimer,
-				ns_to_ktime((u64)LOW_TEMPERATURE_CHECK_PERIOD * NSEC_PER_MSEC), HRTIMER_MODE_REL);
-		}
-	}
-
-	pTAS2559->mbRuntimeSuspend = false;
-end:
-
-	return 0;
-}
-
 static int tas2559_dev_load_data(struct tas2559_priv *pTAS2559,
 				 enum channel dev, unsigned int *pData)
 {
@@ -1018,39 +964,6 @@ int tas2559_DevMuteStatus(struct tas2559_priv *pTAS2559, enum channel dev, bool 
 	*pMute = ((nMute & 0x01) == 0x00);
 
 end:
-	return nResult;
-}
-
-/*
-* die temperature calculation:
-* DieTemp = readout / 2^23
-*/
-int tas2559_get_die_temperature(struct tas2559_priv *pTAS2559, int *pTemperature)
-{
-	int nResult = 0;
-	unsigned char nBuf[4];
-	int temp;
-
-	if (!pTAS2559->mpFirmware->mnConfigurations) {
-		dev_err(pTAS2559->dev, "%s, firmware not loaded\n", __func__);
-		goto end;
-	}
-
-	if (!pTAS2559->mbPowerUp) {
-		dev_err(pTAS2559->dev, "%s, device not powered on\n", __func__);
-		goto end;
-	}
-
-	/* TAS2559 should always be enabled */
-	nResult = tas2559_dev_bulk_read(pTAS2559, DevA, TAS2559_DIE_TEMP_REG, nBuf, 4);
-
-	if (nResult >= 0) {
-		temp = ((int)nBuf[0] << 24) | ((int)nBuf[1] << 16) | ((int)nBuf[2] << 8) | nBuf[3];
-		*pTemperature = temp;
-	}
-
-end:
-
 	return nResult;
 }
 
@@ -2079,9 +1992,6 @@ static void failsafe(struct tas2559_priv *pTAS2559)
 	dev_err(pTAS2559->dev, "%s\n", __func__);
 	pTAS2559->mnErrCode |= ERROR_FAILSAFE;
 
-	if (hrtimer_active(&pTAS2559->mtimer))
-		hrtimer_cancel(&pTAS2559->mtimer);
-
 	tas2559_DevShutdown(pTAS2559, DevBoth);
 	pTAS2559->mbPowerUp = false;
 	tas2559_hw_reset(pTAS2559);
@@ -2202,8 +2112,6 @@ static int tas2559_load_coefficient(struct tas2559_priv *pTAS2559,
 	pProgram = &(pTAS2559->mpFirmware->mpPrograms[pTAS2559->mnCurrentProgram]);
 
 	if (bPowerOn) {
-		if (hrtimer_active(&pTAS2559->mtimer))
-			hrtimer_cancel(&pTAS2559->mtimer);
 
 		nResult = tas2559_DevShutdown(pTAS2559, chl);
 
@@ -2308,16 +2216,8 @@ prog_coefficient:
 		dev_dbg(pTAS2559->dev,
 			"device powered up, load unmute\n");
 		nResult = tas2559_DevMute(pTAS2559, pNewConfiguration->mnDevices, false);
-
 		if (nResult < 0)
 			goto end;
-
-		if (!hrtimer_active(&pTAS2559->mtimer)) {
-			pTAS2559->mnDieTvReadCounter = 0;
-			hrtimer_start(&pTAS2559->mtimer,
-						ns_to_ktime((u64)LOW_TEMPERATURE_CHECK_PERIOD * NSEC_PER_MSEC), HRTIMER_MODE_REL);
-		}
-		
 	}
 
 end:
@@ -2478,9 +2378,6 @@ int tas2559_set_program(struct tas2559_priv *pTAS2559,
 			 "device powered up, power down to load program %d (%s)\n",
 			 nProgram, pProgram->mpName);
 
-		if (hrtimer_active(&pTAS2559->mtimer))
-			hrtimer_cancel(&pTAS2559->mtimer);
-
 		nResult = tas2559_DevShutdown(pTAS2559, DevBoth);
 
 		if (nResult < 0)
@@ -2544,12 +2441,6 @@ int tas2559_set_program(struct tas2559_priv *pTAS2559,
 		nResult = tas2559_DevMute(pTAS2559, pConfiguration->mnDevices, false);
 		if (nResult < 0)
 			goto end;
-
-		if (!hrtimer_active(&pTAS2559->mtimer)) {
-			pTAS2559->mnDieTvReadCounter = 0;
-			hrtimer_start(&pTAS2559->mtimer,
-						ns_to_ktime((u64)LOW_TEMPERATURE_CHECK_PERIOD * NSEC_PER_MSEC), HRTIMER_MODE_REL);
-		}
 	}
 
 end:
@@ -3095,30 +2986,10 @@ int tas2559_enable(struct tas2559_priv *pTAS2559, bool bEnable)
 				goto end;
 
 			pTAS2559->mbPowerUp = true;
-
-			tas2559_get_die_temperature(pTAS2559, &nValue);
-			if(nValue == 0x80000000)
-			{
-				dev_err(pTAS2559->dev, "%s, thermal sensor is wrong, mute output\n", __func__);
-				nResult = tas2559_DevShutdown(pTAS2559, pConfiguration->mnDevices);
-				pTAS2559->mbPowerUp = false;
-				goto end;
-			}
-
-			if (pProgram->mnAppMode == TAS2559_APP_TUNINGMODE) {
-				if (!hrtimer_active(&pTAS2559->mtimer)) {
-					pTAS2559->mnDieTvReadCounter = 0;
-					hrtimer_start(&pTAS2559->mtimer,
-						ns_to_ktime((u64)LOW_TEMPERATURE_CHECK_PERIOD * NSEC_PER_MSEC), HRTIMER_MODE_REL);
-				}
-			}
-
 			pTAS2559->mnRestart = 0;
 		}
 	} else {
 		if (pTAS2559->mbPowerUp) {
-			if (hrtimer_active(&pTAS2559->mtimer))
-				hrtimer_cancel(&pTAS2559->mtimer);
 
 			pConfiguration = &(pTAS2559->mpFirmware->mpConfigurations[pTAS2559->mnCurrentConfiguration]);
 
@@ -3411,34 +3282,6 @@ end:
 }
 
 // Codec related
-
-static int tas2559_codec_suspend(struct snd_soc_component *pCodec)
-{
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(pCodec);
-	int ret = 0;
-
-	mutex_lock(&pTAS2559->codec_lock);
-
-	dev_dbg(pTAS2559->dev, "%s\n", __func__);
-	tas2559_runtime_suspend(pTAS2559);
-
-	mutex_unlock(&pTAS2559->codec_lock);
-	return ret;
-}
-
-static int tas2559_codec_resume(struct snd_soc_component *pCodec)
-{
-	struct tas2559_priv *pTAS2559 = snd_soc_component_get_drvdata(pCodec);
-	int ret = 0;
-
-	mutex_lock(&pTAS2559->codec_lock);
-
-	dev_dbg(pTAS2559->dev, "%s\n", __func__);
-	tas2559_runtime_resume(pTAS2559);
-
-	mutex_unlock(&pTAS2559->codec_lock);
-	return ret;
-}
 
 static const struct snd_soc_dapm_widget tas2559_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_IN("ASI1", "ASI1 Playback", 0, SND_SOC_NOPM, 0, 0),
@@ -4124,8 +3967,6 @@ static const struct snd_kcontrol_new tas2559_snd_controls[] = {
 };
 
 static const struct snd_soc_component_driver soc_codec_driver_tas2559 = {
-	.suspend = tas2559_codec_suspend,
-	.resume = tas2559_codec_resume,
 	.idle_bias_on = false,
 	.controls = tas2559_snd_controls,
 	.num_controls = ARRAY_SIZE(tas2559_snd_controls),
@@ -4202,99 +4043,6 @@ int tas2559_deregister_codec(struct tas2559_priv *pTAS2559)
 }
 
 //I2C Driver
-
-static void timer_work_routine(struct work_struct *work)
-{
-	struct tas2559_priv *pTAS2559 = container_of(work, struct tas2559_priv, mtimerwork);
-	int nResult, nTemp, nActTemp;
-	struct TProgram *pProgram;
-	static int nAvg;
-
-	mutex_lock(&pTAS2559->codec_lock);
-
-	if (pTAS2559->mbRuntimeSuspend) {
-		dev_info(pTAS2559->dev, "%s, Runtime Suspended\n", __func__);
-		goto end;
-	}
-
-	if (!pTAS2559->mpFirmware->mnConfigurations) {
-		dev_info(pTAS2559->dev, "%s, firmware not loaded\n", __func__);
-		goto end;
-	}
-
-	pProgram = &(pTAS2559->mpFirmware->mpPrograms[pTAS2559->mnCurrentProgram]);
-
-	if (!pTAS2559->mbPowerUp
-	    || (pProgram->mnAppMode != TAS2559_APP_TUNINGMODE)) {
-		dev_info(pTAS2559->dev, "%s, pass, Pow=%d, program=%s\n",
-			 __func__, pTAS2559->mbPowerUp, pProgram->mpName);
-		goto end;
-	}
-
-	nResult = tas2559_get_die_temperature(pTAS2559, &nTemp);
-
-	if (nResult >= 0) {
-		nActTemp = (int)(nTemp >> 23);
-		dev_dbg(pTAS2559->dev, "Die=0x%x, degree=%d\n", nTemp, nActTemp);
-
-		if (!pTAS2559->mnDieTvReadCounter)
-			nAvg = 0;
-
-		pTAS2559->mnDieTvReadCounter++;
-		nAvg += nActTemp;
-
-		if (!(pTAS2559->mnDieTvReadCounter % LOW_TEMPERATURE_COUNTER)) {
-			nAvg /= LOW_TEMPERATURE_COUNTER;
-			dev_dbg(pTAS2559->dev, "check : avg=%d\n", nAvg);
-
-			if (nAvg < -6) {
-				/* if Die temperature is below -6 degree C */
-				if (pTAS2559->mnDevCurrentGain != LOW_TEMPERATURE_GAIN) {
-					nResult = tas2559_set_DAC_gain(pTAS2559, DevBoth, LOW_TEMPERATURE_GAIN);
-
-					if (nResult < 0)
-						goto end;
-
-					pTAS2559->mnDevCurrentGain = LOW_TEMPERATURE_GAIN;
-					dev_dbg(pTAS2559->dev, "LOW Temp: set gain to %d\n", LOW_TEMPERATURE_GAIN);
-				}
-			} else if (nAvg > 5) {
-				/* if Die temperature is above 5 degree C */
-				if (pTAS2559->mnDevCurrentGain != pTAS2559->mnDevGain) {
-					nResult = tas2559_set_DAC_gain(pTAS2559, DevBoth, pTAS2559->mnDevGain);
-
-				if (nResult < 0)
-					goto end;
-
-				pTAS2559->mnDevCurrentGain = pTAS2559->mnDevGain;
-				dev_dbg(pTAS2559->dev, "LOW Temp: set gain to original\n");
-				}
-			}
-
-			nAvg = 0;
-		}
-
-		if (pTAS2559->mbPowerUp)
-			hrtimer_start(&pTAS2559->mtimer,
-				      ns_to_ktime((u64)LOW_TEMPERATURE_CHECK_PERIOD * NSEC_PER_MSEC), HRTIMER_MODE_REL);
-	}
-
-end:
-	mutex_unlock(&pTAS2559->codec_lock);
-}
-
-static enum hrtimer_restart temperature_timer_func(struct hrtimer *timer)
-{
-	struct tas2559_priv *pTAS2559 = container_of(timer, struct tas2559_priv, mtimer);
-
-	if (pTAS2559->mbPowerUp) {
-		schedule_work(&pTAS2559->mtimerwork);
-	}
-
-	return HRTIMER_NORESTART;
-}
-
-
 
 static bool tas2559_volatile(struct device *pDev, unsigned int nRegister)
 {
@@ -4415,10 +4163,6 @@ static int tas2559_i2c_probe(struct i2c_client *pClient,
 
 	mutex_init(&pTAS2559->codec_lock);
 	tas2559_register_codec(pTAS2559);
-
-	hrtimer_init(&pTAS2559->mtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	pTAS2559->mtimer.function = temperature_timer_func;
-	INIT_WORK(&pTAS2559->mtimerwork, timer_work_routine);
 
 	nResult = request_firmware_nowait(THIS_MODULE, 1, TAS2559_FW_NAME,
 					  pTAS2559->dev, GFP_KERNEL, pTAS2559, tas2559_fw_ready);
