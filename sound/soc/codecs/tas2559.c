@@ -2312,12 +2312,12 @@ prog_coefficient:
 		if (nResult < 0)
 			goto end;
 
-			if (!hrtimer_active(&pTAS2559->mtimer)) {
-				pTAS2559->mnDieTvReadCounter = 0;
-				hrtimer_start(&pTAS2559->mtimer,
-					      ns_to_ktime((u64)LOW_TEMPERATURE_CHECK_PERIOD * NSEC_PER_MSEC), HRTIMER_MODE_REL);
-			}
+		if (!hrtimer_active(&pTAS2559->mtimer)) {
+			pTAS2559->mnDieTvReadCounter = 0;
+			hrtimer_start(&pTAS2559->mtimer,
+						ns_to_ktime((u64)LOW_TEMPERATURE_CHECK_PERIOD * NSEC_PER_MSEC), HRTIMER_MODE_REL);
 		}
+		
 	}
 
 end:
@@ -2545,11 +2545,10 @@ int tas2559_set_program(struct tas2559_priv *pTAS2559,
 		if (nResult < 0)
 			goto end;
 
-			if (!hrtimer_active(&pTAS2559->mtimer)) {
-				pTAS2559->mnDieTvReadCounter = 0;
-				hrtimer_start(&pTAS2559->mtimer,
-					      ns_to_ktime((u64)LOW_TEMPERATURE_CHECK_PERIOD * NSEC_PER_MSEC), HRTIMER_MODE_REL);
-			}
+		if (!hrtimer_active(&pTAS2559->mtimer)) {
+			pTAS2559->mnDieTvReadCounter = 0;
+			hrtimer_start(&pTAS2559->mtimer,
+						ns_to_ktime((u64)LOW_TEMPERATURE_CHECK_PERIOD * NSEC_PER_MSEC), HRTIMER_MODE_REL);
 		}
 	}
 
