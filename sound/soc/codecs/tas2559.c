@@ -50,8 +50,6 @@ struct TBlock {
 	unsigned int mnType;
 	unsigned char mbPChkSumPresent;
 	unsigned char mnPChkSum;
-	unsigned char mbYChkSumPresent;
-	unsigned char mnYChkSum;
 	unsigned int mnCommands;
 	unsigned char *mpData;
 };
@@ -118,11 +116,6 @@ struct TFirmware {
 	struct TCalibration *mpCalibrations;
 };
 
-struct TYCRC {
-	unsigned char mnOffset;
-	unsigned char mnLen;
-};
-
 struct tas2559_register {
 	int book;
 	int page;
@@ -148,7 +141,6 @@ struct tas2559_priv {
 	unsigned int mnCurrentCalibration;
 	bool mbPowerUp;
 	bool mbLoadConfigurationPrePowerUp;
-	bool mbYCRCEnable;
 
 	/* parameters for TAS2559 */
 	int mnDevAGPIORST;
@@ -168,11 +160,7 @@ struct tas2559_priv {
 	unsigned int mnVBoostNewState;
 	unsigned int mnVBoostDefaultCfg[6];
 
-	unsigned int mnChannelState;
-	unsigned char mnDefaultChlData[16];
-
 	unsigned int mnErrCode;
-
 	unsigned int mnRestart;
 	struct mutex codec_lock;
 };
@@ -252,29 +240,6 @@ static unsigned int p_tas2559_shutdown_DevB_data[] = {
 	0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF
 };
 
-static const unsigned char crc8_lookup_table[CRC8_TABLE_SIZE] = {
-	0x00, 0x4D, 0x9A, 0xD7, 0x79, 0x34, 0xE3, 0xAE, 0xF2, 0xBF, 0x68, 0x25, 0x8B, 0xC6, 0x11, 0x5C,
-	0xA9, 0xE4, 0x33, 0x7E, 0xD0, 0x9D, 0x4A, 0x07, 0x5B, 0x16, 0xC1, 0x8C, 0x22, 0x6F, 0xB8, 0xF5,
-	0x1F, 0x52, 0x85, 0xC8, 0x66, 0x2B, 0xFC, 0xB1, 0xED, 0xA0, 0x77, 0x3A, 0x94, 0xD9, 0x0E, 0x43,
-	0xB6, 0xFB, 0x2C, 0x61, 0xCF, 0x82, 0x55, 0x18, 0x44, 0x09, 0xDE, 0x93, 0x3D, 0x70, 0xA7, 0xEA,
-	0x3E, 0x73, 0xA4, 0xE9, 0x47, 0x0A, 0xDD, 0x90, 0xCC, 0x81, 0x56, 0x1B, 0xB5, 0xF8, 0x2F, 0x62,
-	0x97, 0xDA, 0x0D, 0x40, 0xEE, 0xA3, 0x74, 0x39, 0x65, 0x28, 0xFF, 0xB2, 0x1C, 0x51, 0x86, 0xCB,
-	0x21, 0x6C, 0xBB, 0xF6, 0x58, 0x15, 0xC2, 0x8F, 0xD3, 0x9E, 0x49, 0x04, 0xAA, 0xE7, 0x30, 0x7D,
-	0x88, 0xC5, 0x12, 0x5F, 0xF1, 0xBC, 0x6B, 0x26, 0x7A, 0x37, 0xE0, 0xAD, 0x03, 0x4E, 0x99, 0xD4,
-	0x7C, 0x31, 0xE6, 0xAB, 0x05, 0x48, 0x9F, 0xD2, 0x8E, 0xC3, 0x14, 0x59, 0xF7, 0xBA, 0x6D, 0x20,
-	0xD5, 0x98, 0x4F, 0x02, 0xAC, 0xE1, 0x36, 0x7B, 0x27, 0x6A, 0xBD, 0xF0, 0x5E, 0x13, 0xC4, 0x89,
-	0x63, 0x2E, 0xF9, 0xB4, 0x1A, 0x57, 0x80, 0xCD, 0x91, 0xDC, 0x0B, 0x46, 0xE8, 0xA5, 0x72, 0x3F,
-	0xCA, 0x87, 0x50, 0x1D, 0xB3, 0xFE, 0x29, 0x64, 0x38, 0x75, 0xA2, 0xEF, 0x41, 0x0C, 0xDB, 0x96,
-	0x42, 0x0F, 0xD8, 0x95, 0x3B, 0x76, 0xA1, 0xEC, 0xB0, 0xFD, 0x2A, 0x67, 0xC9, 0x84, 0x53, 0x1E,
-	0xEB, 0xA6, 0x71, 0x3C, 0x92, 0xDF, 0x08, 0x45, 0x19, 0x54, 0x83, 0xCE, 0x60, 0x2D, 0xFA, 0xB7,
-	0x5D, 0x10, 0xC7, 0x8A, 0x24, 0x69, 0xBE, 0xF3, 0xAF, 0xE2, 0x35, 0x78, 0xD6, 0x9B, 0x4C, 0x01,
-	0xF4, 0xB9, 0x6E, 0x23, 0x8D, 0xC0, 0x17, 0x5A, 0x06, 0x4B, 0x9C, 0xD1, 0x7F, 0x32, 0xE5, 0xA8
-};
-
-/*
-* tas2559_i2c_read_device : read single byte from device
-* platform dependent, need platform specific support
-*/
 static int tas2559_i2c_read_device(struct tas2559_priv *pTAS2559,
 				   unsigned char addr,
 				   unsigned char reg,
@@ -295,10 +260,6 @@ static int tas2559_i2c_read_device(struct tas2559_priv *pTAS2559,
 	return nResult;
 }
 
-/*
-* tas2559_i2c_write_device : write single byte to device
-* platform dependent, need platform specific support
-*/
 static int tas2559_i2c_write_device(struct tas2559_priv *pTAS2559,
 				    unsigned char addr,
 				    unsigned char reg,
@@ -334,32 +295,6 @@ static int tas2559_i2c_update_bits(struct tas2559_priv *pTAS2559,
 	return nResult;
 }
 
-/*
-* tas2559_i2c_bulkread_device : read multiple bytes from device
-* platform dependent, need platform specific support
-*/
-static int tas2559_i2c_bulkread_device(struct tas2559_priv *pTAS2559,
-				       unsigned char addr,
-				       unsigned char reg,
-				       unsigned char *p_value,
-				       unsigned int len)
-{
-	int nResult = 0;
-
-	pTAS2559->client->addr = addr;
-	nResult = regmap_bulk_read(pTAS2559->mpRegmap, reg, p_value, len);
-
-	if (nResult < 0)
-		dev_err(pTAS2559->dev, "%s[0x%x] Error %d\n",
-			__func__, addr, nResult);
-
-	return nResult;
-}
-
-/*
-* tas2559_i2c_bulkwrite_device : write multiple bytes to device
-* platform dependent, need platform specific support
-*/
 static int tas2559_i2c_bulkwrite_device(struct tas2559_priv *pTAS2559,
 					unsigned char addr,
 					unsigned char reg,
@@ -378,10 +313,6 @@ static int tas2559_i2c_bulkwrite_device(struct tas2559_priv *pTAS2559,
 	return nResult;
 }
 
-/*
-* tas2559_change_book_page : switch to certain book and page
-* platform independent, don't change unless necessary
-*/
 static int tas2559_change_book_page(struct tas2559_priv *pTAS2559,
 				    enum channel chn,
 				    unsigned char nBook,
@@ -448,10 +379,6 @@ static int tas2559_change_book_page(struct tas2559_priv *pTAS2559,
 	return nResult;
 }
 
-/*
-* tas2559_dev_read :
-* platform independent, don't change unless necessary
-*/
 static int tas2559_dev_read(struct tas2559_priv *pTAS2559,
 			    enum channel chn,
 			    unsigned int nRegister,
@@ -486,10 +413,6 @@ static int tas2559_dev_read(struct tas2559_priv *pTAS2559,
 	return nResult;
 }
 
-/*
-* tas2559_dev_write :
-* platform independent, don't change unless necessary
-*/
 static int tas2559_dev_write(struct tas2559_priv *pTAS2559,
 			     enum channel chn,
 			     unsigned int nRegister,
@@ -516,49 +439,6 @@ static int tas2559_dev_write(struct tas2559_priv *pTAS2559,
 	return nResult;
 }
 
-
-/*
-* tas2559_dev_bulk_read :
-* platform independent, don't change unless necessary
-*/
-static int tas2559_dev_bulk_read(struct tas2559_priv *pTAS2559,
-				 enum channel chn,
-				 unsigned int nRegister,
-				 unsigned char *pData,
-				 unsigned int nLength)
-{
-	int nResult = 0;
-	unsigned char reg = 0;
-
-	mutex_lock(&pTAS2559->dev_lock);
-
-	nResult = tas2559_change_book_page(pTAS2559, chn,
-					   TAS2559_BOOK_ID(nRegister), TAS2559_PAGE_ID(nRegister));
-
-	if (nResult >= 0) {
-		reg = TAS2559_PAGE_REG(nRegister);
-
-		if (chn == DevA)
-			nResult = tas2559_i2c_bulkread_device(pTAS2559,
-							      pTAS2559->mnDevAAddr, reg, pData, nLength);
-		else
-			if (chn == DevB)
-				nResult = tas2559_i2c_bulkread_device(pTAS2559,
-								      pTAS2559->mnDevBAddr, reg, pData, nLength);
-			else {
-				dev_err(pTAS2559->dev, "%s, chn ERROR %d\n", __func__, chn);
-				nResult = -EINVAL;
-			}
-	}
-
-	mutex_unlock(&pTAS2559->dev_lock);
-	return nResult;
-}
-
-/*
-* tas2559_dev_bulk_write :
-* platform independent, don't change unless necessary
-*/
 static int tas2559_dev_bulk_write(struct tas2559_priv *pTAS2559,
 				  enum channel chn,
 				  unsigned int nRegister,
@@ -589,10 +469,6 @@ static int tas2559_dev_bulk_write(struct tas2559_priv *pTAS2559,
 	return nResult;
 }
 
-/*
-* tas2559_dev_update_bits :
-* platform independent, don't change unless necessary
-*/
 static int tas2559_dev_update_bits(
 	struct tas2559_priv *pTAS2559,
 	enum channel chn,
@@ -673,14 +549,9 @@ static int tas2559_dev_load_data(struct tas2559_priv *pTAS2559,
 
 			if (nRegister == TAS2559_UDELAY) {
 				udelay(nData);
-				dev_dbg(pTAS2559->dev, "%s, udelay %d\n", __func__, nData);
 			} else if (nRegister == TAS2559_MDELAY) {
 				mdelay(nData);
-				dev_dbg(pTAS2559->dev, "%s, msleep %d\n", __func__, nData);
 			} else if (nRegister != 0xFFFFFFFF) {
-				dev_dbg(pTAS2559->dev, "%s, write chl=%d, B[%d]P[%d]R[%d]=0x%x\n",
-					__func__, chl, TAS2559_BOOK_ID(nRegister),
-					TAS2559_PAGE_ID(nRegister), TAS2559_PAGE_REG(nRegister), nData);
 				nResult = tas2559_dev_write(pTAS2559, chl, nRegister, nData);
 				if (nResult < 0)
 					break;
@@ -720,72 +591,6 @@ static int tas2559_DevShutdown(struct tas2559_priv *pTAS2559,
 	else
 		nResult = tas2559_dev_load_data(pTAS2559, dev, p_tas2559_shutdown_data);
 
-	return nResult;
-}
-
-int tas2559_SA_DevChnSetup(struct tas2559_priv *pTAS2559, unsigned int mode)
-{
-	int nResult = 0;
-	struct TProgram *pProgram;
-	unsigned char buf_mute[16] = {0};
-	unsigned char buf_DevA_Left_DevB_Right[16] = {0x40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40, 0, 0, 0};
-	unsigned char buf_DevA_Right_DevB_Left[16] = {0, 0, 0, 0, 0x40, 0, 0, 0, 0x40, 0, 0, 0, 0, 0, 0, 0};
-	unsigned char buf_DevA_MonoMix_DevB_MonoMix[16] = {0x20, 0, 0, 0, 0x20, 0, 0, 0, 0x20, 0, 0, 0, 0x20, 0, 0, 0};
-	unsigned char *pDevBuf = NULL;
-
-	dev_dbg(pTAS2559->dev, "%s, mode %d\n", __func__, mode);
-	if ((pTAS2559->mpFirmware->mnPrograms == 0)
-	    || (pTAS2559->mpFirmware->mnConfigurations == 0)) {
-		dev_err(pTAS2559->dev, "%s, firmware not loaded\n", __func__);
-		goto end;
-	}
-
-	pProgram = &(pTAS2559->mpFirmware->mpPrograms[pTAS2559->mnCurrentProgram]);
-	if (pProgram->mnAppMode != TAS2559_APP_TUNINGMODE) {
-		dev_err(pTAS2559->dev, "%s, not tuning mode\n", __func__);
-		goto end;
-	}
-
-	if (pTAS2559->mbLoadConfigurationPrePowerUp) {
-		dev_dbg(pTAS2559->dev, "%s, setup channel after coeff update\n", __func__);
-		pTAS2559->mnChannelState = mode;
-		goto end;
-	}
-
-	switch (mode) {
-	case TAS2559_AD_BD:
-		pDevBuf = pTAS2559->mnDefaultChlData;
-		break;
-
-	case TAS2559_AM_BM:
-		pDevBuf = buf_mute;
-		break;
-
-	case TAS2559_AL_BR:
-		pDevBuf = buf_DevA_Left_DevB_Right;
-		break;
-
-	case TAS2559_AR_BL:
-		pDevBuf = buf_DevA_Right_DevB_Left;
-		break;
-
-	case TAS2559_AH_BH:
-		pDevBuf = buf_DevA_MonoMix_DevB_MonoMix;
-		break;
-
-	default:
-		goto end;
-	}
-
-	if (pDevBuf) {
-		nResult = tas2559_dev_bulk_write(pTAS2559, DevA,
-				TAS2559_SA_CHL_CTRL_REG, pDevBuf, 16);
-		if (nResult < 0)
-			goto end;
-		pTAS2559->mnChannelState = mode;
-	}
-
-end:
 	return nResult;
 }
 
@@ -1202,417 +1007,6 @@ void tas2559_clear_firmware(struct TFirmware *pFirmware)
 	memset(pFirmware, 0x00, sizeof(struct TFirmware));
 }
 
-
-static int DevAPageYRAM(struct tas2559_priv *pTAS2559,
-			struct TYCRC *pCRCData,
-			unsigned char nBook, unsigned char nPage, unsigned char nReg, unsigned char len)
-{
-	int nResult = 0;
-
-	if (nBook == TAS2559_YRAM_BOOK1) {
-		if (nPage == TAS2559_YRAM1_PAGE) {
-			if (nReg >= TAS2559_YRAM1_START_REG) {
-				pCRCData->mnOffset = nReg;
-				pCRCData->mnLen = len;
-				nResult = 1;
-			} else if ((nReg + len) > TAS2559_YRAM1_START_REG) {
-				pCRCData->mnOffset = TAS2559_YRAM1_START_REG;
-				pCRCData->mnLen = len - (TAS2559_YRAM1_START_REG - nReg);
-				nResult = 1;
-			} else
-				nResult = 0;
-		} else if (nPage == TAS2559_YRAM3_PAGE) {
-			if (nReg > TAS2559_YRAM3_END_REG) {
-				nResult = 0;
-			} else if (nReg >= TAS2559_YRAM3_START_REG) {
-				if ((nReg + len) > TAS2559_YRAM3_END_REG) {
-					pCRCData->mnOffset = nReg;
-					pCRCData->mnLen = TAS2559_YRAM3_END_REG - nReg + 1;
-					nResult = 1;
-				} else {
-					pCRCData->mnOffset = nReg;
-					pCRCData->mnLen = len;
-					nResult = 1;
-				}
-			} else {
-				if ((nReg + (len - 1)) < TAS2559_YRAM3_START_REG) {
-					nResult = 0;
-				} else if ((nReg + (len - 1)) <= TAS2559_YRAM3_END_REG) {
-					pCRCData->mnOffset = TAS2559_YRAM3_START_REG;
-					pCRCData->mnLen = len - (TAS2559_YRAM3_START_REG - nReg);
-					nResult = 1;
-				} else {
-					pCRCData->mnOffset = TAS2559_YRAM3_START_REG;
-					pCRCData->mnLen = TAS2559_YRAM3_END_REG - TAS2559_YRAM3_START_REG + 1;
-					nResult = 1;
-				}
-			}
-		}
-	} else if (nBook == TAS2559_YRAM_BOOK2) {
-		if (nPage == TAS2559_YRAM5_PAGE) {
-			if (nReg > TAS2559_YRAM5_END_REG) {
-				nResult = 0;
-			} else if (nReg >= TAS2559_YRAM5_START_REG) {
-				if ((nReg + len) > TAS2559_YRAM5_END_REG) {
-					pCRCData->mnOffset = nReg;
-					pCRCData->mnLen = TAS2559_YRAM5_END_REG - nReg + 1;
-					nResult = 1;
-				} else {
-					pCRCData->mnOffset = nReg;
-					pCRCData->mnLen = len;
-					nResult = 1;
-				}
-			} else {
-				if ((nReg + (len - 1)) < TAS2559_YRAM5_START_REG) {
-					nResult = 0;
-				} else if ((nReg + (len - 1)) <= TAS2559_YRAM5_END_REG) {
-					pCRCData->mnOffset = TAS2559_YRAM5_START_REG;
-					pCRCData->mnLen = len - (TAS2559_YRAM5_START_REG - nReg);
-					nResult = 1;
-				} else {
-					pCRCData->mnOffset = TAS2559_YRAM5_START_REG;
-					pCRCData->mnLen = TAS2559_YRAM5_END_REG - TAS2559_YRAM5_START_REG + 1;
-					nResult = 1;
-				}
-			}
-		}
-	} else if (nBook == TAS2559_YRAM_BOOK3) {
-		if (nPage == TAS2559_YRAM6_PAGE) {
-			if (nReg > TAS2559_YRAM6_END_REG) {
-				nResult = 0;
-			} else if (nReg >= TAS2559_YRAM6_START_REG) {
-				if ((nReg + len) > TAS2559_YRAM6_END_REG) {
-					pCRCData->mnOffset = nReg;
-					pCRCData->mnLen = TAS2559_YRAM6_END_REG - nReg + 1;
-					nResult = 1;
-				} else {
-					pCRCData->mnOffset = nReg;
-					pCRCData->mnLen = len;
-					nResult = 1;
-				}
-			} else {
-				if ((nReg + (len - 1)) < TAS2559_YRAM6_START_REG) {
-					nResult = 0;
-				} else if ((nReg + (len - 1)) <= TAS2559_YRAM6_END_REG) {
-					pCRCData->mnOffset = TAS2559_YRAM6_START_REG;
-					pCRCData->mnLen = len - (TAS2559_YRAM6_START_REG - nReg);
-					nResult = 1;
-				} else {
-					pCRCData->mnOffset = TAS2559_YRAM6_START_REG;
-					pCRCData->mnLen = TAS2559_YRAM6_END_REG - TAS2559_YRAM6_START_REG + 1;
-					nResult = 1;
-				}
-			}
-		}
-	} else {
-		nResult = 0;
-	}
-
-	return nResult;
-}
-
-static int isInPageYRAM(struct tas2559_priv *pTAS2559,
-			enum channel dev, struct TYCRC *pCRCData,
-			unsigned char nBook, unsigned char nPage, unsigned char nReg, unsigned char len)
-{
-	int nResult = 0;
-
-	if (dev == DevA)
-		nResult = DevAPageYRAM(pTAS2559, pCRCData, nBook, nPage, nReg, len);
-
-	return nResult;
-}
-
-static int DevABlockYRAM(struct tas2559_priv *pTAS2559,
-			 struct TYCRC *pCRCData,
-			 unsigned char nBook, unsigned char nPage, unsigned char nReg, unsigned char len)
-{
-	int nResult = 0;
-
-	if (nBook == TAS2559_YRAM_BOOK1) {
-		if (nPage < TAS2559_YRAM2_START_PAGE)
-			nResult = 0;
-		else if (nPage <= TAS2559_YRAM2_END_PAGE) {
-			if (nReg > TAS2559_YRAM2_END_REG) {
-				nResult = 0;
-			} else if (nReg >= TAS2559_YRAM2_START_REG) {
-				pCRCData->mnOffset = nReg;
-				pCRCData->mnLen = len;
-				nResult = 1;
-			} else {
-				if ((nReg + (len - 1)) < TAS2559_YRAM2_START_REG) {
-					nResult = 0;
-				} else {
-					pCRCData->mnOffset = TAS2559_YRAM2_START_REG;
-					pCRCData->mnLen = nReg + len - TAS2559_YRAM2_START_REG;
-					nResult = 1;
-				}
-			}
-		} else {
-			nResult = 0;
-		}
-	} else if (nBook == TAS2559_YRAM_BOOK2) {
-		if (nPage < TAS2559_YRAM4_START_PAGE) {
-			nResult = 0;
-		} else if (nPage <= TAS2559_YRAM4_END_PAGE) {
-			if ((nPage == TAS2559_PAGE_ID(TAS2559_SA_COEFF_SWAP_REG))
-				&& (nReg == TAS2559_PAGE_REG(TAS2559_SA_COEFF_SWAP_REG))
-				&& (len == 4)) {
-				dev_dbg(pTAS2559->dev, "bypass swap\n");
-				nResult = 0;
-			} else if (nReg > TAS2559_YRAM2_END_REG) {
-				nResult = 0;
-			} else if (nReg >= TAS2559_YRAM2_START_REG) {
-				pCRCData->mnOffset = nReg;
-				pCRCData->mnLen = len;
-				nResult = 1;
-			} else {
-				if ((nReg + (len - 1)) < TAS2559_YRAM2_START_REG) {
-					nResult = 0;
-				} else {
-					pCRCData->mnOffset = TAS2559_YRAM2_START_REG;
-					pCRCData->mnLen = nReg + len - TAS2559_YRAM2_START_REG;
-					nResult = 1;
-				}
-			}
-		} else {
-			nResult = 0;
-		}
-	} else {
-			nResult = 0;
-	}
-
-	return nResult;
-}
-
-static int DevBBlockYRAM(struct tas2559_priv *pTAS2559,
-			 struct TYCRC *pCRCData,
-			 unsigned char nBook, unsigned char nPage, unsigned char nReg, unsigned char len)
-{
-	int nResult = 0;
-
-	if (nBook == TAS2560_YRAM_BOOK) {
-		if (nPage < TAS2560_YRAM_START_PAGE) {
-			nResult = 0;
-		} else if (nPage <= TAS2560_YRAM_END_PAGE) {
-			if (nReg > TAS2560_YRAM_END_REG) {
-				nResult = 0;
-			} else if (nReg >= TAS2560_YRAM_START_REG) {
-				pCRCData->mnOffset = nReg;
-				pCRCData->mnLen = len;
-				nResult = 1;
-			} else {
-				if ((nReg + (len - 1)) < TAS2560_YRAM_START_REG) {
-					nResult = 0;
-				} else {
-					pCRCData->mnOffset = TAS2560_YRAM_START_REG;
-					pCRCData->mnLen = nReg + len - TAS2560_YRAM_START_REG;
-					nResult = 1;
-				}
-			}
-		} else {
-				nResult = 0;
-		}
-	}
-
-	return nResult;
-}
-
-static int isInBlockYRAM(struct tas2559_priv *pTAS2559,
-			 enum channel dev, struct TYCRC *pCRCData,
-			 unsigned char nBook, unsigned char nPage, unsigned char nReg, unsigned char len)
-{
-	int nResult = 0;
-
-	if (dev == DevA)
-		nResult = DevABlockYRAM(pTAS2559, pCRCData, nBook, nPage, nReg, len);
-	else
-		if (dev == DevB)
-			nResult = DevBBlockYRAM(pTAS2559, pCRCData, nBook, nPage, nReg, len);
-
-	return nResult;
-}
-
-static int isYRAM(struct tas2559_priv *pTAS2559,
-		  enum channel dev, struct TYCRC *pCRCData,
-		  unsigned char nBook, unsigned char nPage, unsigned char nReg, unsigned char len)
-{
-	int nResult;
-
-	nResult = isInPageYRAM(pTAS2559, dev, pCRCData, nBook, nPage, nReg, len);
-
-	if (nResult == 0)
-		nResult = isInBlockYRAM(pTAS2559, dev, pCRCData, nBook, nPage, nReg, len);
-
-	return nResult;
-}
-
-/*
- * crc8 - calculate a crc8 over the given input data.
- *
- * table: crc table used for calculation.
- * pdata: pointer to data buffer.
- * nbytes: number of bytes in data buffer.
- * crc:	previous returned crc8 value.
- */
-static u8 ti_crc8(const u8 table[CRC8_TABLE_SIZE], u8 *pdata, size_t nbytes, u8 crc)
-{
-	/* loop over the buffer data */
-	while (nbytes-- > 0)
-		crc = table[(crc ^ *pdata++) & 0xff];
-
-	return crc;
-}
-
-static int doSingleRegCheckSum(struct tas2559_priv *pTAS2559, enum channel chl,
-			       unsigned char nBook, unsigned char nPage, unsigned char nReg, unsigned char nValue)
-{
-	int nResult = 0;
-	struct TYCRC sCRCData;
-	unsigned int nData1 = 0, nData2 = 0;
-	unsigned char nRegVal;
-
-	if (chl == DevA) {
-		if ((nBook == TAS2559_BOOK_ID(TAS2559_SA_COEFF_SWAP_REG))
-		    && (nPage == TAS2559_PAGE_ID(TAS2559_SA_COEFF_SWAP_REG))
-		    && (nReg >= TAS2559_PAGE_REG(TAS2559_SA_COEFF_SWAP_REG))
-		    && (nReg <= (TAS2559_PAGE_REG(TAS2559_SA_COEFF_SWAP_REG) + 4))) {
-			/* DSP swap command, pass */
-			nResult = 0;
-			goto end;
-		}
-	}
-
-	nResult = isYRAM(pTAS2559, chl, &sCRCData, nBook, nPage, nReg, 1);
-
-	if (nResult == 1) {
-		if (chl == DevA) {
-			nResult = tas2559_dev_read(pTAS2559, DevA, TAS2559_REG(nBook, nPage, nReg), &nData1);
-
-			if (nResult < 0)
-				goto end;
-		} else if (chl == DevB) {
-			nResult = tas2559_dev_read(pTAS2559, DevB, TAS2559_REG(nBook, nPage, nReg), &nData2);
-
-			if (nResult < 0)
-				goto end;
-		}
-
-		if (chl == DevA) {
-			if (nData1 != nValue) {
-				dev_err(pTAS2559->dev,
-					"error2 (line %d),B[0x%x]P[0x%x]R[0x%x] W[0x%x], R[0x%x]\n",
-					__LINE__, nBook, nPage, nReg, nValue, nData1);
-				nResult = -EAGAIN;
-				pTAS2559->mnErrCode |= ERROR_YRAM_CRCCHK;
-				goto end;
-			}
-
-			nRegVal = nData1;
-		} else if (chl == DevB) {
-			if (nData2 != nValue) {
-				dev_err(pTAS2559->dev,
-					"error (line %d),B[0x%x]P[0x%x]R[0x%x] W[0x%x], R[0x%x]\n",
-					__LINE__, nBook, nPage, nReg, nValue, nData2);
-				nResult = -EAGAIN;
-				pTAS2559->mnErrCode |= ERROR_YRAM_CRCCHK;
-				goto end;
-			}
-
-			nRegVal = nData2;
-		} else {
-			nResult = -EINVAL;
-			goto end;
-		}
-
-		nResult = ti_crc8(crc8_lookup_table, &nRegVal, 1, 0);
-	}
-
-end:
-
-	return nResult;
-}
-
-static int doMultiRegCheckSum(struct tas2559_priv *pTAS2559, enum channel chl,
-			      unsigned char nBook, unsigned char nPage, unsigned char nReg, unsigned int len)
-{
-	int nResult = 0, i;
-	unsigned char nCRCChkSum = 0;
-	unsigned char nBuf1[128];
-	unsigned char nBuf2[128];
-	struct TYCRC TCRCData;
-	unsigned char *pRegVal;
-
-	if ((nReg + len - 1) > 127) {
-		nResult = -EINVAL;
-		dev_err(pTAS2559->dev, "firmware error\n");
-		goto end;
-	}
-
-	if ((nBook == TAS2559_BOOK_ID(TAS2559_SA_COEFF_SWAP_REG))
-	    && (nPage == TAS2559_PAGE_ID(TAS2559_SA_COEFF_SWAP_REG))
-	    && (nReg == TAS2559_PAGE_REG(TAS2559_SA_COEFF_SWAP_REG))
-	    && (len == 4)) {
-		/* DSP swap command, pass */
-		nResult = 0;
-		goto end;
-	}
-
-	nResult = isYRAM(pTAS2559, chl, &TCRCData, nBook, nPage, nReg, len);
-
-	if (nResult == 1) {
-		if (len == 1) {
-			dev_err(pTAS2559->dev, "firmware error\n");
-			nResult = -EINVAL;
-			goto end;
-		} else {
-			if (chl == DevA) {
-				nResult = tas2559_dev_bulk_read(pTAS2559, DevA,
-							      TAS2559_REG(nBook, nPage, TCRCData.mnOffset), nBuf1, TCRCData.mnLen);
-
-				if (nResult < 0)
-					goto end;
-			} else if (chl == DevB) {
-				nResult = tas2559_dev_bulk_read(pTAS2559, DevB,
-							      TAS2559_REG(nBook, nPage, TCRCData.mnOffset), nBuf2, TCRCData.mnLen);
-
-				if (nResult < 0)
-					goto end;
-			}
-
-			if (chl == DevA) {
-				pRegVal = nBuf1;
-			} else if (chl == DevB)
-				pRegVal = nBuf2;
-			else {
-				dev_err(pTAS2559->dev, "channel error %d\n", chl);
-				nResult = -EINVAL;
-				goto end;
-			}
-
-			for (i = 0; i < TCRCData.mnLen; i++) {
-				if ((nBook == TAS2559_BOOK_ID(TAS2559_SA_COEFF_SWAP_REG))
-				    && (nPage == TAS2559_PAGE_ID(TAS2559_SA_COEFF_SWAP_REG))
-				    && ((i + TCRCData.mnOffset)
-					>= TAS2559_PAGE_REG(TAS2559_SA_COEFF_SWAP_REG))
-				    && ((i + TCRCData.mnOffset)
-					<= (TAS2559_PAGE_REG(TAS2559_SA_COEFF_SWAP_REG) + 4))) {
-					/* DSP swap command, bypass */
-					continue;
-				} else {
-					nCRCChkSum += ti_crc8(crc8_lookup_table, &pRegVal[i], 1, 0);
-				}
-			}
-
-			nResult = nCRCChkSum;
-		}
-	}
-
-end:
-
-	return nResult;
-}
-
 static int tas2559_load_block(struct tas2559_priv *pTAS2559, struct TBlock *pBlock)
 {
 	int nResult = 0;
@@ -1624,10 +1018,7 @@ static int tas2559_load_block(struct tas2559_priv *pTAS2559, struct TBlock *pBlo
 	unsigned int nValue1;
 	unsigned int nLength;
 	unsigned int nSleep;
-	bool bDoYCRCChk = false;
 	enum channel chl;
-	unsigned char nCRCChkSum = 0;
-	int nRetry = 6;
 	unsigned char *pData = pBlock->mpData;
 
 	dev_dbg(pTAS2559->dev, "%s: Type = %d, commands = %d\n", __func__,
@@ -1649,11 +1040,6 @@ static int tas2559_load_block(struct tas2559_priv *pTAS2559, struct TBlock *pBlo
 		goto end;
 	}
 
-	if (pBlock->mbYChkSumPresent && pTAS2559->mbYCRCEnable)
-		bDoYCRCChk = true;
-
-start:
-
 	if (pBlock->mbPChkSumPresent) {
 		if (chl == DevA) {
 			nResult = tas2559_dev_write(pTAS2559, DevA, TAS2559_CRC_RESET_REG, 1);
@@ -1666,11 +1052,7 @@ start:
 		}
 	}
 
-	if (bDoYCRCChk)
-		nCRCChkSum = 0;
-
 	nCommand = 0;
-
 	while (nCommand < pBlock->mnCommands) {
 		pData = pBlock->mpData + nCommand * 4;
 		nBook = pData[0];
@@ -1685,13 +1067,6 @@ start:
 			if (nResult < 0)
 				goto end;
 
-			if (bDoYCRCChk) {
-				nResult = doSingleRegCheckSum(pTAS2559,
-							chl, nBook, nPage, nOffset, nData);
-				if (nResult < 0)
-					goto check;
-				nCRCChkSum += (unsigned char)nResult;
-			}
 		} else if (nOffset == 0x81) {
 			nSleep = (nBook << 8) + nPage;
 			msleep(nSleep);
@@ -1708,32 +1083,15 @@ start:
 				if (nResult < 0)
 					goto end;
 
-				if (bDoYCRCChk) {
-					nResult = doMultiRegCheckSum(pTAS2559,
-								chl, nBook, nPage, nOffset, nLength);
-					if (nResult < 0)
-						goto check;
-
-					nCRCChkSum += (unsigned char)nResult;
-				}
 			} else {
 				nResult = tas2559_dev_write(pTAS2559,
 							chl, TAS2559_REG(nBook, nPage, nOffset), pData[3]);
 				if (nResult < 0)
 					goto end;
 
-				if (bDoYCRCChk) {
-					nResult = doSingleRegCheckSum(pTAS2559,
-								chl, nBook, nPage, nOffset, pData[3]);
-					if (nResult < 0)
-						goto check;
-
-					nCRCChkSum += (unsigned char)nResult;
-				}
 			}
 
 			nCommand++;
-
 			if (nLength >= 2)
 				nCommand += ((nLength - 2) / 4) + 1;
 		}
@@ -1755,35 +1113,7 @@ start:
 				pBlock->mnPChkSum, (nValue1 & 0xff));
 			nResult = -EAGAIN;
 			pTAS2559->mnErrCode |= ERROR_PRAM_CRCCHK;
-			goto check;
 		}
-
-		nResult = 0;
-		pTAS2559->mnErrCode &= ~ERROR_PRAM_CRCCHK;
-		dev_dbg(pTAS2559->dev, "Block[0x%x] PChkSum match\n", pBlock->mnType);
-	}
-
-	if (bDoYCRCChk) {
-		if (nCRCChkSum != pBlock->mnYChkSum) {
-			dev_err(pTAS2559->dev, "Block YChkSum Error: FW = 0x%x, YCRC = 0x%x\n",
-				pBlock->mnYChkSum, nCRCChkSum);
-			nResult = -EAGAIN;
-			pTAS2559->mnErrCode |= ERROR_YRAM_CRCCHK;
-			goto check;
-		}
-
-		pTAS2559->mnErrCode &= ~ERROR_YRAM_CRCCHK;
-		nResult = 0;
-		dev_dbg(pTAS2559->dev, "Block[0x%x] YChkSum match\n", pBlock->mnType);
-	}
-
-check:
-
-	if (nResult == -EAGAIN) {
-		nRetry--;
-
-		if (nRetry > 0)
-			goto start;
 	}
 
 end:
@@ -1835,21 +1165,6 @@ static void failsafe(struct tas2559_priv *pTAS2559)
 		tas2559_clear_firmware(pTAS2559->mpFirmware);
 }
 
-int tas2559_checkPLL(struct tas2559_priv *pTAS2559)
-{
-	int nResult = 0;
-	/*
-	* TO DO
-	*/
-
-	return nResult;
-}
-
-
-
-/*
-* tas2559_load_coefficient
-*/
 static int tas2559_load_coefficient(struct tas2559_priv *pTAS2559,
 				    int nPrevConfig, int nNewConfig, bool bPowerOn)
 {
@@ -1956,17 +1271,6 @@ prog_coefficient:
 			goto end;
 	}
 
-	if (pTAS2559->mnChannelState == TAS2559_AD_BD) {
-		nResult = tas2559_dev_bulk_read(pTAS2559,
-				DevA, TAS2559_SA_CHL_CTRL_REG, pTAS2559->mnDefaultChlData, 16);
-		if (nResult < 0)
-			goto end;
-	} else {
-		nResult = tas2559_SA_DevChnSetup(pTAS2559, pTAS2559->mnChannelState);
-		if (nResult < 0)
-			goto end;
-	}
-
 	if (bRestorePower) {
 		dev_dbg(pTAS2559->dev, "%s, set vboost, before power on %d\n",
 			__func__, pTAS2559->mnVBoostState);
@@ -1977,16 +1281,6 @@ prog_coefficient:
 		nResult = tas2559_DevStartup(pTAS2559, pNewConfiguration->mnDevices);
 		if (nResult < 0)
 			goto end;
-
-		if (pProgram->mnAppMode == TAS2559_APP_TUNINGMODE) {
-			nResult = tas2559_checkPLL(pTAS2559);
-
-			if (nResult < 0) {
-				nResult = tas2559_DevShutdown(pTAS2559, pNewConfiguration->mnDevices);
-				pTAS2559->mbPowerUp = false;
-				goto end;
-			}
-		}
 
 		if (pNewConfiguration->mnDevices & DevB) {
 			nResult = tas2559_load_data(pTAS2559, &(pNewConfiguration->mData),
@@ -2203,15 +1497,6 @@ int tas2559_set_program(struct tas2559_priv *pTAS2559,
 		if (nResult < 0)
 			goto end;
 
-		if (pProgram->mnAppMode == TAS2559_APP_TUNINGMODE) {
-			nResult = tas2559_checkPLL(pTAS2559);
-			if (nResult < 0) {
-				nResult = tas2559_DevShutdown(pTAS2559, pConfiguration->mnDevices);
-				pTAS2559->mbPowerUp = false;
-				goto end;
-			}
-		}
-
 		if (pConfiguration->mnDevices & DevB) {
 			nResult = tas2559_load_data(pTAS2559, &(pConfiguration->mData),
 						TAS2559_BLOCK_PST_POWERUP_DEV_B);
@@ -2340,14 +1625,10 @@ static int fw_parse_block_data(struct tas2559_priv *pTAS2559, struct TFirmware *
 		pBlock->mnPChkSum = pData[0];
 		pData++;
 
-		pBlock->mbYChkSumPresent = pData[0];
-		pData++;
-
-		pBlock->mnYChkSum = pData[0];
-		pData++;
+		// skip YRAM checksum data for simplicity
+		pData += 2;
 	} else {
 		pBlock->mbPChkSumPresent = 0;
-		pBlock->mbYChkSumPresent = 0;
 	}
 
 	pBlock->mnCommands = fw_convert_number(pData);
@@ -2743,14 +2024,6 @@ int tas2559_enable(struct tas2559_priv *pTAS2559, bool bEnable)
 			if (nResult < 0)
 				goto end;
 
-			if (pProgram->mnAppMode == TAS2559_APP_TUNINGMODE) {
-				nResult = tas2559_checkPLL(pTAS2559);
-				if (nResult < 0) {
-					nResult = tas2559_DevShutdown(pTAS2559, pConfiguration->mnDevices);
-					goto end;
-				}
-			}
-
 			if (pConfiguration->mnDevices & DevB) {
 				nResult = tas2559_load_data(pTAS2559, &(pConfiguration->mData),
 								TAS2559_BLOCK_PST_POWERUP_DEV_B);
@@ -2924,16 +2197,6 @@ int tas2559_parse_dt(struct device *dev, struct tas2559_priv *pTAS2559)
 		pTAS2559->mnDevBAddr = value;
 		dev_dbg(pTAS2559->dev, "ti,tas2560-addr=0x%x\n", pTAS2559->mnDevBAddr);
 	}	
-
-	rc = of_property_read_u32(np, "ti,ycrc-enable", &value);
-	if (rc)
-		dev_err(pTAS2559->dev, "Looking up %s property in node %s failed %d\n",
-			"ti,ycrc-enable", np->full_name, rc);
-	else{
-		dev_dbg(pTAS2559->dev, "YCRCEnable value : %d\n", value);
-		pTAS2559->mbYCRCEnable = (value != 0);
-	}
-		
 
 end:
 
@@ -3206,11 +2469,6 @@ static const struct regmap_config tas2559_i2c_regmap = {
 	.max_register = 128,
 };
 
-/*
-* tas2559_i2c_probe :
-* platform dependent
-* should implement hardware reset functionality
-*/
 static int tas2559_i2c_probe(struct i2c_client *pClient,
 			     const struct i2c_device_id *pID)
 {
