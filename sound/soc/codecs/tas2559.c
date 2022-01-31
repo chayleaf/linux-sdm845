@@ -154,12 +154,6 @@ struct tas2559_priv {
 	unsigned char mnDevBCurrentBook;
 	unsigned char mnDevBCurrentPage;
 
-	unsigned int mnVBoostState;
-	bool mbLoadVBoostPrePowerUp;
-	unsigned int mnVBoostVoltage;
-	unsigned int mnVBoostNewState;
-	unsigned int mnVBoostDefaultCfg[6];
-
 	unsigned int mnErrCode;
 	unsigned int mnRestart;
 	struct mutex codec_lock;
@@ -655,258 +649,6 @@ int tas2559_DevMute(struct tas2559_priv *pTAS2559, enum channel dev, bool mute)
 	return nResult;
 }
 
-int tas2559_update_VBstVolt(struct tas2559_priv *pTAS2559, enum channel chn)
-{
-	int nResult = 0;
-	int nVBstVoltSet = -1;
-
-	switch (pTAS2559->mnVBoostVoltage) {
-	case TAS2559_VBST_8P5V:
-		nVBstVoltSet = 6;
-		dev_warn(pTAS2559->dev, "%s, PPG of this snapshot should be 0dB\n", __func__);
-	break;
-
-	case TAS2559_VBST_8P1V:
-		nVBstVoltSet = 5;
-		dev_warn(pTAS2559->dev, "%s, PPG of this snapshot should be -1dB\n", __func__);
-	break;
-
-	case TAS2559_VBST_7P6V:
-		nVBstVoltSet = 4;
-		dev_warn(pTAS2559->dev, "%s, PPG of this snapshot should be -2dB\n", __func__);
-	break;
-
-	case TAS2559_VBST_6P6V:
-		nVBstVoltSet = 2;
-		dev_warn(pTAS2559->dev, "%s, PPG of this snapshot should be -3dB\n", __func__);
-	break;
-
-	case TAS2559_VBST_5P6V:
-		nVBstVoltSet = 0;
-		dev_warn(pTAS2559->dev, "%s, PPG of this snapshot should be -4dB\n", __func__);
-	break;
-
-	default:
-		dev_err(pTAS2559->dev, "%s, error volt %d\n", __func__, pTAS2559->mnVBoostVoltage);
-	break;
-	}
-
-	if (nVBstVoltSet >= 0) {
-		if (chn & DevA)
-			nResult = tas2559_dev_update_bits(pTAS2559, DevA, TAS2559_VBST_VOLT_REG, 0xe0, (nVBstVoltSet << 5));
-		if (chn & DevB) {
-			nResult = tas2559_dev_update_bits(pTAS2559, DevB, TAS2560_VBST_VOLT_REG, 0xe0, (nVBstVoltSet << 5));
-		}
-		dev_dbg(pTAS2559->dev, "%s, set vbst voltage (%d channel) 0x%x\n", __func__, chn, (nVBstVoltSet << 5));
-	}
-
-	return nResult;
-}
-
-int tas2559_get_VBoost(struct tas2559_priv *pTAS2559, int *pVBoost)
-{
-	int nResult = 0;
-
-	dev_dbg(pTAS2559->dev, "%s, VBoost state %d\n", __func__, pTAS2559->mnVBoostState);
-	switch (pTAS2559->mnVBoostState) {
-	case TAS2559_VBST_NEED_DEFAULT:
-	case TAS2559_VBST_DEFAULT:
-		*pVBoost = 0;
-	break;
-
-	case TAS2559_VBST_A_ON:
-	case TAS2559_VBST_B_ON:
-	case TAS2559_VBST_A_ON_B_ON:
-		*pVBoost = 1;
-	break;
-	default:
-		dev_err(pTAS2559->dev, "%s, error state %d\n", __func__, pTAS2559->mnVBoostState);
-	break;
-	}
-
-	return nResult;
-}
-
-static int tas2559_restore_VBstCtl(struct tas2559_priv *pTAS2559, enum channel chn)
-{
-	int nResult = 0;
-	unsigned int nDevAVBstCtrl, nDevASlpCtrl, nDevABstLevel;
-	unsigned int nDevBVBstCtrl, nDevBSlpCtrl, nDevBBstLevel;
-
-	if (chn & DevA) {
-		nDevAVBstCtrl = pTAS2559->mnVBoostDefaultCfg[0];
-		nDevASlpCtrl = pTAS2559->mnVBoostDefaultCfg[1];
-		nDevABstLevel = pTAS2559->mnVBoostDefaultCfg[2];
-		nResult = tas2559_dev_write(pTAS2559, DevA, TAS2559_VBOOST_CTL_REG, nDevAVBstCtrl);
-		if (nResult < 0)
-			goto DevB;
-		nResult = tas2559_dev_write(pTAS2559, DevA, TAS2559_SLEEPMODE_CTL_REG, nDevASlpCtrl);
-		if (nResult < 0)
-			goto DevB;
-		nResult = tas2559_dev_write(pTAS2559, DevA, TAS2559_VBST_VOLT_REG, nDevABstLevel);
-		if (nResult < 0)
-			goto DevB;
-	}
-
-DevB:
-	if (chn & DevB) {
-		nDevBVBstCtrl = pTAS2559->mnVBoostDefaultCfg[3];
-		nDevBSlpCtrl = pTAS2559->mnVBoostDefaultCfg[4];
-		nDevBBstLevel = pTAS2559->mnVBoostDefaultCfg[5];
-		nResult = tas2559_dev_write(pTAS2559, DevB, TAS2560_VBOOST_CTL_REG, nDevBVBstCtrl);
-		if (nResult < 0)
-			goto end;
-		nResult = tas2559_dev_write(pTAS2559, DevB, TAS2560_SLEEPMODE_CTL_REG, nDevBSlpCtrl);
-		if (nResult < 0)
-			goto end;
-		nResult = tas2559_dev_write(pTAS2559, DevB, TAS2560_VBST_VOLT_REG, nDevBBstLevel);
-		if (nResult < 0)
-			goto end;
-	}
-end:
-	return nResult;
-}
-
-int tas2559_set_VBoost(struct tas2559_priv *pTAS2559, int vboost, bool bPowerOn)
-{
-	int nResult = 0;
-	struct TConfiguration *pConfiguration;
-	unsigned int nConfig;
-
-	dev_dbg(pTAS2559->dev, "%s", __func__);
-
-	if ((!pTAS2559->mpFirmware->mnConfigurations)
-		|| (!pTAS2559->mpFirmware->mnPrograms)) {
-		dev_err(pTAS2559->dev, "%s, firmware not loaded\n", __func__);
-		goto end;
-	}
-
-	pTAS2559->mbLoadVBoostPrePowerUp = true;
-	pTAS2559->mnVBoostNewState = vboost;
-
-	if (bPowerOn) {
-		dev_info(pTAS2559->dev, "%s, will load VBoost state next time before power on\n", __func__);
-		pTAS2559->mbLoadVBoostPrePowerUp = true;
-		pTAS2559->mnVBoostNewState = vboost;
-		goto end;
-	}
-
-	if (pTAS2559->mbLoadConfigurationPrePowerUp)
-		nConfig = pTAS2559->mnNewConfiguration;
-	else
-		nConfig = pTAS2559->mnCurrentConfiguration;
-
-	pConfiguration = &(pTAS2559->mpFirmware->mpConfigurations[nConfig]);
-
-	dev_dbg(pTAS2559->dev, "VBoost state: %d, nConfig: %d", pTAS2559->mnVBoostState, nConfig);
-
-	if (pTAS2559->mnVBoostState == TAS2559_VBST_NEED_DEFAULT) {
-		if (pConfiguration->mnDevices & DevA) {
-			nResult = tas2559_dev_read(pTAS2559, DevA, TAS2559_VBOOST_CTL_REG, &pTAS2559->mnVBoostDefaultCfg[0]);
-			if (nResult < 0)
-				goto end;
-			nResult = tas2559_dev_read(pTAS2559, DevA, TAS2559_SLEEPMODE_CTL_REG, &pTAS2559->mnVBoostDefaultCfg[1]);
-			if (nResult < 0)
-				goto end;
-			nResult = tas2559_dev_read(pTAS2559, DevA, TAS2559_VBST_VOLT_REG, &pTAS2559->mnVBoostDefaultCfg[2]);
-			if (nResult < 0)
-				goto end;
-		}
-		if (pConfiguration->mnDevices & DevB) {
-			nResult = tas2559_dev_read(pTAS2559, DevB, TAS2560_VBOOST_CTL_REG, &pTAS2559->mnVBoostDefaultCfg[3]);
-			if (nResult < 0)
-				goto end;
-			nResult = tas2559_dev_read(pTAS2559, DevB, TAS2560_SLEEPMODE_CTL_REG, &pTAS2559->mnVBoostDefaultCfg[4]);
-			if (nResult < 0)
-				goto end;
-			nResult = tas2559_dev_read(pTAS2559, DevB, TAS2560_VBST_VOLT_REG, &pTAS2559->mnVBoostDefaultCfg[5]);
-			if (nResult < 0)
-				goto end;
-		}
-		dev_dbg(pTAS2559->dev, "%s, get default VBoost\n", __func__);
-		pTAS2559->mnVBoostState = TAS2559_VBST_DEFAULT;
-		if ((vboost == TAS2559_VBST_DEFAULT)
-			|| (vboost == TAS2559_VBST_NEED_DEFAULT)) {
-			dev_dbg(pTAS2559->dev, "%s, already default, bypass\n", __func__);
-			goto end;
-		}
-	}
-
-	dev_dbg(pTAS2559->dev, "vboost: %d\n", vboost);
-
-	if (vboost) {
-		if (pConfiguration->mnDevices & DevA) {
-			nResult = tas2559_update_VBstVolt(pTAS2559, DevA);
-			if (nResult < 0)
-				goto end;
-
-			nResult = tas2559_dev_update_bits(pTAS2559, DevA, TAS2559_VBOOST_CTL_REG, 0x40, 0x40);
-			if (nResult < 0)
-				goto end;
-			nResult = tas2559_dev_update_bits(pTAS2559, DevA, TAS2559_SLEEPMODE_CTL_REG, 0x40, 0x00);
-			if (nResult < 0)
-				goto end;
-			pTAS2559->mnVBoostState |= TAS2559_VBST_A_ON;
-			dev_dbg(pTAS2559->dev, "%s, devA Boost On, %d\n", __func__, pTAS2559->mnVBoostState);
-		} else {
-			if (pTAS2559->mnVBoostState & TAS2559_VBST_A_ON) {
-				nResult = tas2559_restore_VBstCtl(pTAS2559, DevA);
-				if (nResult < 0)
-					goto end;
-				pTAS2559->mnVBoostState &= ~TAS2559_VBST_A_ON;
-				dev_dbg(pTAS2559->dev, "%s, devA Boost Off, %d\n", __func__, pTAS2559->mnVBoostState);
-			}
-		}
-
-		if (pConfiguration->mnDevices & DevB) {
-			nResult = tas2559_update_VBstVolt(pTAS2559, DevB);
-			if (nResult < 0)
-				goto end;
-
-			if (!(pTAS2559->mnVBoostState & TAS2559_VBST_B_ON)) {
-				nResult = tas2559_dev_update_bits(pTAS2559, DevB, TAS2560_VBOOST_CTL_REG, 0x01, 0x01);
-				if (nResult < 0)
-					goto end;
-				nResult = tas2559_dev_update_bits(pTAS2559, DevB, TAS2560_SLEEPMODE_CTL_REG, 0x08, 0x08);
-				if (nResult < 0)
-					goto end;
-				pTAS2559->mnVBoostState |= TAS2559_VBST_B_ON;
-			}
-			dev_dbg(pTAS2559->dev, "%s, devB Boost On, %d\n", __func__, pTAS2559->mnVBoostState);
-		}  else {
-			if (pTAS2559->mnVBoostState & TAS2559_VBST_B_ON) {
-				nResult = tas2559_restore_VBstCtl(pTAS2559, DevB);
-				if (nResult < 0)
-					goto end;
-				pTAS2559->mnVBoostState &= ~TAS2559_VBST_B_ON;
-				dev_dbg(pTAS2559->dev, "%s, devB Boost Off, %d\n", __func__, pTAS2559->mnVBoostState);
-			}
-		}
-	} else {
-		if (pTAS2559->mnVBoostState & TAS2559_VBST_A_ON) {
-			nResult = tas2559_restore_VBstCtl(pTAS2559, DevA);
-			if (nResult < 0)
-				goto end;
-			pTAS2559->mnVBoostState &= ~TAS2559_VBST_A_ON;
-			dev_dbg(pTAS2559->dev, "%s, devA Boost default, %d\n", __func__, pTAS2559->mnVBoostState);
-		}
-		if (pTAS2559->mnVBoostState & TAS2559_VBST_B_ON) {
-			nResult = tas2559_restore_VBstCtl(pTAS2559, DevB);
-			if (nResult < 0)
-				goto end;
-			pTAS2559->mnVBoostState &= ~TAS2559_VBST_B_ON;
-			dev_dbg(pTAS2559->dev, "%s, devB Boost default, %d\n", __func__, pTAS2559->mnVBoostState);
-		}
-	}
-
-	pTAS2559->mbLoadVBoostPrePowerUp = true;
-	pTAS2559->mnVBoostNewState = pTAS2559->mnVBoostState;
-
-end:
-
-	return 0;
-}
-
 int tas2559_load_default(struct tas2559_priv *pTAS2559)
 {
 	int nResult = 0;
@@ -1272,12 +1014,6 @@ prog_coefficient:
 	}
 
 	if (bRestorePower) {
-		dev_dbg(pTAS2559->dev, "%s, set vboost, before power on %d\n",
-			__func__, pTAS2559->mnVBoostState);
-		nResult = tas2559_set_VBoost(pTAS2559, pTAS2559->mnVBoostState, false);
-		if (nResult < 0)
-			goto end;
-
 		nResult = tas2559_DevStartup(pTAS2559, pNewConfiguration->mnDevices);
 		if (nResult < 0)
 			goto end;
@@ -1487,11 +1223,6 @@ int tas2559_set_program(struct tas2559_priv *pTAS2559,
 		goto end;
 
 	if (pTAS2559->mbPowerUp) {
-		dev_info(pTAS2559->dev, "%s, load VBoost before power on %d\n", __func__, pTAS2559->mnVBoostState);
-		nResult = tas2559_set_VBoost(pTAS2559, pTAS2559->mnVBoostState, false);
-		if (nResult < 0)
-			goto end;
-
 		pConfiguration = &(pTAS2559->mpFirmware->mpConfigurations[pTAS2559->mnCurrentConfiguration]);
 		nResult = tas2559_DevStartup(pTAS2559, pConfiguration->mnDevices);
 		if (nResult < 0)
@@ -1989,35 +1720,13 @@ int tas2559_enable(struct tas2559_priv *pTAS2559, bool bEnable)
 	pProgram = &(pTAS2559->mpFirmware->mpPrograms[pTAS2559->mnCurrentProgram]);
 	if (bEnable) {
 		if (!pTAS2559->mbPowerUp) {
-
-			tas2559_dev_read(pTAS2559, DevA, TAS2559_VBOOST_CTL_REG, &nValue);
-			dev_dbg(pTAS2559->dev, "VBoost ctrl register before coeff set: 0x%x\n", nValue);
-
 			if (pTAS2559->mbLoadConfigurationPrePowerUp) {
 				pTAS2559->mbLoadConfigurationPrePowerUp = false;
 				nResult = tas2559_load_coefficient(pTAS2559,
 								pTAS2559->mnCurrentConfiguration, pTAS2559->mnNewConfiguration, false);
-				if (pTAS2559->mnCurrentConfiguration != pTAS2559->mnNewConfiguration) {
-					pTAS2559->mbLoadVBoostPrePowerUp = true;
-				}
 				if (nResult < 0)
 					goto end;
 			}
-
-			tas2559_dev_read(pTAS2559, DevA, TAS2559_VBOOST_CTL_REG, &nValue);
-			dev_dbg(pTAS2559->dev, "VBoost ctrl register after coeff set: 0x%x\n", nValue);
-
-			if (pTAS2559->mbLoadVBoostPrePowerUp) {
-				dev_dbg(pTAS2559->dev, "%s, cfg boost before power on new %d, current=%d\n",
-					__func__, pTAS2559->mnVBoostNewState, pTAS2559->mnVBoostState);
-				nResult = tas2559_set_VBoost(pTAS2559, pTAS2559->mnVBoostNewState, false);
-				if (nResult < 0)
-					goto end;
-				pTAS2559->mbLoadVBoostPrePowerUp = false;
-			}
-
-			tas2559_dev_read(pTAS2559, DevA, TAS2559_VBOOST_CTL_REG, &nValue);
-			dev_dbg(pTAS2559->dev, "VBoost ctrl register after set VBoost: 0x%x\n", nValue);
 
 			pConfiguration = &(pTAS2559->mpFirmware->mpConfigurations[pTAS2559->mnCurrentConfiguration]);
 			nResult = tas2559_DevStartup(pTAS2559, pConfiguration->mnDevices);
