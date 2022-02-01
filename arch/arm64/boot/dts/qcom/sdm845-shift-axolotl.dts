@@ -458,6 +458,14 @@
 	status = "okay";
 };
 
+&gpi_dma0 {
+	status = "okay";
+};
+
+&gpi_dma1 {
+	status = "okay";
+};
+
 &gpu {
 	status = "okay";
 
@@ -468,7 +476,11 @@
 };
 
 &i2c5 {
-	status="okay";
+	status = "okay";
+
+	dmas = <&gpi_dma0 0 5 QCOM_GPI_I2C>,
+	       <&gpi_dma0 1 5 QCOM_GPI_I2C>;
+	dma-names = "tx", "rx";
 
 	touchscreen@38 {
 		compatible = "focaltech,fts8719";
