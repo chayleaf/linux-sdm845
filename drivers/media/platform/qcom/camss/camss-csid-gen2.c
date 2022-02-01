@@ -484,7 +484,7 @@ static u32 csid_hw_version(struct csid_device *csid)
 	hw_gen = (hw_version >> HW_VERSION_GENERATION) & 0xF;
 	hw_rev = (hw_version >> HW_VERSION_REVISION) & 0xFFF;
 	hw_step = (hw_version >> HW_VERSION_STEPPING) & 0xFFFF;
-	dev_dbg(csid->camss->dev, "CSID HW Version = %u.%u.%u\n",
+	dev_info(csid->camss->dev, "CSID HW Version = %u.%u.%u\n",
 		hw_gen, hw_rev, hw_step);
 
 	return hw_version;
@@ -548,8 +548,8 @@ static int csid_reset(struct csid_device *csid)
 	time = wait_for_completion_timeout(&csid->reset_complete,
 					   msecs_to_jiffies(CSID_RESET_TIMEOUT_MS));
 	if (!time) {
-		dev_err(csid->camss->dev, "CSID reset timeout, ignoring....\n");
-		// return -EIO;
+		dev_err(csid->camss->dev, "CSID reset timeout\n");
+		return -EIO;
 	}
 
 	return 0;
