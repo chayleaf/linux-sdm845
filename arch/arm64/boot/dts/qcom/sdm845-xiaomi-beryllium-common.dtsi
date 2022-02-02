@@ -877,8 +877,8 @@
 
 		power-domains = <&clock_camcc TITAN_TOP_GDSC>;
 
-		vdddo-supply = <&cam_iovdd>;
-		ldo-supply = <&cam_ldo>;
+		dovdd-supply = <&cam_iovdd>;
+		// ldo-supply = <&cam_ldo>;
 		avdd-supply = <&cam0_avdd>;
 		dvdd-supply = <&cam0_dvdd>;
 
@@ -888,7 +888,7 @@
 			imx363_ep: endpoint {
 				clock-lanes = <1>;
 				data-lanes = <1 2 3 4>;
-				link-frequencies = /bits/ 64 <520000000>;
+				link-frequencies = /bits/ 64 <600000000>;
 				remote-endpoint = <&csiphy0_ep>;
 			};
 		};
