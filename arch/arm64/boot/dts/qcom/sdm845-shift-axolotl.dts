@@ -529,6 +529,10 @@
 	};
 };
 
+&pmi8998_rradc {
+	status = "okay";
+};
+
 &qup_uart9_default {
 	pinconf-rx {
 		pins = "gpio5";
