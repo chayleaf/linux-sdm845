@@ -46,6 +46,7 @@
 #define TFA989X_CURRENTSENSE3		0x48
 #define TFA989X_CURRENTSENSE4		0x49
 
+#define TFA9890_REVISION		0x80
 #define TFA9895_REVISION		0x12
 #define TFA9897_REVISION		0x97
 
@@ -186,6 +187,39 @@ static struct snd_soc_dai_driver tfa989x_dai = {
 		.channels_max	= 2,
 	},
 	.ops = &tfa989x_dai_ops,
+};
+
+static int tfa9890_init(struct regmap *regmap)
+{
+	int ret;
+	unsigned int val = 0;
+
+	/* all i2C registers are already set to default for N1C2 */
+
+	/* some PLL registers must be set optimal for amplifier behaviour */
+	ret = regmap_write(regmap, 0x40, 0x5a6b);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(regmap, 0x59, &val);
+	if (ret)
+		return ret;
+
+	val |= 0x3;
+	ret = regmap_write(regmap, 0x59, val);
+	if (ret)
+		return ret;
+
+	ret = regmap_write(regmap, 0x40, 0x0000);
+	if (ret)
+		return ret;
+
+	return regmap_write(regmap, 0x47, 0x7BE1);
+}
+
+static const struct tfa989x_rev tfa9890_rev = {
+	.rev	= TFA9890_REVISION,
+	.init	= tfa9890_init,
 };
 
 static const struct reg_sequence tfa9895_reg_init[] = {
@@ -376,6 +410,7 @@ static int tfa989x_i2c_probe(struct i2c_client *i2c)
 }
 
 static const struct of_device_id tfa989x_of_match[] = {
+	{ .compatible = "nxp,tfa9890", .data = &tfa9890_rev },
 	{ .compatible = "nxp,tfa9895", .data = &tfa9895_rev },
 	{ .compatible = "nxp,tfa9897", .data = &tfa9897_rev },
 	{ }
