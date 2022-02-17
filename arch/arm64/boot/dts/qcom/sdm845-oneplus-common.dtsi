@@ -7,7 +7,6 @@
 
 /dts-v1/;
 
-#include <dt-bindings/dma/qcom-gpi.h>
 #include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/sound/qcom,q6afe.h>
@@ -368,14 +367,6 @@
 	status = "okay";
 };
 
-&gpi_dma0 {
-	status = "okay";
-};
-
-&gpi_dma1 {
-	status = "okay";
-};
-
 &gpu {
 	status = "okay";
 
@@ -387,11 +378,7 @@
 
 &i2c12 {
 	status = "okay";
-	#dma-cells = <4>;
-
-	dmas =  <&gpi_dma1 0 4 QCOM_GPI_I2C>,
-		<&gpi_dma1 1 4 QCOM_GPI_I2C>;
-	dma-names = "tx", "rx";
+	clock-frequency = <400000>;
 
 	synaptics-rmi4-i2c@20 {
 		compatible = "syna,rmi4-i2c";
