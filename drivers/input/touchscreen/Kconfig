@@ -372,12 +372,13 @@ config TOUCHSCREEN_EXC3000
 	  To compile this driver as a module, choose M here: the
 	  module will be called exc3000.
 
-menuconfig TOUCHSCREEN_FTS
-	tristate "Focaltech Touchscreen"
+config TOUCHSCREEN_FOCALTECH_FTS
+	tristate "Focaltech FTS Touchscreen"
 	depends on I2C
-	default n
 	help
-	  Say Y here if you have Focaltech touch panel.
+	  Say Y here to enable support for Focaltech FTS based
+	  touch panels, including the 5452 and 8917 panels.
+
 	  If unsure, say N.
 
 config TOUCHSCREEN_FUJITSU
