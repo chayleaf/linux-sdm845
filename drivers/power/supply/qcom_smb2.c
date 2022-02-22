@@ -26,7 +26,18 @@
 #include <linux/spmi.h>
 #include <linux/workqueue.h>
 
-#include "qcom_spmi_pmic.h"
+/*
+ * TODO: remove before submitting upstream.
+ */
+#define CHGR_BASE				0x1000
+#define OTG_BASE				0x1100
+#define BATIF_BASE				0x1200
+#define USBIN_BASE				0x1300
+#define DCIN_BASE				0x1400
+#define MISC_BASE				0x1600
+#define REG_BASE				0x4000
+#define REG_BATT				0x4100
+#define REG_MEM					0x4400
 
 /*
  * All registers are relative to the smb2 base which is 0x1000 aka CHGR_BASE in downstream
@@ -477,9 +488,9 @@ static void smb2_rerun_apsd(struct smb2_chip *chip)
 // tells us what type of charger we're connected to.
 static int smb2_apsd_get_charger_type(struct smb2_chip *chip, int* val) {
 	int rc;
-	unsigned char apsd_stat, stat;
+	unsigned int apsd_stat, stat;
 
-	rc = smb2_read(chip, &apsd_stat, chip->base + APSD_STATUS_REG);
+	rc = regmap_read(chip->regmap, chip->base + APSD_STATUS_REG, &apsd_stat);
 	if (rc < 0) {
 		dev_err(chip->dev, "Failed to read apsd status, rc = %d", rc);
 		return rc;
@@ -490,7 +501,7 @@ static int smb2_apsd_get_charger_type(struct smb2_chip *chip, int* val) {
 		return -EAGAIN;
 	}
 
-	rc = smb2_read(chip, &stat, chip->base + APSD_RESULT_STATUS_REG);
+	rc = regmap_read(chip->regmap, chip->base + APSD_RESULT_STATUS_REG, &stat);
 	if (rc < 0) {
 		dev_err(chip->dev, "Failed to read apsd result, rc = %d", rc);
 		return rc;
@@ -515,10 +526,10 @@ static int smb2_apsd_get_charger_type(struct smb2_chip *chip, int* val) {
 }
 
 int smb2_get_prop_usb_online(struct smb2_chip *chip, int *val) {
-	unsigned char stat;
+	unsigned int stat;
 	int rc;
 
-	rc = smb2_read(chip, &stat, chip->base + POWER_PATH_STATUS_REG);
+	rc = regmap_read(chip->regmap, chip->base + POWER_PATH_STATUS_REG, &stat);
 	if (rc < 0){
 		dev_err(chip->dev, "Couldn't read POWER_PATH_STATUS! ret=%d\n", rc);
 		return rc;
@@ -532,7 +543,7 @@ int smb2_get_prop_usb_online(struct smb2_chip *chip, int *val) {
 
 int smb2_get_prop_status(struct smb2_chip *chip, int *val) {
 	int usb_online_val;
-	unsigned char stat;
+	unsigned int stat;
 	int rc;
 	bool usb_online;
 
@@ -549,7 +560,7 @@ int smb2_get_prop_status(struct smb2_chip *chip, int *val) {
 		return rc;
 	}
 
-	rc = smb2_read(chip, &stat, chip->base + BATTERY_CHARGER_STATUS_1_REG);
+	rc = regmap_read(chip->regmap, chip->base + BATTERY_CHARGER_STATUS_1_REG, &stat);
 	if (rc < 0){
 		dev_err(chip->dev, "Charging status REGMAP read failed! ret=%d\n", rc);
 		return rc;
@@ -564,13 +575,13 @@ int smb2_get_prop_status(struct smb2_chip *chip, int *val) {
 		case FAST_CHARGE:
 		case FULLON_CHARGE:
 		case TAPER_CHARGE:
-		case TERMINATE_CHARGE:
-		case INHIBIT_CHARGE:
 			*val = POWER_SUPPLY_STATUS_CHARGING;
 			break;
 		case DISABLE_CHARGE:
 			*val = POWER_SUPPLY_STATUS_NOT_CHARGING;
 			break;
+		case TERMINATE_CHARGE:
+		case INHIBIT_CHARGE:
 		default:  
 			*val = POWER_SUPPLY_STATUS_UNKNOWN;
 			break;
@@ -580,7 +591,7 @@ int smb2_get_prop_status(struct smb2_chip *chip, int *val) {
 }
 
 static inline int smb2_get_current_limit(struct smb2_chip *chip, unsigned int *val) {
-	int rc = smb2_read(chip, (unsigned char*)val, chip->base + ICL_STATUS_REG);
+	int rc = regmap_read(chip->regmap, chip->base + ICL_STATUS_REG, val);
 	// ICL is in 25mA increments
 	if (rc >= 0)
 		*val *= 25000;
@@ -604,7 +615,7 @@ int smb2_get_current_max(struct smb2_chip *chip,
 	int rc = 0;
 	unsigned int charger_type, hw_current_limit, current_ua;
 	bool non_compliant;
-	unsigned char val;
+	unsigned int val;
 	int usb_online;
 	int count;
 
@@ -629,7 +640,7 @@ int smb2_get_current_max(struct smb2_chip *chip,
 	}
 	
 
-	rc = smb2_read(chip, &val, chip->base + TYPE_C_STATUS_5_REG);
+	rc = regmap_read(chip->regmap, chip->base + TYPE_C_STATUS_5_REG, &val);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't read TYPE_C_STATUS_5 rc=%d\n", rc);
 		return rc;
@@ -801,18 +812,18 @@ static int smb2_property_is_writable(struct power_supply *psy,
 irqreturn_t smb2_handle_usb_plugin(int irq, void *data){
 	struct smb2_chip *chip = data;
 	int rc;
-	unsigned char intrt_stat; 
-	unsigned char usbc_stat;
-	unsigned char icl_options;
+	unsigned int intrt_stat; 
+	unsigned int usbc_stat;
+	unsigned int icl_options;
 	union power_supply_propval psval;
 
-	rc = smb2_read(chip, &intrt_stat, chip->base + INT_RT_STS);
+	rc = regmap_read(chip->regmap, chip->base + INT_RT_STS, &intrt_stat);
 	if (rc < 0){
 		dev_err(chip->dev, "Couldn't read USB status from reg! ret=%d\n", rc);
 		return rc;
 	}
 
-	rc = smb2_read(chip, &usbc_stat, chip->base + TYPE_C_CFG_REG);
+	rc = regmap_read(chip->regmap, chip->base + TYPE_C_CFG_REG, &usbc_stat);
 	if (rc < 0){
 		dev_err(chip->dev, "Couldn't read USB status from reg! ret=%d\n", rc);
 		return rc;
@@ -896,7 +907,7 @@ static const struct regulator_desc otg_reg_desc = {
 static int smb2_init_hw(struct smb2_chip *chip) {
 	int rc;
 	int val;
-	unsigned char blah;
+	unsigned int blah;
 
 	/**
 	 * 
@@ -1029,7 +1040,7 @@ static int smb2_init_hw(struct smb2_chip *chip) {
 
 	// This register is modified on USB connect, but on disconnect we want to
 	// write back the default.
-	// rc = smb2_read(chip, &chip->float_cfg, chip->base + USBIN_OPTIONS_2_CFG_REG);
+	// rc = regmap_read(chip->regmap, &chip->float_cfg, chip->base + USBIN_OPTIONS_2_CFG_REG);
 	// if (rc < 0) {
 	// 	dev_err(chip->dev, "Couldn't read float charger options rc = %d\n",
 	// 		rc);
@@ -1091,7 +1102,7 @@ static int smb2_init_hw(struct smb2_chip *chip) {
 		goto out;
 	}
 
-	rc = smb2_read(chip, &blah, chip->base + FLOAT_VOLTAGE_CFG_REG);
+	rc = regmap_read(chip->regmap, chip->base + FLOAT_VOLTAGE_CFG_REG, &blah);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't read float voltage cfg rc = %d\n",
 			rc);
