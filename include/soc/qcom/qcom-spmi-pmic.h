@@ -56,6 +56,6 @@ struct qcom_spmi_pmic {
 
 struct device;
 
-const struct qcom_spmi_pmic *qcom_pmic_get(struct device *dev);
+inline const struct qcom_spmi_pmic *qcom_pmic_get(struct device *dev);
 
 #endif /* __QCOM_PMIC_H__ */
