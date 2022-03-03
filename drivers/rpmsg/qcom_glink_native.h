@@ -26,6 +26,8 @@ struct qcom_glink_pipe {
 
 struct qcom_glink;
 
+inline int qcom_glink_enable_irq_wake(struct qcom_glink *glink);
+
 struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 					   unsigned long features,
 					   struct qcom_glink_pipe *rx,

@@ -285,6 +285,8 @@ struct qcom_glink *qcom_glink_smem_register(struct device *parent,
 		goto err_put_dev;
 	}
 
+	qcom_glink_enable_irq_wake(glink);
+
 	return glink;
 
 err_put_dev:

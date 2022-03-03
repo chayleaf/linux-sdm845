@@ -1718,6 +1718,12 @@ static int qcom_glink_create_chrdev(struct qcom_glink *glink)
 	return rpmsg_chrdev_register_device(rpdev);
 }
 
+inline int qcom_glink_enable_irq_wake(struct qcom_glink *glink)
+{
+	return enable_irq_wake(glink->irq);
+}
+EXPORT_SYMBOL_GPL(qcom_glink_enable_irq_wake);
+
 struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 					   unsigned long features,
 					   struct qcom_glink_pipe *rx,
