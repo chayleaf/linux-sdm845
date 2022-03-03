@@ -196,19 +196,21 @@ static int qcom_cpufreq_hw_read_lut(struct device *cpu_dev,
 		else
 			freq = cpu_hw_rate / 1000;
 
-		if (freq != prev_freq && core_count != LUT_TURBO_IND) {
+		dev_info(cpu_dev, "CA:: index=%d freq=%d, core_count %d\n", i,
+				freq, core_count);
+
+		if (freq != prev_freq /*&& core_count != LUT_TURBO_IND*/) {
 			if (!qcom_cpufreq_update_opp(cpu_dev, freq, volt)) {
 				table[i].frequency = freq;
-				dev_dbg(cpu_dev, "index=%d freq=%d, core_count %d\n", i,
-				freq, core_count);
+				dev_info(cpu_dev, "CA:: %d: set OPP\n", i);
 			} else {
 				dev_warn(cpu_dev, "failed to update OPP for freq=%d\n", freq);
 				table[i].frequency = CPUFREQ_ENTRY_INVALID;
 			}
 
-		} else if (core_count == LUT_TURBO_IND) {
+		} /*else if (core_count == LUT_TURBO_IND) {
 			table[i].frequency = CPUFREQ_ENTRY_INVALID;
-		}
+		}*/
 
 		/*
 		 * Two of the same frequencies with the same core counts means
