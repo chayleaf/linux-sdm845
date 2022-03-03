@@ -315,6 +315,36 @@
 	firmware-name = "qcom/sdm845/oneplus6/cdsp.mbn";
 };
 
+/delete-node/ &cpu4_opp31;
+/delete-node/ &cpu4_opp32;
+
+&cpu4_opp_table {
+	cpu4_opp31: opp-2707200000 {
+		opp-hz = /bits/ 64 <2707200000>;
+		opp-peak-kBps = <7216000 25497600>;
+	};
+
+	cpu4_opp32: opp-2745600000 {
+		opp-hz = /bits/ 64 <2745600000>;
+		opp-peak-kBps = <7216000 25497600>;
+	};
+
+	cpu4_opp33: opp-2764800000 {
+		opp-hz = /bits/ 64 <2764800000>;
+		opp-peak-kBps = <7216000 25497600>;
+	};
+
+	cpu4_opp34: opp-2784000000 {
+		opp-hz = /bits/ 64 <2784000000>;
+		opp-peak-kBps = <7216000 25497600>;
+	};
+
+	cpu4_opp35: opp-2803200000 {
+		opp-hz = /bits/ 64 <2803200000>;
+		opp-peak-kBps = <7216000 25497600>;
+	};
+};
+
 &dsi0 {
 	status = "okay";
 	vdda-supply = <&vdda_mipi_dsi0_1p2>;
