@@ -102,7 +102,7 @@ static int rmi_f12_read_sensor_tuning(struct f12_data *f12)
 		offset += 4;
 	}
 
-	rmi_dbg(RMI_DEBUG_FN, &fn->dev, "%s: max_x: %d max_y: %d\n", __func__,
+	dev_info(&fn->dev, "%s: max_x: %d max_y: %d\n", __func__,
 		sensor->max_x, sensor->max_y);
 
 	if (rmi_register_desc_has_subpacket(item, 1)) {
@@ -113,7 +113,7 @@ static int rmi_f12_read_sensor_tuning(struct f12_data *f12)
 
 	if (rmi_register_desc_has_subpacket(item, 2)) {
 		/* Units 1/128 sensor pitch */
-		rmi_dbg(RMI_DEBUG_FN, &fn->dev,
+		dev_info(&fn->dev,
 			"%s: Inactive Border xlo:%d xhi:%d ylo:%d yhi:%d\n",
 			__func__,
 			buf[offset], buf[offset + 1],
@@ -135,7 +135,7 @@ static int rmi_f12_read_sensor_tuning(struct f12_data *f12)
 	sensor->x_mm = (pitch_x * rx_receivers) >> 12;
 	sensor->y_mm = (pitch_y * tx_receivers) >> 12;
 
-	rmi_dbg(RMI_DEBUG_FN, &fn->dev, "%s: x_mm: %d y_mm: %d\n", __func__,
+	dev_info(&fn->dev, "%s: x_mm: %d y_mm: %d\n", __func__,
 		sensor->x_mm, sensor->y_mm);
 
 	return 0;
@@ -329,7 +329,7 @@ static int rmi_f12_probe(struct rmi_function *fn)
 	u16 data_offset = 0;
 	int mask_size;
 
-	rmi_dbg(RMI_DEBUG_FN, &fn->dev, "%s\n", __func__);
+	dev_info(&fn->dev, "%s\n", __func__);
 
 	mask_size = BITS_TO_LONGS(drvdata->irq_count) * sizeof(unsigned long);
 
@@ -340,6 +340,8 @@ static int rmi_f12_probe(struct rmi_function *fn)
 		return -ENODEV;
 	}
 	++query_addr;
+
+	dev_info(&fn->dev, "F12 Query 0: 0x%x\n", buf);
 
 	if (!(buf & BIT(0))) {
 		dev_err(&fn->dev,
@@ -380,6 +382,8 @@ static int rmi_f12_probe(struct rmi_function *fn)
 	}
 	query_addr += 3;
 
+	dev_info(&fn->dev, "F12 query_reg_desc: size: %d, num_registers: %d\n", f12->query_reg_desc.size, f12->query_reg_desc.num_registers);
+
 	ret = rmi_read_register_desc(rmi_dev, query_addr,
 						&f12->control_reg_desc);
 	if (ret) {
@@ -389,6 +393,8 @@ static int rmi_f12_probe(struct rmi_function *fn)
 		return ret;
 	}
 	query_addr += 3;
+
+	dev_info(&fn->dev, "F12 control_reg_desc: size: %d, num_registers: %d\n", f12->control_reg_desc.size, f12->control_reg_desc.num_registers);
 
 	ret = rmi_read_register_desc(rmi_dev, query_addr,
 						&f12->data_reg_desc);
@@ -400,10 +406,14 @@ static int rmi_f12_probe(struct rmi_function *fn)
 	}
 	query_addr += 3;
 
+	dev_info(&fn->dev, "F12 data_reg_desc: size: %d, num_registers: %d\n", f12->data_reg_desc.size, f12->data_reg_desc.num_registers);
+
 	sensor = &f12->sensor;
 	sensor->fn = fn;
 	f12->data_addr = fn->fd.data_base_addr;
 	sensor->pkt_size = rmi_register_desc_calc_size(&f12->data_reg_desc);
+
+	dev_info(&fn->dev, "F12 pkt_size: %d\n", sensor->pkt_size);
 
 	sensor->axis_align =
 		f12->sensor_pdata.axis_align;
@@ -416,7 +426,7 @@ static int rmi_f12_probe(struct rmi_function *fn)
 		sensor->sensor_type =
 			f12->sensor_pdata.sensor_type;
 
-	rmi_dbg(RMI_DEBUG_FN, &fn->dev, "%s: data packet size: %d\n", __func__,
+	dev_info(&fn->dev, "%s: data packet size: %d\n", __func__,
 		sensor->pkt_size);
 	sensor->data_pkt = devm_kzalloc(&fn->dev, sensor->pkt_size, GFP_KERNEL);
 	if (!sensor->data_pkt)
