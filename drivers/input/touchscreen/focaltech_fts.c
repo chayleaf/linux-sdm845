@@ -596,8 +596,6 @@ err_out:
 
 static int fts_reset(struct fts_ts_data *data)
 {
-	gpiod_set_value_cansleep(data->reset_gpio, 0);
-	msleep(20);
 	gpiod_set_value_cansleep(data->reset_gpio, 1);
 
 	return 0;
