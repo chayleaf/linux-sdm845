@@ -175,28 +175,10 @@
 	};
 };
 
-&sde_te_active {
-	mux {
-		pins = "gpio12";
-	};
-	config {
-		pins = "gpio12";
-	};
-};
-
-&sde_te_suspend {
-	mux {
-		pins = "gpio12";
-	};
-	config {
-		pins = "gpio12";
-	};
-};
-
 &adsp_pas {
-	status = "okay";
+	status = "disabled";
 
-	firmware-name = "qcom/sdm845/adsp.mdt";
+	firmware-name = "qcom/sdm845/pixel3/adsp.mbn";
 };
 
 &apps_rsc {
@@ -284,7 +266,7 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 			regulator-boot-on;
 			regulator-always-on;
-                };
+		};
 
 		vreg_l17a_1p3: ldo17 {
 			regulator-min-microvolt = <1304000>;
@@ -349,8 +331,8 @@
 };
 
 &cdsp_pas {
-	status = "okay";
-	firmware-name = "qcom/sdm845/cdsp.mdt";
+	status = "disabled";
+	firmware-name = "qcom/sdm845/pixel3/cdsp.mbn";
 };
 
 &gcc {
@@ -440,6 +422,50 @@
 		pins = "gpio126";
 		function = "gpio";
 		bias-pull-up;
+	};
+
+	sde_te_active: sde-te-active {
+		mux {
+			pins = "gpio12";
+		};
+		config {
+			pins = "gpio12";
+		};
+	};
+
+	sde_te_suspend: sde-te-suspend {
+		mux {
+			pins = "gpio12";
+		};
+		config {
+			pins = "gpio12";
+		};
+	};
+
+	sde_dsi_active: sde_dsi_active {
+		mux {
+			pins = "gpio6", "gpio52";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio6", "gpio52";
+			drive-strength = <8>;   /* 8 mA */
+			bias-disable = <0>;   /* no pull */
+		};
+	};
+
+	sde_dsi_suspend: sde_dsi_suspend {
+		mux {
+			pins = "gpio6", "gpio52";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio6", "gpio52";
+			drive-strength = <2>;   /* 2 mA */
+			bias-pull-down;         /* PULL DOWN */
+		};
 	};
 };
 
@@ -584,13 +610,13 @@
 &gpu {
 	zap-shader {
 		memory-region = <&gpu_mem>;
-		//firmware-name = "qcom/sdm845/a630_zap.mbn";
+		firmware-name = "qcom/sdm845/pixel3/a630_zap.mbn";
 	};
 };
 
 &mss_pil {
-	status = "okay";
-	firmware-name = "qcom/sdm845/mba.mbn", "qcom/sdm845/modem.mbn";
+	status = "disabled";
+	firmware-name = "qcom/sdm845/pixel3/mba.mbn", "qcom/sdm845/pixel3/modem.mbn";
 };
 
 &dsi0 {
