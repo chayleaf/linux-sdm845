@@ -2,6 +2,7 @@
 
 /dts-v1/;
 
+#include <dt-bindings/dma/qcom-gpi.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
@@ -346,7 +347,7 @@
 };
 
 &i2c2 {
-	status = "ok";
+	status = "okay";
 	clock-frequency = <1000000>;
 
 	dmas = <&gpi_dma0 0 2 QCOM_GPI_I2C>,
@@ -355,7 +356,7 @@
 
 	/* Touchscreen device tree node */
 	st_fts@49 {
-		status = "ok";
+		status = "okay";
 		compatible = "st,fts";
 		reg = <0x49>;
 		interrupt-parent = <&tlmm>;
