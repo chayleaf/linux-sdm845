@@ -18,6 +18,37 @@
 / {
 	compatible = "qcom,sm8150-mtp", "qcom,sm8150";
 
+	aliases {
+		serial0 = &uart2;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		label = "Volume keys";
+		autorepeat;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&volume_down_gpio &volume_up_gpio>;
+
+		vol-down {
+			label = "Volume down";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&pm8150_gpios 7 GPIO_ACTIVE_LOW>;
+			debounce-interval = <15>;
+		};
+
+		vol-up {
+			label = "Volume up";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&pm8150_gpios 6 GPIO_ACTIVE_LOW>;
+			debounce-interval = <15>;
+		};
+	};
+
 	vph_pwr: vph-pwr-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "vph_pwr";
@@ -64,9 +95,9 @@
 			qcom,client-id = <1>;
 			qcom,vmid = <15>;
 		};
-		rmtfs_upper: memory@f2902000 {
+		rmtfs_upper: memory@f2b01000 {
 			no-map;
-			reg = <0 0xf2902000 0 0x1000>;
+			reg = <0 0xf2b01000 0 0x1000>;
 		};
 	};
 };
@@ -105,13 +136,6 @@
 
 &cdsp_mem {
 	reg = <0x0 0x98d00000 0x0 0x1400000>;
-};
-
-// Just like the OnePlus 6, the OnePlus 7 puts this in a weird spot
-// Again it's left up to the driver to allocate this, it always allocates
-// it here.
-&rmtfs_mem {
-	reg = <0x0 0xf2901000 0x0 0x200000>;
 };
 
 &gpu {
@@ -421,6 +445,28 @@
 	status = "okay";
 };
 
+&pm8150_gpios {
+	volume_down_gpio: pm8998_gpio7 {
+		pinconf {
+			pins = "gpio7";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			qcom,drive-strength = <0>;
+		};
+	};
+
+	volume_up_gpio: pm8998_gpio6 {
+		pinconf {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			qcom,drive-strength = <0>;
+		};
+	};
+};
+
 &pon {
 	pwrkey {
 		status = "okay";
@@ -497,8 +543,12 @@
 	};
 };
 
-&ufs_mem_hc {
+&uart2 {
 	status = "okay";
+};
+
+&ufs_mem_hc {
+	status = "disabled";
 
 	reset-gpios = <&tlmm 175 GPIO_ACTIVE_LOW>;
 
@@ -511,7 +561,7 @@
 };
 
 &ufs_mem_phy {
-	status = "okay";
+	status = "disabled";
 
 	vdda-phy-supply = <&vdda_ufs_2ln_core_1>;
 	vdda-max-microamp = <90200>;
