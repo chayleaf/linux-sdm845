@@ -379,6 +379,8 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 		return;
 	}
 
+	dev_info(input->dev.parent, "gpio_keys_gpio_report_event: %d\n", state);
+
 	if (type == EV_ABS) {
 		if (state)
 			input_event(input, type, button->code, button->value);
