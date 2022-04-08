@@ -103,6 +103,15 @@
 			no-map;
 		};
 
+		/* The rmtfs_mem needs to be guarded due to "XPU limitations"
+		 * it is otherwise possible for an allocation adjacent to the
+		 * rmtfs_mem region to trigger an XPU violation, causing a crash.
+		 */
+		rmtfs_lower_guard: memory@f6300000 {
+			reg = <0 0xf6000000 0 0x301000>;
+			no-map;
+		};
+
 		rmtfs_mem: memory@f6301000 {
 			compatible = "qcom,rmtfs-mem";
 			reg = <0 0xf6301000 0 0x200000>;
@@ -110,6 +119,11 @@
 
 			qcom,client-id = <1>;
 			qcom,vmid = <15>;
+		};
+
+		rmtfs_upper_guard: memory@f6501000 {
+			reg = <0 0xf6501000 0 0x301000>;
+			no-map;
 		};
 	};
 
