@@ -148,7 +148,6 @@ struct fts_ts_data {
 	struct pinctrl *pinctrl;
 
 	// DT data
-	struct gpio_desc *irq_gpio;
 	struct gpio_desc *reset_gpio;
 	u32 width;
 	u32 height;
@@ -640,8 +639,6 @@ static int fts_parse_dt(struct fts_ts_data *data)
 		return -EINVAL;
 	}
 
-	data->irq_gpio = devm_gpiod_get_optional(dev, "irq", GPIOD_OUT_LOW);
-
 	return 0;
 }
 
@@ -655,6 +652,11 @@ static int fts_ts_probe(struct i2c_client *client,
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&data->client->dev, "I2C not supported");
 		return -ENODEV;
+	}
+
+	if (!client->irq) {
+		dev_err(&client->dev, "No irq specified\n");
+		return -EINVAL;
 	}
 
 	data = devm_kzalloc(&client->dev, sizeof(*data), GFP_KERNEL);
@@ -718,19 +720,15 @@ static int fts_ts_probe(struct i2c_client *client,
 		goto err_gpio_config;
 	}
 
-	if (data->irq_gpio) {
-		data->irq = gpiod_to_irq(data->irq_gpio);
-
-		ret = request_threaded_irq(data->irq, NULL, fts_ts_interrupt,
-					IRQF_ONESHOT,
-					data->client->name, data);
-		if (ret < 0) {
-			dev_err(&data->client->dev, "request irq failed");
-			goto err_gpio_config;
-		}
-		device_init_wakeup(&client->dev, true);
+	ret = devm_request_threaded_irq(&client->dev, client->irq, NULL,
+					fts_ts_interrupt, IRQF_ONESHOT,
+					client->name, data);
+	if (ret) {
+		dev_err(&data->client->dev, "request irq failed: %d\n", ret);
+		return ret;
 	}
 
+	device_init_wakeup(&client->dev, true);
 	data->dev_pm_suspend = false;
 	init_completion(&data->dev_pm_suspend_completion);
 
