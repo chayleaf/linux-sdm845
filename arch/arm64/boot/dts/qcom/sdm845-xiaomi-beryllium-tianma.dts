@@ -7,7 +7,6 @@
 &display_panel {
 	status = "okay";
 	compatible = "tianma,fhd-video";
-	backlight = <&pmi8998_wled>;
 };
 
 &i2c14 {
@@ -25,6 +24,5 @@
 		interrupts = <31 IRQ_TYPE_EDGE_RISING>;
 		reset-gpio = <&tlmm 32 0x00 /* GPIO_ACTIVE_HIGH */ >;
 	};
-
 };
 
