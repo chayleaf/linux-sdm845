@@ -595,9 +595,9 @@ err_out:
 
 static int fts_reset(struct fts_ts_data *data)
 {
-	gpiod_set_value_cansleep(data->reset_gpio, 0);
-	msleep(20);
 	gpiod_set_value_cansleep(data->reset_gpio, 1);
+	msleep(20);
+	gpiod_set_value_cansleep(data->reset_gpio, 0);
 
 	return 0;
 }
@@ -633,7 +633,7 @@ static int fts_parse_dt(struct fts_ts_data *data)
 	}
 	data->max_touch_number = val;
 
-	data->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
+	data->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
 	if (data->reset_gpio < 0) {
 		dev_err(&data->client->dev, "Unable to get reset gpio");
 		return -EINVAL;
