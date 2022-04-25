@@ -79,15 +79,15 @@
 #define FTS_ONE_TCH_LEN 6
 
 #define FTS_MAX_ID 0x0A
-#define FTS_TOUCH_X_H_POS 3
-#define FTS_TOUCH_X_L_POS 4
-#define FTS_TOUCH_Y_H_POS 5
-#define FTS_TOUCH_Y_L_POS 6
-#define FTS_TOUCH_PRE_POS 7
-#define FTS_TOUCH_AREA_POS 8
+#define FTS_TOUCH_X_H_OFFSET 3
+#define FTS_TOUCH_X_L_OFFSET 4
+#define FTS_TOUCH_Y_H_OFFSET 5
+#define FTS_TOUCH_Y_L_OFFSET 6
+#define FTS_TOUCH_PRESSURE_OFFSET 7
+#define FTS_TOUCH_AREA_OFFSET 8
 #define FTS_TOUCH_POINT_NUM 2
-#define FTS_TOUCH_EVENT_POS 3
-#define FTS_TOUCH_ID_POS 5
+#define FTS_TOUCH_TYPE_OFFSET 3
+#define FTS_TOUCH_ID_OFFSET 5
 #define FTS_COORDS_ARR_SIZE 2
 
 #define FTS_TOUCH_DOWN 0
@@ -135,13 +135,9 @@ struct fts_ts_data {
 	bool power_disabled;
 
 	/* multi-touch */
-	struct ts_event *events;
 	u32 max_touch_number;
 	u8 *point_buf;
 	int pnt_buf_size;
-	int touches;
-	int touch_point;
-	int point_num;
 	bool dev_pm_suspend;
 	bool low_power_mode;
 	struct completion dev_pm_suspend_completion;
@@ -351,97 +347,20 @@ static void fts_release_all_finger(struct fts_ts_data *data)
 		input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, false);
 	}
 
-	input_report_key(input_dev, BTN_TOUCH, 0);
 	input_sync(input_dev);
 
 	mutex_unlock(&data->report_mutex);
 }
 
-static int fts_input_report_b(struct fts_ts_data *data)
+static void fts_report_touch_event(struct fts_ts_data *data)
 {
-	int i = 0;
-	int uppoint = 0;
-	int touches = 0;
-	bool va_reported = false;
-	struct ts_event *events = data->events;
-
-	for (i = 0; i < data->touch_point; i++) {
-		if (events[i].id >= data->max_touch_number)
-			break;
-
-		va_reported = true;
-		input_mt_slot(data->input_dev, events[i].id);
-
-		if (events[i].flag == FTS_TOUCH_DOWN || events[i].flag == FTS_TOUCH_CONTACT) {
-			input_mt_report_slot_state(data->input_dev,
-						   MT_TOOL_FINGER, true);
-
-			if (events[i].p <= 0)
-				events[i].p = 0x3f;
-
-			input_report_abs(data->input_dev, ABS_MT_PRESSURE,
-					 events[i].p);
-
-			if (events[i].area <= 0)
-				events[i].area = 0x09;
-
-			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR,
-					 events[i].area);
-			input_report_abs(data->input_dev, ABS_MT_POSITION_X,
-					 events[i].x);
-			input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
-					 events[i].y);
-
-			touches |= BIT(events[i].id);
-			data->touches |= BIT(events[i].id);
-		} else {
-			uppoint++;
-
-			input_report_abs(data->input_dev, ABS_MT_PRESSURE, 0);
-
-			input_mt_report_slot_state(data->input_dev,
-						   MT_TOOL_FINGER, false);
-			data->touches &= ~BIT(events[i].id);
-		}
-	}
-
-	if (data->touches ^ touches) {
-		for (i = 0; i < data->max_touch_number; i++) {
-			if (BIT(i) & (data->touches ^ touches)) {
-				va_reported = true;
-				input_mt_slot(data->input_dev, i);
-				input_mt_report_slot_state(
-					data->input_dev, MT_TOOL_FINGER, false);
-			}
-		}
-	}
-	data->touches = touches;
-
-	if (va_reported) {
-		if (!data->point_num || !touches)
-			input_report_key(data->input_dev, BTN_TOUCH, 0);
-		else
-			input_report_key(data->input_dev, BTN_TOUCH, 1);
-	} else {
-		dev_err(&data->client->dev, "va not reported, but touches=%d", touches);
-	}
-
-	input_sync(data->input_dev);
-	return 0;
-}
-
-static int fts_read_touchdata(struct fts_ts_data *data)
-{
-	int ret = 0;
-	int i = 0;
-	u8 pointid;
 	int base;
-	struct ts_event *events = data->events;
-	int max_touch_num = data->max_touch_number;
+	int i = 0;
+	int ret;
+	int slot, type;
+	int x, y, z, maj;
+	
 	u8 *buf = data->point_buf;
-
-	data->point_num = 0;
-	data->touch_point = 0;
 
 	memset(buf, 0xFF, data->pnt_buf_size);
 	buf[0] = 0x00;
@@ -449,51 +368,44 @@ static int fts_read_touchdata(struct fts_ts_data *data)
 	ret = fts_i2c_read(data->client, buf, 1, buf, data->pnt_buf_size);
 	if (ret < 0) {
 		dev_err(&data->client->dev, "read touchdata failed, ret:%d", ret);
-		return ret;
+		return;
 	}
-	data->point_num = buf[FTS_TOUCH_POINT_NUM] & 0x0F;
 
-	if (data->point_num > max_touch_num)
-		return -EINVAL;
-
-	for (i = 0; i < max_touch_num; i++) {
+	for (i = 0; i < data->max_touch_number; i++) {
 		base = FTS_ONE_TCH_LEN * i;
 
-		pointid = (buf[FTS_TOUCH_ID_POS + base]) >> 4;
-		if (pointid >= FTS_MAX_ID)
-			break;
+		slot = (buf[base + FTS_TOUCH_ID_OFFSET]) >> 4;
+		if (slot >= FTS_MAX_ID || slot >= data->max_touch_number)
+			return;
 
-		else if (pointid >= max_touch_num)
-			return -EINVAL;
+		x = ((buf[base + FTS_TOUCH_X_H_OFFSET] & 0x0F) << 8) +
+			      (buf[base + FTS_TOUCH_X_L_OFFSET] & 0xFF);
+		y = ((buf[base + FTS_TOUCH_Y_H_OFFSET] & 0x0F) << 8) +
+			      (buf[base + FTS_TOUCH_Y_L_OFFSET] & 0xFF);
+		z = buf[base + FTS_TOUCH_PRESSURE_OFFSET];
+		if (z <= 0)
+			z = 0x3f;
+		
+		maj = buf[base + FTS_TOUCH_AREA_OFFSET] >> 4;
+		if (maj <= 0)
+			maj = 0x09;
+		
+		type = buf[base + FTS_TOUCH_TYPE_OFFSET] >> 6;
 
-		data->touch_point++;
-
-		events[i].x = ((buf[FTS_TOUCH_X_H_POS + base] & 0x0F) << 8) +
-			      (buf[FTS_TOUCH_X_L_POS + base] & 0xFF);
-		events[i].y = ((buf[FTS_TOUCH_Y_H_POS + base] & 0x0F) << 8) +
-			      (buf[FTS_TOUCH_Y_L_POS + base] & 0xFF);
-		events[i].flag = buf[FTS_TOUCH_EVENT_POS + base] >> 6;
-		events[i].id = buf[FTS_TOUCH_ID_POS + base] >> 4;
-		events[i].area = buf[FTS_TOUCH_AREA_POS + base] >> 4;
-		events[i].p = buf[FTS_TOUCH_PRE_POS + base];
-
-		if (((events[i].flag == FTS_TOUCH_DOWN) || (events[i].flag == FTS_TOUCH_CONTACT))
-		    && (data->point_num == 0)) {
-			dev_err(&data->client->dev, "abnormal touch data from fw");
-			return -EIO;
+		input_mt_slot(data->input_dev, slot);
+		if (type == FTS_TOUCH_DOWN || type == FTS_TOUCH_CONTACT) {
+			input_mt_report_slot_state(data->input_dev,
+						   MT_TOOL_FINGER, true);
+			input_report_abs(data->input_dev, ABS_MT_POSITION_X, x);
+			input_report_abs(data->input_dev, ABS_MT_POSITION_Y, y);
+			input_report_abs(data->input_dev, ABS_MT_PRESSURE, z);
+			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, maj);
+		} else {
+			input_mt_slot(data->input_dev, slot);
+			input_mt_report_slot_inactive(data->input_dev);
 		}
+		input_sync(data->input_dev);
 	}
-	if (data->touch_point == 0) {
-		dev_err(&data->client->dev, "no touch point information");
-		return -EIO;
-	}
-
-	return 0;
-}
-
-static void fts_report_event(struct fts_ts_data *data)
-{
-	fts_input_report_b(data);
 }
 
 static irqreturn_t fts_ts_interrupt(int irq, void *d)
@@ -517,12 +429,7 @@ static irqreturn_t fts_ts_interrupt(int irq, void *d)
 		}
 	}
 
-	ret = fts_read_touchdata(data);
-	if (ret == 0) {
-		mutex_lock(&data->report_mutex);
-		fts_report_event(data);
-		mutex_unlock(&data->report_mutex);
-	}
+	fts_report_touch_event(data);
 
 	return IRQ_HANDLED;
 }
@@ -547,7 +454,6 @@ static int fts_input_init(struct fts_ts_data *data)
 
 	__set_bit(EV_SYN, input_dev->evbit);
 	__set_bit(EV_ABS, input_dev->evbit);
-	__set_bit(BTN_TOUCH, input_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
 	input_mt_init_slots(input_dev, data->max_touch_number,
@@ -569,12 +475,6 @@ static int fts_input_init(struct fts_ts_data *data)
 		goto err_out;
 	}
 
-	data->events = devm_kzalloc(&data->client->dev,
-		data->max_touch_number * sizeof(struct ts_event), GFP_KERNEL);
-	if (!data->events) {
-		ret = -ENOMEM;
-		goto err_out;
-	}
 	ret = input_register_device(input_dev);
 	if (ret < 0) {
 		dev_err(&data->client->dev, "Input device registration failed");
@@ -757,7 +657,6 @@ static int fts_ts_remove(struct i2c_client *client)
 	fts_power_source_release(data);
 
 	kfree(data->point_buf);
-	kfree(data->events);
 
 	devm_kfree(&client->dev, data);
 
