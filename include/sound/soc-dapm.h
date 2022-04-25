@@ -22,6 +22,10 @@ struct soc_enum;
 /* widget has no PM register bit */
 #define SND_SOC_NOPM	-1
 
+#define snd_soc_dapm_for_each_direction(dir) \
+	for ((dir) = SND_SOC_DAPM_DIR_IN; (dir) <= SND_SOC_DAPM_DIR_OUT; \
+		(dir)++)
+
 /*
  * SoC dynamic audio power management
  *
@@ -662,6 +666,9 @@ struct snd_soc_dapm_widget {
 	struct list_head work_list;
 	struct list_head power_list;
 	struct list_head dirty;
+#ifdef CONFIG_DEBUG_FS
+	struct list_head visited_list;
+#endif
 	int endpoints[2];
 
 	struct clk *clk;

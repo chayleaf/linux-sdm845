@@ -44,10 +44,6 @@
 #define SND_SOC_DAPM_DIR_REVERSE(x) ((x == SND_SOC_DAPM_DIR_IN) ? \
 	SND_SOC_DAPM_DIR_OUT : SND_SOC_DAPM_DIR_IN)
 
-#define snd_soc_dapm_for_each_direction(dir) \
-	for ((dir) = SND_SOC_DAPM_DIR_IN; (dir) <= SND_SOC_DAPM_DIR_OUT; \
-		(dir)++)
-
 static int snd_soc_dapm_add_path(struct snd_soc_dapm_context *dapm,
 	struct snd_soc_dapm_widget *wsource, struct snd_soc_dapm_widget *wsink,
 	const char *control,
@@ -2223,6 +2219,8 @@ static void dapm_debugfs_add_widget(struct snd_soc_dapm_widget *w)
 
 	if (!dapm->debugfs_dapm || !w->name)
 		return;
+	
+	INIT_LIST_HEAD(&w->visited_list);
 
 	debugfs_create_file(w->name, 0444, dapm->debugfs_dapm, w,
 			    &dapm_widget_power_fops);
