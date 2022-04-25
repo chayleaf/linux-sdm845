@@ -138,9 +138,6 @@ struct fts_ts_data {
 	u32 max_touch_number;
 	u8 *point_buf;
 	int pnt_buf_size;
-	bool dev_pm_suspend;
-	bool low_power_mode;
-	struct completion dev_pm_suspend_completion;
 
 	// DT data
 	struct gpio_desc *reset_gpio;
@@ -374,23 +371,11 @@ static void fts_report_touch_event(struct fts_ts_data *data)
 
 static irqreturn_t fts_ts_interrupt(int irq, void *d)
 {
-	int ret = 0;
 	struct fts_ts_data *data = (struct fts_ts_data *)d;
 
 	if (!data) {
 		dev_err(&data->client->dev, "%s() Invalid fts_ts_data", __func__);
 		return IRQ_HANDLED;
-	}
-
-	if (data->dev_pm_suspend) {
-		ret = wait_for_completion_timeout(
-			&data->dev_pm_suspend_completion,
-			msecs_to_jiffies(700));
-		if (!ret) {
-			dev_err(&data->client->dev,
-				"Didn't resume in time, skipping wakeup event handling\n");
-			return IRQ_HANDLED;
-		}
 	}
 
 	fts_report_touch_event(data);
@@ -575,10 +560,6 @@ static int fts_ts_probe(struct i2c_client *client,
 		return ret;
 	}
 
-	device_init_wakeup(&client->dev, true);
-	data->dev_pm_suspend = false;
-	init_completion(&data->dev_pm_suspend_completion);
-
 	return 0;
 
 err_gpio_config:
@@ -607,7 +588,7 @@ static int fts_ts_remove(struct i2c_client *client)
 	return 0;
 }
 
-static int fts_ts_suspend(struct device *dev)
+static int fts_pm_suspend(struct device *dev)
 {
 	struct fts_ts_data *data = dev_get_drvdata(dev);
 	int ret = 0;
@@ -621,7 +602,7 @@ static int fts_ts_suspend(struct device *dev)
 	return 0;
 }
 
-static int fts_ts_resume(struct device *dev)
+static int fts_pm_resume(struct device *dev)
 {
 	struct fts_ts_data *data = dev_get_drvdata(dev);
 
@@ -630,50 +611,6 @@ static int fts_ts_resume(struct device *dev)
 	fts_wait_ready(data);
 
 	enable_irq(data->irq);
-
-	return 0;
-}
-
-static int fts_pm_suspend(struct device *dev)
-{
-	struct fts_ts_data *data = dev_get_drvdata(dev);
-	int ret = 0;
-
-	data->dev_pm_suspend = true;
-
-	if (data->low_power_mode) {
-		ret = enable_irq_wake(data->irq);
-		if (ret < 0) {
-			dev_err(&data->client->dev, "enable_irq_wake(irq:%d) failed",
-				 data->irq);
-		}
-	} else {
-		ret = fts_ts_suspend(dev);
-	}
-
-	reinit_completion(&data->dev_pm_suspend_completion);
-
-	return ret;
-}
-
-static int fts_pm_resume(struct device *dev)
-{
-	struct fts_ts_data *data = dev_get_drvdata(dev);
-	int ret = 0;
-
-	data->dev_pm_suspend = false;
-
-	if (data->low_power_mode) {
-		ret = disable_irq_wake(data->irq);
-		if (ret < 0) {
-			dev_err(&data->client->dev, "disable_irq_wake(irq:%d) failed",
-				 data->irq);
-		}
-	} else {
-		ret = fts_ts_resume(dev);
-	}
-
-	complete(&data->dev_pm_suspend_completion);
 
 	return 0;
 }
