@@ -141,7 +141,6 @@ struct fts_ts_data {
 	bool dev_pm_suspend;
 	bool low_power_mode;
 	struct completion dev_pm_suspend_completion;
-	struct pinctrl *pinctrl;
 
 	// DT data
 	struct gpio_desc *reset_gpio;
@@ -257,19 +256,6 @@ exit:
 	return ret;
 }
 
-static int fts_power_source_release(struct fts_ts_data *data)
-{
-	if (!data->power_disabled) {
-		regulator_disable(data->vdd);
-		regulator_disable(data->vcc_i2c);
-	}
-
-	devm_regulator_put(data->vdd);
-	devm_regulator_put(data->vcc_i2c);
-
-	return 0;
-}
-
 static int fts_power_source_ctrl(struct fts_ts_data *data, bool enable)
 {
 	int ret = 0;
@@ -307,28 +293,6 @@ static int fts_power_source_ctrl(struct fts_ts_data *data, bool enable)
 
 			data->power_disabled = true;
 		}
-	}
-
-	return ret;
-}
-
-static int fts_pinctrl_set_active(struct fts_ts_data *data, bool enable)
-{
-	int ret = 0;
-	struct pinctrl_state *state = pinctrl_lookup_state(data->pinctrl,
-		enable ? "default" : "suspend");
-
-	if (IS_ERR_OR_NULL(state)) {
-		dev_err(&data->client->dev, "pinctrl lookup %s failed\n",
-			enable ? "default" : "suspend");
-		return -EINVAL;
-	}
-
-	ret = pinctrl_select_state(data->pinctrl, state);
-	if (ret < 0) {
-		dev_err(&data->client->dev,
-			"Failed to set pinctrl state: enable = %d, ret = %d",
-			enable, ret);
 	}
 
 	return ret;
@@ -547,7 +511,6 @@ static int fts_ts_probe(struct i2c_client *client,
 {
 	int ret = 0;
 	struct fts_ts_data *data;
-	struct pinctrl_state *pinctrl_state_temp;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&data->client->dev, "I2C not supported");
@@ -582,31 +545,15 @@ static int fts_ts_probe(struct i2c_client *client,
 	ret = fts_power_source_init(data);
 	if (ret < 0) {
 		dev_err(&data->client->dev, "fail to get vdd/vcc_i2c regulator");
-		goto err_power_init;
+		goto err_power_config;
 	}
 
 	data->power_disabled = true;
 	ret = fts_power_source_ctrl(data, true);
 	if (ret < 0) {
 		dev_err(&data->client->dev, "fail to enable vdd/vcc_i2c regulator");
-		goto err_power_ctrl;
+		goto err_power_config;
 	}
-
-	data->pinctrl = devm_pinctrl_get(&client->dev);
-	if (IS_ERR_OR_NULL(data->pinctrl)) {
-		dev_err(&data->client->dev, "Failed to get pinctrl, please check dts");
-		ret = PTR_ERR(data->pinctrl);
-		goto err_power_ctrl;
-	}
-
-	pinctrl_state_temp = pinctrl_lookup_state(data->pinctrl, "default");
-	if (IS_ERR_OR_NULL(pinctrl_state_temp) ||
-		IS_ERR_OR_NULL(pinctrl_lookup_state(data->pinctrl, "suspend"))) {
-		dev_err(&data->client->dev, "Failed to get default or suspend pinctrl state, please check dts");
-		goto err_power_ctrl;
-	}
-
-	fts_pinctrl_set_active(data, true);
 
 	ret = fts_reset(data);
 	if (ret < 0) {
@@ -636,9 +583,7 @@ static int fts_ts_probe(struct i2c_client *client,
 
 err_gpio_config:
 	fts_power_source_ctrl(data, false);
-err_power_ctrl:
-	fts_power_source_release(data);
-err_power_init:
+err_power_config:
 	input_unregister_device(data->input_dev);
 err_input_init:
 	devm_kfree(&client->dev, data);
@@ -654,7 +599,6 @@ static int fts_ts_remove(struct i2c_client *client)
 	input_unregister_device(data->input_dev);
 
 	fts_power_source_ctrl(data, false);
-	fts_power_source_release(data);
 
 	kfree(data->point_buf);
 
@@ -673,7 +617,6 @@ static int fts_ts_suspend(struct device *dev)
 	ret = fts_power_source_ctrl(data, false);
 	if (ret < 0)
 		dev_err(dev, "power off fail, ret=%d", ret);
-	fts_pinctrl_set_active(data, false);
 
 	return 0;
 }
@@ -683,10 +626,7 @@ static int fts_ts_resume(struct device *dev)
 	struct fts_ts_data *data = dev_get_drvdata(dev);
 
 	fts_release_all_finger(data);
-
 	fts_power_source_ctrl(data, true);
-	fts_pinctrl_set_active(data, true);
-
 	fts_wait_ready(data);
 
 	enable_irq(data->irq);
