@@ -114,15 +114,6 @@
 
 static DEFINE_MUTEX(i2c_rw_access);
 
-struct ts_event {
-	int x; /*x coordinate */
-	int y; /*y coordinate */
-	int p; /* pressure */
-	int flag; /* touch event flag: 0 -- down; 1-- up; 2 -- contact */
-	int id; /*touch ID */
-	int area;
-};
-
 struct fts_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
@@ -131,15 +122,15 @@ struct fts_ts_data {
 	spinlock_t irq_lock;
 	struct mutex report_mutex;
 	int irq;
-	bool irq_disabled;
-	bool power_disabled;
 
-	/* multi-touch */
+	struct regulator_bulk_data regulators[2];
+
+	/* Touch data*/
 	u32 max_touch_number;
 	u8 *point_buf;
 	int pnt_buf_size;
 
-	// DT data
+	/* DT data */
 	struct gpio_desc *reset_gpio;
 	u32 width;
 	u32 height;
@@ -155,8 +146,9 @@ int fts_i2c_read(struct i2c_client *client, char *writebuf, int writelen,
 	if (readlen < 0 || writelen < 0)
 		return -EINVAL;
 
-	// If writelen is zero then only populate msgs[0].
-	// otherwise we read into msgs[1]
+	/* If writelen is zero then only populate msgs[0].
+	 * otherwise we read into msgs[1]
+	 */
 	msgs[msg_count-1].len = readlen;
 	msgs[msg_count-1].buf = readbuf;
 	msgs[msg_count-1].addr = client->addr;
@@ -210,89 +202,6 @@ int fts_wait_ready(struct fts_ts_data *data)
 	} while ((cnt * INTERVAL_READ_REG) < TIMEOUT_READ_REG);
 
 	return -EIO;
-}
-
-static int fts_power_source_init(struct fts_ts_data *data)
-{
-	int ret = 0;
-
-	data->vdd = devm_regulator_get(&data->client->dev, "vdd");
-	if (IS_ERR_OR_NULL(data->vdd)) {
-		ret = PTR_ERR(data->vdd);
-		dev_err(&data->client->dev, "get vdd regulator failed,ret=%d", ret);
-		return ret;
-	}
-
-	if (regulator_count_voltages(data->vdd) > 0) {
-		ret = regulator_set_voltage(data->vdd, FTS_VDD_MIN_UV,
-					    FTS_VDD_MAX_UV);
-		if (ret < 0) {
-			dev_err(&data->client->dev, "failed to set vdd regulator ret=%d", ret);
-			goto exit;
-		}
-	}
-
-	data->vcc_i2c = devm_regulator_get(&data->client->dev, "vcc-i2c");
-	if (IS_ERR(data->vcc_i2c)) {
-		ret = PTR_ERR(data->vcc_i2c);
-		dev_err(&data->client->dev, "get vcc_i2c regulator failed,ret=%d", ret);
-		return ret;
-	}
-
-	if (regulator_count_voltages(data->vcc_i2c) > 0) {
-		ret = regulator_set_voltage(data->vcc_i2c, FTS_I2C_VCC_MIN_UV,
-					    FTS_I2C_VCC_MAX_UV);
-		if (ret < 0) {
-			dev_err(&data->client->dev, "failed to set vcc_i2c regulator ret=%d",
-				ret);
-			goto exit;
-		}
-	}
-
-exit:
-	return ret;
-}
-
-static int fts_power_source_ctrl(struct fts_ts_data *data, bool enable)
-{
-	int ret = 0;
-
-	if (enable) {
-		if (data->power_disabled) {
-			ret = regulator_enable(data->vdd);
-			if (ret < 0) {
-				dev_err(&data->client->dev,
-					"enable vdd regulator failed,ret=%d",
-					ret);
-			}
-
-			ret = regulator_enable(data->vcc_i2c);
-			if (ret < 0) {
-				dev_err(&data->client->dev, "enable vcc_i2c regulator failed,ret=%d",
-					  ret);
-			}
-			data->power_disabled = false;
-		}
-	} else {
-		if (!data->power_disabled) {
-			ret = regulator_disable(data->vdd);
-			if (ret < 0) {
-				dev_err(&data->client->dev,
-					"disable vdd regulator failed,ret=%d",
-					ret);
-			}
-
-			ret = regulator_disable(data->vcc_i2c);
-			if (ret < 0) {
-				dev_err(&data->client->dev, "disable vcc_i2c regulator failed,ret=%d",
-					  ret);
-			}
-
-			data->power_disabled = true;
-		}
-	}
-
-	return ret;
 }
 
 static void fts_release_all_finger(struct fts_ts_data *data)
@@ -451,6 +360,28 @@ static int fts_reset(struct fts_ts_data *data)
 	return 0;
 }
 
+static int fts_power_on(struct fts_ts_data *data)
+{
+	int error;
+
+	error = regulator_bulk_enable(ARRAY_SIZE(data->regulators),
+				      data->regulators);
+	if (error) {
+		dev_err(&data->client->dev, "failed to enable regulators\n");
+		return error;
+	}
+
+	return 0;
+}
+
+static void fts_power_off(void *d)
+{
+	struct fts_ts_data *data = d;
+
+	regulator_bulk_disable(ARRAY_SIZE(data->regulators),
+			       data->regulators);
+}
+
 static int fts_parse_dt(struct fts_ts_data *data)
 {
 	int ret = 0;
@@ -527,17 +458,26 @@ static int fts_ts_probe(struct i2c_client *client,
 		goto err_input_init;
 	}
 
-	ret = fts_power_source_init(data);
-	if (ret < 0) {
-		dev_err(&data->client->dev, "fail to get vdd/vcc_i2c regulator");
+	/* AVDD is the analog voltage supply (2.6V to 3.3V)
+	 * VDDIO is the digital voltage supply (1.8V)
+	 */
+	data->regulators[0].supply = "avdd";
+	data->regulators[1].supply = "vddio";
+	ret = devm_regulator_bulk_get(&client->dev, ARRAY_SIZE(data->regulators),
+				      data->regulators);
+	if (ret) {
+		dev_err(&data->client->dev, "Failed to get regulators %d\n", ret);
 		goto err_power_config;
 	}
 
-	data->power_disabled = true;
-	ret = fts_power_source_ctrl(data, true);
-	if (ret < 0) {
-		dev_err(&data->client->dev, "fail to enable vdd/vcc_i2c regulator");
+	ret = fts_power_on(data);
+	if (ret)
 		goto err_power_config;
+
+	ret = devm_add_action_or_reset(&client->dev, fts_power_off, data);
+	if (ret) {
+		dev_err(&data->client->dev, "failed to install power off handler\n");
+		goto err_gpio_config;
 	}
 
 	ret = fts_reset(data);
@@ -563,7 +503,7 @@ static int fts_ts_probe(struct i2c_client *client,
 	return 0;
 
 err_gpio_config:
-	fts_power_source_ctrl(data, false);
+	fts_power_off(data);
 err_power_config:
 	input_unregister_device(data->input_dev);
 err_input_init:
@@ -577,12 +517,12 @@ static int fts_ts_remove(struct i2c_client *client)
 	struct fts_ts_data *data = i2c_get_clientdata(client);
 
 	free_irq(client->irq, data);
+	
 	input_unregister_device(data->input_dev);
-
-	fts_power_source_ctrl(data, false);
+	
+	fts_power_off(data);
 
 	kfree(data->point_buf);
-
 	devm_kfree(&client->dev, data);
 
 	return 0;
@@ -591,13 +531,9 @@ static int fts_ts_remove(struct i2c_client *client)
 static int fts_pm_suspend(struct device *dev)
 {
 	struct fts_ts_data *data = dev_get_drvdata(dev);
-	int ret = 0;
 
 	disable_irq(data->irq);
-
-	ret = fts_power_source_ctrl(data, false);
-	if (ret < 0)
-		dev_err(dev, "power off fail, ret=%d", ret);
+	fts_power_off(data);
 
 	return 0;
 }
@@ -607,7 +543,7 @@ static int fts_pm_resume(struct device *dev)
 	struct fts_ts_data *data = dev_get_drvdata(dev);
 
 	fts_release_all_finger(data);
-	fts_power_source_ctrl(data, true);
+	fts_power_on(data);
 	fts_wait_ready(data);
 
 	enable_irq(data->irq);
