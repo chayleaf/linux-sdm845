@@ -5,7 +5,6 @@
 
 /dts-v1/;
 
-#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/sound/qcom,q6afe.h>
@@ -16,7 +15,7 @@
 
 / {
 	model = "Odin - AYN Technologies Co., Ltd.";
-	compatible = "qcom,sdm845-mtp", "qcom,sdm845", "qcom,mtp";
+	compatible = "ayn,odin", "qcom,sdm845", "qcom,mtp";
 	qcom,msm-id = <321 0x20001>;
 	qcom,board-id = <8 0>;
 	chassis-type = "tablet";
