@@ -78,7 +78,6 @@
 #define FTS_MAX_POINTS_SUPPORT 10
 #define FTS_ONE_TCH_LEN 6
 
-#define FTS_MAX_ID 0x0A
 #define FTS_TOUCH_X_H_OFFSET 3
 #define FTS_TOUCH_X_L_OFFSET 4
 #define FTS_TOUCH_Y_H_OFFSET 5
@@ -119,7 +118,7 @@ struct fts_ts_data {
 	struct input_dev *input_dev;
 	struct regulator *vdd;
 	struct regulator *vcc_i2c;
-	spinlock_t irq_lock;
+
 	struct mutex report_mutex;
 	int irq;
 
@@ -182,7 +181,7 @@ static bool fts_chip_is_valid(struct fts_ts_data *data, u16 id)
 	return true;
 }
 
-int fts_wait_ready(struct fts_ts_data *data)
+int fts_check_status(struct fts_ts_data *data)
 {
 	int ret = 0;
 	int cnt = 0;
@@ -193,7 +192,7 @@ int fts_wait_ready(struct fts_ts_data *data)
 		ret = fts_i2c_read_reg(client, FTS_REG_CHIP_ID, &reg_value[0]);
 		ret = fts_i2c_read_reg(client, FTS_REG_CHIP_ID2, &reg_value[1]);
 		if (fts_chip_is_valid(data, reg_value[0] << 8 | reg_value[1])) {
-			dev_dbg(&data->client->dev, "TP Ready, Device ID = 0x%x%x, count = %d",
+			dev_dbg(&data->client->dev, "TS Ready, Device ID = 0x%x%x, count = %d",
 				reg_value[0], reg_value[1], cnt);
 			return 0;
 		}
@@ -207,14 +206,13 @@ int fts_wait_ready(struct fts_ts_data *data)
 static void fts_release_all_finger(struct fts_ts_data *data)
 {
 	struct input_dev *input_dev = data->input_dev;
-	u32 finger_count = 0;
+	int i = 0;
 
 	mutex_lock(&data->report_mutex);
 
-	for (finger_count = 0; finger_count < data->max_touch_number;
-	     finger_count++) {
-		input_mt_slot(input_dev, finger_count);
-		input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, false);
+	for (i = 0; i < data->max_touch_number; i++) {
+		input_mt_slot(input_dev, i);
+		input_mt_report_slot_inactive(data->input_dev);
 	}
 
 	input_sync(input_dev);
@@ -245,7 +243,7 @@ static void fts_report_touch_event(struct fts_ts_data *data)
 		base = FTS_ONE_TCH_LEN * i;
 
 		slot = (buf[base + FTS_TOUCH_ID_OFFSET]) >> 4;
-		if (slot >= FTS_MAX_ID || slot >= data->max_touch_number)
+		if (slot >= data->max_touch_number)
 			return;
 
 		x = ((buf[base + FTS_TOUCH_X_H_OFFSET] & 0x0F) << 8) +
@@ -271,7 +269,6 @@ static void fts_report_touch_event(struct fts_ts_data *data)
 			input_report_abs(data->input_dev, ABS_MT_PRESSURE, z);
 			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, maj);
 		} else {
-			input_mt_slot(data->input_dev, slot);
 			input_mt_report_slot_inactive(data->input_dev);
 		}
 		input_sync(data->input_dev);
@@ -281,6 +278,7 @@ static void fts_report_touch_event(struct fts_ts_data *data)
 static irqreturn_t fts_ts_interrupt(int irq, void *d)
 {
 	struct fts_ts_data *data = (struct fts_ts_data *)d;
+	unsigned long flags;
 
 	if (!data) {
 		dev_err(&data->client->dev, "%s() Invalid fts_ts_data", __func__);
@@ -449,7 +447,6 @@ static int fts_ts_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, data);
 
-	spin_lock_init(&data->irq_lock);
 	mutex_init(&data->report_mutex);
 
 	ret = fts_input_init(data);
@@ -486,7 +483,7 @@ static int fts_ts_probe(struct i2c_client *client,
 		goto err_gpio_config;
 	}
 
-	ret = fts_wait_ready(data);
+	ret = fts_check_status(data);
 	if (ret < 0) {
 		dev_err(&data->client->dev, "Touch IC didn't turn on or is unsupported");
 		goto err_gpio_config;
@@ -517,11 +514,9 @@ static int fts_ts_remove(struct i2c_client *client)
 	struct fts_ts_data *data = i2c_get_clientdata(client);
 
 	free_irq(client->irq, data);
-	
 	input_unregister_device(data->input_dev);
-	
 	fts_power_off(data);
-
+	
 	kfree(data->point_buf);
 	devm_kfree(&client->dev, data);
 
@@ -532,6 +527,7 @@ static int fts_pm_suspend(struct device *dev)
 {
 	struct fts_ts_data *data = dev_get_drvdata(dev);
 
+	fts_release_all_finger(data);
 	disable_irq(data->irq);
 	fts_power_off(data);
 
@@ -542,9 +538,8 @@ static int fts_pm_resume(struct device *dev)
 {
 	struct fts_ts_data *data = dev_get_drvdata(dev);
 
-	fts_release_all_finger(data);
 	fts_power_on(data);
-	fts_wait_ready(data);
+	fts_check_status(data);
 
 	enable_irq(data->irq);
 
