@@ -43,37 +43,8 @@
 #include <linux/vmalloc.h>
 #include <linux/notifier.h>
 
-#define FTS_CMD_START1 0x55
-#define FTS_CMD_START2 0xAA
-#define FTS_CMD_START_DELAY 10
-#define FTS_CMD_READ_ID 0x90
-#define FTS_CMD_READ_ID_LEN 4
-
-#define FTS_REG_INT_CNT 0x8F
-#define FTS_REG_FLOW_WORK_CNT 0x91
-#define FTS_REG_WORKMODE 0x00
-#define FTS_REG_WORKMODE_FACTORY_VALUE 0x40
-#define FTS_REG_WORKMODE_WORK_VALUE 0x00
-#define FTS_REG_ESDCHECK_DISABLE 0x8D
 #define FTS_REG_CHIP_ID 0xA3
 #define FTS_REG_CHIP_ID2 0x9F
-#define FTS_REG_POWER_MODE 0xA5
-#define FTS_REG_POWER_MODE_SLEEP_VALUE 0x03
-#define FTS_REG_FW_VER 0xA6
-#define FTS_REG_VENDOR_ID 0xA8
-#define FTS_REG_LCD_BUSY_NUM 0xAB
-#define FTS_REG_FACE_DEC_MODE_EN 0xB0
-#define FTS_REG_FACE_DEC_MODE_STATUS 0x01
-#define FTS_REG_IDE_PARA_VER_ID 0xB5
-#define FTS_REG_IDE_PARA_STATUS 0xB6
-#define FTS_REG_GLOVE_MODE_EN 0xC0
-#define FTS_REG_COVER_MODE_EN 0xC1
-#define FTS_REG_CHARGER_MODE_EN 0x8B
-#define FTS_REG_GESTURE_EN 0xD0
-#define FTS_REG_GESTURE_OUTPUT_ADDRESS 0xD3
-#define FTS_REG_MODULE_ID 0xE3
-#define FTS_REG_LIC_VER 0xE4
-#define FTS_REG_ESD_SATURATE 0xED
 
 #define FTS_MAX_POINTS_SUPPORT 10
 #define FTS_ONE_TCH_LEN 6
@@ -84,29 +55,16 @@
 #define FTS_TOUCH_Y_L_OFFSET 6
 #define FTS_TOUCH_PRESSURE_OFFSET 7
 #define FTS_TOUCH_AREA_OFFSET 8
-#define FTS_TOUCH_POINT_NUM 2
 #define FTS_TOUCH_TYPE_OFFSET 3
 #define FTS_TOUCH_ID_OFFSET 5
-#define FTS_COORDS_ARR_SIZE 2
 
 #define FTS_TOUCH_DOWN 0
 #define FTS_TOUCH_UP 1
 #define FTS_TOUCH_CONTACT 2
 
-#define EVENT_DOWN(flag) ((flag == FTS_TOUCH_DOWN) || (flag == FTS_TOUCH_CONTACT))
-
-#define FTS_LOCKDOWN_INFO_SIZE 8
-#define LOCKDOWN_INFO_ADDR 0x1FA0
-
 #define FTS_DRIVER_NAME "fts-i2c"
 #define INTERVAL_READ_REG 100 /* unit:ms */
 #define TIMEOUT_READ_REG 2000 /* unit:ms */
-#define FTS_VDD_MIN_UV 2600000
-#define FTS_VDD_MAX_UV 3300000
-#define FTS_I2C_VCC_MIN_UV 1800000
-#define FTS_I2C_VCC_MAX_UV 1800000
-
-#define I2C_RETRY_NUMBER 3
 
 #define CHIP_TYPE_5452 0x5452
 #define CHIP_TYPE_8719 0x8719
@@ -116,16 +74,14 @@ static DEFINE_MUTEX(i2c_rw_access);
 struct fts_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
-	struct regulator *vdd;
-	struct regulator *vcc_i2c;
 
-	struct mutex report_mutex;
+	struct mutex mutex;
 	int irq;
 
 	struct regulator_bulk_data regulators[2];
 
 	/* Touch data*/
-	u32 max_touch_number;
+	u8 max_touch_number;
 	u8 *point_buf;
 	int pnt_buf_size;
 
@@ -208,25 +164,21 @@ static void fts_release_all_finger(struct fts_ts_data *data)
 	struct input_dev *input_dev = data->input_dev;
 	int i = 0;
 
-	mutex_lock(&data->report_mutex);
-
 	for (i = 0; i < data->max_touch_number; i++) {
 		input_mt_slot(input_dev, i);
 		input_mt_report_slot_inactive(data->input_dev);
 	}
 
 	input_sync(input_dev);
-
-	mutex_unlock(&data->report_mutex);
 }
 
-static void fts_report_touch_event(struct fts_ts_data *data)
+static void fts_report_touch(struct fts_ts_data *data)
 {
 	int base;
 	int i = 0;
 	int ret;
-	int slot, type;
-	int x, y, z, maj;
+	unsigned int x, y, z, maj;
+	u8 slot, type;
 	
 	u8 *buf = data->point_buf;
 
@@ -275,17 +227,12 @@ static void fts_report_touch_event(struct fts_ts_data *data)
 	}
 }
 
-static irqreturn_t fts_ts_interrupt(int irq, void *d)
+static irqreturn_t fts_ts_interrupt(int irq, void *dev_id)
 {
-	struct fts_ts_data *data = (struct fts_ts_data *)d;
+	struct fts_ts_data *data = dev_id;
 	unsigned long flags;
 
-	if (!data) {
-		dev_err(&data->client->dev, "%s() Invalid fts_ts_data", __func__);
-		return IRQ_HANDLED;
-	}
-
-	fts_report_touch_event(data);
+	fts_report_touch(data);
 
 	return IRQ_HANDLED;
 }
@@ -323,7 +270,7 @@ static int fts_input_init(struct fts_ts_data *data)
 
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, 0xFF, 0, 0);
 
-	data->pnt_buf_size = data->max_touch_number * FTS_ONE_TCH_LEN + 3;
+	data->pnt_buf_size = (data->max_touch_number * FTS_ONE_TCH_LEN) + 3;
 	data->point_buf = devm_kzalloc(&data->client->dev, data->pnt_buf_size, GFP_KERNEL);
 	if (!data->point_buf) {
 		dev_err(&data->client->dev, "Failed to alloc memory for point buf!");
@@ -447,7 +394,7 @@ static int fts_ts_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, data);
 
-	mutex_init(&data->report_mutex);
+	mutex_init(&data->mutex);
 
 	ret = fts_input_init(data);
 	if (ret < 0) {
@@ -527,9 +474,13 @@ static int fts_pm_suspend(struct device *dev)
 {
 	struct fts_ts_data *data = dev_get_drvdata(dev);
 
+	mutex_lock(&data->mutex);
+
 	fts_release_all_finger(data);
 	disable_irq(data->irq);
 	fts_power_off(data);
+
+	mutex_unlock(&data->mutex);
 
 	return 0;
 }
@@ -538,10 +489,13 @@ static int fts_pm_resume(struct device *dev)
 {
 	struct fts_ts_data *data = dev_get_drvdata(dev);
 
+	mutex_lock(&data->mutex);
+
 	fts_power_on(data);
 	fts_check_status(data);
-
 	enable_irq(data->irq);
+
+	mutex_unlock(&data->mutex);
 
 	return 0;
 }
