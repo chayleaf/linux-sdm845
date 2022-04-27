@@ -30,6 +30,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regmap.h>
 #include <linux/mutex.h>
 #include <linux/wait.h>
 #include <linux/time.h>
@@ -76,6 +77,7 @@ struct fts_ts_data {
 	struct input_dev *input_dev;
 
 	struct mutex mutex;
+	struct regmap *regmap;
 	int irq;
 
 	struct regulator_bulk_data regulators[2];
@@ -91,43 +93,10 @@ struct fts_ts_data {
 	u32 height;
 };
 
-int fts_i2c_read(struct i2c_client *client, char *writebuf, int writelen,
-		 char *readbuf, int readlen)
-{
-	int ret = 0;
-	int msg_count = !!writelen + 1;
-	struct i2c_msg msgs[2];
-
-	if (readlen < 0 || writelen < 0)
-		return -EINVAL;
-
-	/* If writelen is zero then only populate msgs[0].
-	 * otherwise we read into msgs[1]
-	 */
-	msgs[msg_count-1].len = readlen;
-	msgs[msg_count-1].buf = readbuf;
-	msgs[msg_count-1].addr = client->addr;
-	msgs[msg_count-1].flags = I2C_M_RD;
-
-	if (writelen > 0) {
-		msgs[0].len = writelen;
-		msgs[0].buf = writebuf;
-		msgs[0].addr = client->addr;
-		msgs[0].flags = 0;
-	}
-
-	mutex_lock(&i2c_rw_access);
-
-	ret = i2c_transfer(client->adapter, msgs, msg_count);
-
-	mutex_unlock(&i2c_rw_access);
-	return ret;
-}
-
-int fts_i2c_read_reg(struct i2c_client *client, u8 regaddr, u8 *regvalue)
-{
-	return fts_i2c_read(client, &regaddr, 1, regvalue, 1);
-}
+static const struct regmap_config fts_ts_i2c_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+};
 
 static bool fts_chip_is_valid(struct fts_ts_data *data, u16 id)
 {
@@ -139,22 +108,24 @@ static bool fts_chip_is_valid(struct fts_ts_data *data, u16 id)
 
 int fts_check_status(struct fts_ts_data *data)
 {
-	int ret = 0;
-	int cnt = 0;
-	u8 reg_value[2];
-	struct i2c_client *client = data->client;
+    struct i2c_client *client = data->client;
+	int ret = 0, count = 0;
+	unsigned int val, id;
 
 	do {
-		ret = fts_i2c_read_reg(client, FTS_REG_CHIP_ID, &reg_value[0]);
-		ret = fts_i2c_read_reg(client, FTS_REG_CHIP_ID2, &reg_value[1]);
-		if (fts_chip_is_valid(data, reg_value[0] << 8 | reg_value[1])) {
-			dev_dbg(&data->client->dev, "TS Ready, Device ID = 0x%x%x, count = %d",
-				reg_value[0], reg_value[1], cnt);
+		regmap_read(data->regmap, FTS_REG_CHIP_ID, &val);
+        id = val << 8;
+		regmap_read(data->regmap, FTS_REG_CHIP_ID2, &val);
+        id |= val;
+
+		if (fts_chip_is_valid(data, id)) {
+			dev_dbg(&data->client->dev, "TS Ready: Chip ID = 0x%x", id);
 			return 0;
 		}
-		cnt++;
+
+		count++;
 		msleep(INTERVAL_READ_REG);
-	} while ((cnt * INTERVAL_READ_REG) < TIMEOUT_READ_REG);
+	} while ((count * INTERVAL_READ_REG) < TIMEOUT_READ_REG);
 
 	return -EIO;
 }
@@ -175,19 +146,18 @@ static void fts_release_all_finger(struct fts_ts_data *data)
 static void fts_report_touch(struct fts_ts_data *data)
 {
 	int base;
-	int i = 0;
-	int ret;
-	unsigned int x, y, z, maj;
-	u8 slot, type;
+    unsigned int x, y, z, maj;
+    u8 slot, type;
+	int ret, i = 0;
 	
 	u8 *buf = data->point_buf;
 
-	memset(buf, 0xFF, data->pnt_buf_size);
-	buf[0] = 0x00;
+	memset(buf, 0, data->pnt_buf_size);
 
-	ret = fts_i2c_read(data->client, buf, 1, buf, data->pnt_buf_size);
-	if (ret < 0) {
-		dev_err(&data->client->dev, "read touchdata failed, ret:%d", ret);
+	ret = regmap_bulk_read(data->regmap, 0, buf, data->pnt_buf_size);
+	if (ret) {
+		dev_err_ratelimited(&data->client->dev, "I2C read failed: %d\n",
+				    ret);
 		return;
 	}
 
@@ -230,7 +200,6 @@ static void fts_report_touch(struct fts_ts_data *data)
 static irqreturn_t fts_ts_interrupt(int irq, void *dev_id)
 {
 	struct fts_ts_data *data = dev_id;
-	unsigned long flags;
 
 	fts_report_touch(data);
 
@@ -301,6 +270,7 @@ static int fts_reset(struct fts_ts_data *data)
 	gpiod_set_value_cansleep(data->reset_gpio, 1);
 	msleep(20);
 	gpiod_set_value_cansleep(data->reset_gpio, 0);
+	msleep(200);
 
 	return 0;
 }
@@ -396,6 +366,12 @@ static int fts_ts_probe(struct i2c_client *client,
 
 	mutex_init(&data->mutex);
 
+	data->regmap = devm_regmap_init_i2c(client, &fts_ts_i2c_regmap_config);
+	if (IS_ERR(data->regmap)) {
+		dev_err(&data->client->dev, "regmap allocation failed\n");
+		return PTR_ERR(data->regmap);
+	}
+
 	ret = fts_input_init(data);
 	if (ret < 0) {
 		dev_err(&data->client->dev, "Input initialization fail");
@@ -460,9 +436,7 @@ static int fts_ts_remove(struct i2c_client *client)
 {
 	struct fts_ts_data *data = i2c_get_clientdata(client);
 
-	free_irq(client->irq, data);
 	input_unregister_device(data->input_dev);
-	fts_power_off(data);
 	
 	kfree(data->point_buf);
 	devm_kfree(&client->dev, data);
