@@ -60,7 +60,6 @@ struct fts_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 
-	struct mutex mutex;
 	struct regmap *regmap;
 	int irq;
 
@@ -322,8 +321,6 @@ static int fts_ts_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, data);
 
-	mutex_init(&data->mutex);
-
 	data->regmap = devm_regmap_init_i2c(client, &fts_ts_i2c_regmap_config);
 	if (IS_ERR(data->regmap)) {
 		dev_err(&client->dev, "regmap allocation failed\n");
@@ -380,12 +377,12 @@ static int fts_pm_suspend(struct device *dev)
 {
 	struct fts_ts_data *data = dev_get_drvdata(dev);
 
-	mutex_lock(&data->mutex);
+	mutex_lock(&data->input_dev->mutex);
 
 	disable_irq(data->irq);
 	fts_power_off(data);
 
-	mutex_unlock(&data->mutex);
+	mutex_unlock(&data->input_dev->mutex);
 
 	return 0;
 }
@@ -395,7 +392,7 @@ static int fts_pm_resume(struct device *dev)
 	struct fts_ts_data *data = dev_get_drvdata(dev);
 	int error = 0;
 
-	mutex_lock(&data->mutex);
+	mutex_lock(&data->input_dev->mutex);
 	
 	error = fts_power_on(data);
 	if (error)
@@ -409,7 +406,7 @@ static int fts_pm_resume(struct device *dev)
 	
 	enable_irq(data->irq);
 
-	mutex_unlock(&data->mutex);
+	mutex_unlock(&data->input_dev->mutex);
 
 	return 0;
 }
