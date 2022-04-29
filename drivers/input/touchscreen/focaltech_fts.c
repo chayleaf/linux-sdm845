@@ -22,6 +22,7 @@
 #include <linux/kernel.h>
 #include <linux/input.h>
 #include <linux/input/mt.h>
+#include <linux/input/touchscreen.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/i2c.h>
@@ -59,6 +60,7 @@
 struct fts_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
+	struct touchscreen_properties prop;
 
 	struct regmap *regmap;
 	int irq;
@@ -72,8 +74,6 @@ struct fts_ts_data {
 
 	/* DT data */
 	struct gpio_desc *reset_gpio;
-	u32 width;
-	u32 height;
 };
 
 static const struct regmap_config fts_ts_i2c_regmap_config = {
@@ -139,9 +139,10 @@ static void fts_report_touch(struct fts_ts_data *data)
 			return;
 
 		x = ((buf[base + FTS_TOUCH_X_H_OFFSET] & 0x0F) << 8) +
-			      (buf[base + FTS_TOUCH_X_L_OFFSET] & 0xFF);
+			 (buf[base + FTS_TOUCH_X_L_OFFSET] & 0xFF);
 		y = ((buf[base + FTS_TOUCH_Y_H_OFFSET] & 0x0F) << 8) +
-			      (buf[base + FTS_TOUCH_Y_L_OFFSET] & 0xFF);
+			 (buf[base + FTS_TOUCH_Y_L_OFFSET] & 0xFF);
+
 		z = buf[base + FTS_TOUCH_PRESSURE_OFFSET];
 		if (z <= 0)
 			z = 0x3f;
@@ -155,8 +156,7 @@ static void fts_report_touch(struct fts_ts_data *data)
 		input_mt_slot(input_dev, slot);
 		if (type == FTS_TOUCH_DOWN || type == FTS_TOUCH_CONTACT) {
 			input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, true);
-			input_report_abs(input_dev, ABS_MT_POSITION_X, x);
-			input_report_abs(input_dev, ABS_MT_POSITION_Y, y);
+			touchscreen_report_pos(data->input_dev, &data->prop, x, y, true);
 			input_report_abs(input_dev, ABS_MT_PRESSURE, z);
 			input_report_abs(input_dev, ABS_MT_TOUCH_MAJOR, maj);
 		} else {
@@ -200,12 +200,17 @@ static int fts_input_init(struct fts_ts_data *data)
 
 	input_mt_init_slots(input_dev, data->max_touch_number,
 			    INPUT_MT_DIRECT);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0,
-			     data->width - 1, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0,
-			     data->height - 1, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, 0xFF, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, 0xFF, 0, 0);
+	input_set_capability(input_dev, EV_ABS, ABS_MT_POSITION_X);
+	input_set_capability(input_dev, EV_ABS, ABS_MT_POSITION_Y);
+	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, 255, 0, 0);
+
+	touchscreen_parse_properties(input_dev, true, &data->prop);
+	if (!data->prop.max_x || !data->prop.max_y) {
+		dev_err(dev,
+			"touchscreen-size-x and/or touchscreen-size-y not set in dts\n");
+		return -EINVAL;
+	}
 
 	data->point_buf_size = (data->max_touch_number * FTS_ONE_TOUCH_LEN) + 3;
 	data->point_buf = devm_kzalloc(dev, data->point_buf_size, GFP_KERNEL);
@@ -259,18 +264,6 @@ static int fts_parse_dt(struct fts_ts_data *data)
 	struct device *dev = &data->client->dev;
 	struct device_node *np = dev->of_node;
 	u32 val;
-
-	error = of_property_read_u32(np, "touchscreen-size-x", &data->width);
-	if (error) {
-		dev_err(dev, "Unable to read property 'touchscreen-size-x'");
-		return -EINVAL;
-	}
-
-	error = of_property_read_u32(np, "touchscreen-size-y", &data->height);
-	if (error) {
-		dev_err(dev, "Unable to read property 'touchscreen-size-y'");
-		return -EINVAL;
-	}
 
 	error = of_property_read_u32(np, "focaltech,max-touch-number", &val);
 	if (error) {
