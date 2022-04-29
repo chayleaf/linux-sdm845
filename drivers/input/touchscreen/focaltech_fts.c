@@ -136,7 +136,7 @@ static void fts_report_touch(struct fts_ts_data *data)
 
 		slot = (buf[base + FTS_TOUCH_ID_OFFSET]) >> 4;
 		if (slot >= data->max_touch_number)
-			return;
+			break;
 
 		x = ((buf[base + FTS_TOUCH_X_H_OFFSET] & 0x0F) << 8) +
 			 (buf[base + FTS_TOUCH_X_L_OFFSET] & 0xFF);
@@ -162,8 +162,8 @@ static void fts_report_touch(struct fts_ts_data *data)
 		} else {
 			input_mt_report_slot_inactive(input_dev);
 		}
-		input_sync(input_dev);
 	}
+	input_sync(input_dev);
 }
 
 static irqreturn_t fts_ts_interrupt(int irq, void *dev_id)
