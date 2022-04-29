@@ -113,19 +113,6 @@ int fts_check_status(struct fts_ts_data *data)
 	return -EIO;
 }
 
-static void fts_release_all_finger(struct fts_ts_data *data)
-{
-	struct input_dev *input_dev = data->input_dev;
-	int i = 0;
-
-	for (i = 0; i < data->max_touch_number; i++) {
-		input_mt_slot(input_dev, i);
-		input_mt_report_slot_inactive(data->input_dev);
-	}
-
-	input_sync(input_dev);
-}
-
 static void fts_report_touch(struct fts_ts_data *data)
 {
 	struct input_dev *input_dev = data->input_dev;
@@ -347,7 +334,8 @@ static int fts_ts_probe(struct i2c_client *client,
 	if (error)
 		return error;
 
-	/* AVDD is the analog voltage supply (2.6V to 3.3V)
+	/* 
+	 * AVDD is the analog voltage supply (2.6V to 3.3V)
 	 * VDDIO is the digital voltage supply (1.8V)
 	 */
 	data->regulators[0].supply = "avdd";
@@ -394,7 +382,6 @@ static int fts_pm_suspend(struct device *dev)
 
 	mutex_lock(&data->mutex);
 
-	fts_release_all_finger(data);
 	disable_irq(data->irq);
 	fts_power_off(data);
 
