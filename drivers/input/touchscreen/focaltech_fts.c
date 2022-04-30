@@ -175,6 +175,68 @@ static irqreturn_t fts_ts_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void fts_reset(struct fts_ts_data *data)
+{
+	gpiod_set_value_cansleep(data->reset_gpio, 1);
+	msleep(20);
+	gpiod_set_value_cansleep(data->reset_gpio, 0);
+	msleep(200);
+}
+
+static void fts_power_off(void *d)
+{
+	struct fts_ts_data *data = d;
+
+	regulator_bulk_disable(ARRAY_SIZE(data->regulators),
+			       data->regulators);
+}
+
+static int fts_start(struct fts_ts_data *data)
+{
+	int error;
+
+	error = regulator_bulk_enable(ARRAY_SIZE(data->regulators),
+				      data->regulators);
+	if (error) {
+		dev_err(&data->client->dev, "failed to enable regulators\n");
+		return error;
+	}
+
+	fts_reset(data);
+	
+	error = fts_check_status(data);
+	if (error) {
+		dev_err(&data->client->dev, "Touch IC didn't turn on");
+		return error;
+	}
+	
+	enable_irq(data->irq);
+
+	return 0;
+}
+
+static int fts_stop(struct fts_ts_data *data)
+{
+	disable_irq(data->irq);
+	fts_power_off(data);
+
+	return 0;
+}
+
+static int fts_input_open(struct input_dev *dev)
+{
+	struct fts_ts_data *data = input_get_drvdata(dev);
+
+	return fts_start(data);
+}
+
+static void fts_input_close(struct input_dev *dev)
+{
+	struct fts_ts_data *data = input_get_drvdata(dev);
+
+	fts_stop(data);
+}
+
 static int fts_input_init(struct fts_ts_data *data)
 {
 	struct device *dev = &data->client->dev;
@@ -191,6 +253,8 @@ static int fts_input_init(struct fts_ts_data *data)
 	input_dev->name = FTS_DRIVER_NAME;
 	input_dev->id.bustype = BUS_I2C;
 	input_dev->dev.parent = dev;
+	input_dev->open = fts_input_open;
+	input_dev->close = fts_input_close;
 
 	input_set_drvdata(input_dev, data);
 
@@ -226,36 +290,6 @@ static int fts_input_init(struct fts_ts_data *data)
 	}
 
 	return 0;
-}
-
-static void fts_reset(struct fts_ts_data *data)
-{
-	gpiod_set_value_cansleep(data->reset_gpio, 1);
-	msleep(20);
-	gpiod_set_value_cansleep(data->reset_gpio, 0);
-	msleep(200);
-}
-
-static int fts_power_on(struct fts_ts_data *data)
-{
-	int error;
-
-	error = regulator_bulk_enable(ARRAY_SIZE(data->regulators),
-				      data->regulators);
-	if (error) {
-		dev_err(&data->client->dev, "failed to enable regulators\n");
-		return error;
-	}
-
-	return 0;
-}
-
-static void fts_power_off(void *d)
-{
-	struct fts_ts_data *data = d;
-
-	regulator_bulk_disable(ARRAY_SIZE(data->regulators),
-			       data->regulators);
 }
 
 static int fts_parse_dt(struct fts_ts_data *data)
@@ -320,10 +354,6 @@ static int fts_ts_probe(struct i2c_client *client,
 		return PTR_ERR(data->regmap);
 	}
 
-	error = fts_input_init(data);
-	if (error)
-		return error;
-
 	/* 
 	 * AVDD is the analog voltage supply (2.6V to 3.3V)
 	 * VDDIO is the digital voltage supply (1.8V)
@@ -337,21 +367,9 @@ static int fts_ts_probe(struct i2c_client *client,
 		return error;
 	}
 
-	error = fts_power_on(data);
-	if (error)
-		return error;
-
 	error = devm_add_action_or_reset(&client->dev, fts_power_off, data);
 	if (error) {
 		dev_err(&client->dev, "failed to install power off handler\n");
-		return error;
-	}
-
-	fts_reset(data);
-
-	error = fts_check_status(data);
-	if (error) {
-		dev_err(&client->dev, "Touch IC didn't turn on or is unsupported\n");
 		return error;
 	}
 
@@ -363,6 +381,10 @@ static int fts_ts_probe(struct i2c_client *client,
 		return error;
 	}
 
+	error = fts_input_init(data);
+	if (error)
+		return error;
+
 	return 0;
 }
 
@@ -372,8 +394,8 @@ static int fts_pm_suspend(struct device *dev)
 
 	mutex_lock(&data->input_dev->mutex);
 
-	disable_irq(data->irq);
-	fts_power_off(data);
+	if (input_device_enabled(data->input_dev))
+		fts_stop(data);
 
 	mutex_unlock(&data->input_dev->mutex);
 
@@ -387,21 +409,12 @@ static int fts_pm_resume(struct device *dev)
 
 	mutex_lock(&data->input_dev->mutex);
 	
-	error = fts_power_on(data);
-	if (error)
-		return error;
-	
-	error = fts_check_status(data);
-	if (error) {
-		dev_err(&data->client->dev, "Touch IC didn't turn on");
-		return error;
-	}
-	
-	enable_irq(data->irq);
+	if (input_device_enabled(data->input_dev))
+		error = fts_start(data);
 
 	mutex_unlock(&data->input_dev->mutex);
 
-	return 0;
+	return error;
 }
 
 static const struct dev_pm_ops fts_dev_pm_ops = {
