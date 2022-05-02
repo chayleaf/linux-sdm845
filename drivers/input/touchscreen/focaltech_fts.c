@@ -204,12 +204,6 @@ static int fts_start(struct fts_ts_data *data)
 
 	fts_reset(data);
 	
-	error = fts_check_status(data);
-	if (error) {
-		dev_err(&data->client->dev, "Touch IC didn't turn on");
-		return error;
-	}
-	
 	enable_irq(data->irq);
 
 	return 0;
@@ -226,8 +220,19 @@ static int fts_stop(struct fts_ts_data *data)
 static int fts_input_open(struct input_dev *dev)
 {
 	struct fts_ts_data *data = input_get_drvdata(dev);
+	int error;
 
-	return fts_start(data);
+	error = fts_start(data);
+	if (error)
+		return error;
+
+	error = fts_check_status(data);
+	if (error) {
+		dev_err(&data->client->dev, "Failed to start or unsupported chip");
+		return error;
+	}
+
+	return 0;
 }
 
 static void fts_input_close(struct input_dev *dev)
