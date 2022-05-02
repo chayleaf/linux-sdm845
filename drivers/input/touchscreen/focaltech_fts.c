@@ -175,14 +175,6 @@ static irqreturn_t fts_ts_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void fts_reset(struct fts_ts_data *data)
-{
-	gpiod_set_value_cansleep(data->reset_gpio, 1);
-	msleep(20);
-	gpiod_set_value_cansleep(data->reset_gpio, 0);
-	msleep(200);
-}
-
 static void fts_power_off(void *d)
 {
 	struct fts_ts_data *data = d;
@@ -202,7 +194,8 @@ static int fts_start(struct fts_ts_data *data)
 		return error;
 	}
 
-	fts_reset(data);
+	gpiod_set_value_cansleep(data->reset_gpio, 0);
+	msleep(200);
 	
 	enable_irq(data->irq);
 
@@ -212,6 +205,7 @@ static int fts_start(struct fts_ts_data *data)
 static int fts_stop(struct fts_ts_data *data)
 {
 	disable_irq(data->irq);
+	gpiod_set_value_cansleep(data->reset_gpio, 1);
 	fts_power_off(data);
 
 	return 0;
