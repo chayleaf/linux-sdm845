@@ -36,7 +36,6 @@ struct ebbg_ft8719 {
 	struct regulator_bulk_data supplies[ARRAY_SIZE(regulator_names)];
 
 	struct gpio_desc *reset_gpio;
-	bool prepared;
 };
 
 static inline
@@ -187,9 +186,6 @@ static int ebbg_ft8719_prepare(struct drm_panel *panel)
 	struct device *dev = &ctx->dsi->dev;
 	int ret;
 
-	if (ctx->prepared)
-		return 0;
-
 	ret = regulator_bulk_enable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 	if (ret < 0)
 		return ret;
@@ -203,7 +199,6 @@ static int ebbg_ft8719_prepare(struct drm_panel *panel)
 		return ret;
 	}
 
-	ctx->prepared = true;
 	return 0;
 }
 
@@ -212,9 +207,6 @@ static int ebbg_ft8719_unprepare(struct drm_panel *panel)
 	struct ebbg_ft8719 *ctx = to_ebbg_ft8719(panel);
 	struct device *dev = &ctx->dsi->dev;
 	int ret;
-
-	if (!ctx->prepared)
-		return 0;
 
 	ret = ebbg_ft8719_off(ctx);
 	if (ret < 0)
@@ -226,7 +218,6 @@ static int ebbg_ft8719_unprepare(struct drm_panel *panel)
 	if (ret)
 		dev_err(panel->dev, "Failed to disable regulators: %d\n", ret);
 
-	ctx->prepared = false;
 	return 0;
 }
 
