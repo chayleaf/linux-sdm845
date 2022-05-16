@@ -2874,6 +2874,9 @@ static int snd_soc_dapm_add_path(struct snd_soc_dapm_context *dapm,
 	path->connected = connected;
 	INIT_LIST_HEAD(&path->list);
 	INIT_LIST_HEAD(&path->list_kcontrol);
+#ifdef CONFIG_DEBUG_FS
+	INIT_LIST_HEAD(&path->visited_list);
+#endif
 
 	if (wsource->is_supply || wsink->is_supply)
 		path->is_supply = 1;

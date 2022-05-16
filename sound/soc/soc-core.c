@@ -50,6 +50,7 @@ static LIST_HEAD(unbind_card_list);
 
 #ifdef CONFIG_DEBUG_FS
 static LIST_HEAD(visited_widget_list);
+static LIST_HEAD(visited_path_list);
 #endif
 
 #define for_each_component(component)			\
@@ -204,6 +205,24 @@ static bool is_widget_visited(struct snd_soc_dapm_widget *w) {
 	list_for_each_entry(p, &visited_widget_list, visited_list) {
 		if (p == w) {
 			return true;
+		} else if (!strcmp(p->name, w->name)) {
+			pr_err("p != w but names match: p = %s, w = %s", p->name, w->name);
+		}
+	}
+
+	return false;
+}
+
+static bool is_path_visited(struct snd_soc_dapm_path *p) {
+	struct snd_soc_dapm_path *t;
+
+	list_for_each_entry(t, &visited_path_list, visited_list) {
+		pr_info("Comparing %px %s (%s -> %s) to  %px %s (%s -> %s)", p, p->name,
+			p->source->name, p->sink->name, t, t->name,
+			t->source->name, t->sink->name);
+		if (t->name == p->name && t->source == p->source && t->sink == p->sink) {
+			pr_info("MATCH");
+			return true;
 		}
 	}
 
@@ -214,16 +233,12 @@ static void soc_dapm_graph_show_widget(struct seq_file *s, struct snd_soc_dapm_w
 	struct snd_soc_dai *dai)
 {
 	//FIXME: get string for widget id (it's snd_soc_dapm_type)
-	seq_printf(s, "\t\t\"%s:%d\"",
-		w->name, w->id);
-	if (dai)
-		seq_printf(s, " [label=\"%s\n\t\t\t|%s\n", dai->name, w->name);
-	else
-		seq_printf(s, " [label=\"%s\n", w->name);
+	seq_printf(s, "\t\t\"%s:%d\" [label=\"%s\n",
+		w->name, w->id, dai ? dai->name : w->name);
 
 	seq_printf(s, "\t\t\t|%s", w->power ? "Powered" : "Unpowered");
 	if (w->sname)
-		seq_printf(s, "\n\t\t\t|Stream: '%s'", w->sname);
+		seq_printf(s, "\n\t\t\t|Stream: %s", w->sname);
 
 	seq_printf(s, "\",\n\t\t\tstyle=filled, fillcolor=%s]\n",
 		w->power ? "green3" : (dai ? "yellow" : "white"));
@@ -237,26 +252,34 @@ static void soc_dapm_graph_show_widgets_locked(struct seq_file *s,
 	struct snd_soc_dapm_path *p;
 	struct snd_soc_dapm_widget *node;
 	bool connected = false;
+	bool source_visited = false;
+	bool sink_visited = false;
 
 	snd_soc_dapm_widget_for_each_path(start, dir, p) {
-		if (p->is_supply || p->weak)
+		if (p->is_supply || p->weak || is_path_visited(p))
 			continue;
 
 		connected = p->connect || (p->connected && p->connected(p->source, p->sink));
 
-		// Reverse direction
 		node = p->node[dir ? SND_SOC_DAPM_DIR_IN : SND_SOC_DAPM_DIR_OUT];
 
-		dev_info(node->dapm->dev, "w: %s -> %s\n",
-			p->node[dir]->name, node->name);
+		soc_dapm_graph_show_widgets_locked(s, node, dir);
+		dev_info(node->dapm->dev, "w: %s --(%s)-> %s\n",
+			p->node[dir]->name, p->name, node->name);
+
+		seq_printf(s, "\t\t\"%s:%d\" -> \"%s:%d\" [",
+			p->source->name, p->source->id,
+			p->sink->name, p->sink->id);
+		if (p->name && connected)
+			seq_printf(s, "label=\"%s\"", p->name);
+		seq_printf(s, "%s]\n",
+			(connected ? "color=dodgerblue2"
+			: "style=dashed penwidth=0.2"));
+
 		if (!is_widget_visited(node))
 			soc_dapm_graph_show_widget(s, node, NULL);
 
-		seq_printf(s, "\t\t\"%s:%d\" -> \"%s:%d\" %s\n",
-			p->source->name, p->source->id,
-			p->sink->name, p->sink->id,
-			(connected ? "[color=dodgerblue2]" : "[style=dashed penwidth=0.2]"));
-		soc_dapm_graph_show_widgets_locked(s, node, dir);
+		list_add_tail(&p->visited_list, &visited_path_list);
 	}
 }
 
@@ -267,7 +290,7 @@ static void soc_dapm_graph_show_widgets(struct seq_file *s,
 
 	mutex_lock(&card->dapm_mutex);
 
-	pr_info("%s, start widget: %s\n", __func__, start->name);
+	pr_info("%s: start widget: %s\n", __func__, start->name);
 
 	soc_dapm_graph_show_widgets_locked(s, start, dir);
 
@@ -292,7 +315,7 @@ static int soc_dapm_graph_show(struct seq_file *s, void *v)
 
 		seq_printf(s, "\tsubgraph component_%d {\n", ++i);
 		seq_printf(s, "\t\tlabel = \"%s\"\n", component->name);
-		pr_info("CA:: %s: label\n", __func__);
+		pr_info("%s: label\n", __func__);
 		for_each_component_dais(component, dai) {
 			if (!dai)
 				continue;
@@ -300,7 +323,7 @@ static int soc_dapm_graph_show(struct seq_file *s, void *v)
 				struct snd_soc_dapm_widget *dai_w;
 				if (!snd_soc_dai_stream_valid(dai, dir) || !dai)
 					continue;
-				pr_info("CA:: %s: dai=%s", __func__, dai->name);
+				pr_info("%s: dai=%s", __func__, dai->name);
 				dai_w = dir == SNDRV_PCM_STREAM_PLAYBACK ?
 					dai->playback_widget : dai->capture_widget;
 				soc_dapm_graph_show_widget(s, dai_w, dai);
@@ -325,8 +348,6 @@ static void soc_init_card_debugfs(struct snd_soc_card *card)
 
 	debugfs_create_u32("dapm_pop_time", 0644, card->debugfs_card_root,
 			   &card->pop_time);
-	
-	pr_info("CA:: %s: card = %s", __func__, card->name);
 
 	debugfs_create_file("dapm_graph", 0444, card->debugfs_card_root, card,
 			    &soc_dapm_graph_fops);

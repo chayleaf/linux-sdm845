@@ -615,6 +615,9 @@ struct snd_soc_dapm_path {
 	struct list_head list_node[2];
 	struct list_head list_kcontrol;
 	struct list_head list;
+#ifdef CONFIG_DEBUG_FS
+	struct list_head visited_list;
+#endif
 };
 
 /* dapm widget */
