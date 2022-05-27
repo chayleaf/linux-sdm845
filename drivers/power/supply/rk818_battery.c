@@ -967,12 +967,12 @@ static int rk818_battery_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		val->intval = di->current_avg * 1000;/*uA*/
+		val->intval = rk818_bat_get_avg_current(di) * 1000;/*uA*/
 		if (di->pdata->bat_mode == MODE_VIRTUAL)
 			val->intval = VIRTUAL_CURRENT * 1000;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = di->voltage_avg * 1000;/*uV*/
+		val->intval = rk818_bat_get_avg_voltage(di) * 1000;/*uV*/
 		if (di->pdata->bat_mode == MODE_VIRTUAL)
 			val->intval = VIRTUAL_VOLTAGE * 1000;
 		break;
