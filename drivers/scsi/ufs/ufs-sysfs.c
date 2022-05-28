@@ -1060,8 +1060,6 @@ static ssize_t boot_lun_enabled_show(struct device *dev,
 		up(&hba->host_sem);
 		return -EBUSY;
 	}
-	if (ufshcd_is_wb_attrs(QUERY_ATTR_IDN_BOOT_LU_EN))
-		index = ufshcd_wb_get_query_index(hba);
 	ufshcd_rpm_get_sync(hba);
 
 	ret = ufshcd_query_attr(hba, UPIU_QUERY_OPCODE_READ_ATTR,
@@ -1090,18 +1088,19 @@ static ssize_t boot_lun_enabled_store(struct device *dev,
 
 	if (kstrtouint(buf, 0, &slot) < 0)
 		return -EINVAL;
+	if (*buf != 1 && *buf != 2)
+		return -EINVAL;
 
 	down(&hba->host_sem);
 	if (!ufshcd_is_user_access_allowed(hba)) {
 		up(&hba->host_sem);
 		return -EBUSY;
 	}
-	if (ufshcd_is_wb_attrs(QUERY_ATTR_IDN_BOOT_LU_EN))
-		index = ufshcd_wb_get_query_index(hba);
 	ufshcd_rpm_get_sync(hba);
 
 	ret = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
 				      QUERY_ATTR_IDN_BOOT_LU_EN, index, 0, &slot);
+
 	ufshcd_rpm_put_sync(hba);
 	if (ret) {
 		ret = -EINVAL;
