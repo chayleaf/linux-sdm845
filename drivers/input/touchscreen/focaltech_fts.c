@@ -65,7 +65,6 @@ struct fts_ts_data {
 
 	struct regmap *regmap;
 	int irq;
-	int resume_irq_counter;
 
 	struct regulator_bulk_data regulators[2];
 
@@ -172,10 +171,10 @@ static irqreturn_t fts_ts_interrupt(int irq, void *dev_id)
 {
 	struct fts_ts_data *data = dev_id;
 
-	if (data->resume_irq_counter <= 0)
-		fts_report_touch(data);
-	else
-		data->resume_irq_counter = data->resume_irq_counter - 1;
+	if (data->suspended)
+		return IRQ_HANDLED;
+
+	fts_report_touch(data);
 
 	return IRQ_HANDLED;
 }
@@ -200,7 +199,7 @@ static int fts_start(struct fts_ts_data *data)
 	}
 
 	gpiod_set_value_cansleep(data->reset_gpio, 0);
-	msleep(200);
+	msleep(300);
 	
 	enable_irq(data->irq);
 
@@ -346,7 +345,7 @@ static int fts_ts_probe(struct i2c_client *client,
 		return -ENOMEM;
 
 	data->client = client;
-	data->resume_irq_counter = 0;
+	data->suspended = false;
 
 	error = fts_parse_dt(data);
 	if (error)
@@ -398,12 +397,11 @@ static int fts_pm_suspend(struct device *dev)
 {
 	struct fts_ts_data *data = dev_get_drvdata(dev);
 
-	mutex_lock(&data->input_dev->mutex);
+	data->suspended = true;
 
 	if (input_device_enabled(data->input_dev))
 		fts_stop(data);
 
-	mutex_unlock(&data->input_dev->mutex);
 
 	return 0;
 }
@@ -413,14 +411,10 @@ static int fts_pm_resume(struct device *dev)
 	struct fts_ts_data *data = dev_get_drvdata(dev);
 	int error = 0;
 
-	mutex_lock(&data->input_dev->mutex);
-
-	data->resume_irq_counter = 3;
-	
 	if (input_device_enabled(data->input_dev))
 		error = fts_start(data);
 
-	mutex_unlock(&data->input_dev->mutex);
+	data->suspended = false;
 
 	return error;
 }
