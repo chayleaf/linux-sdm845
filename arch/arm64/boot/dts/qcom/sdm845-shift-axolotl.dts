@@ -27,6 +27,7 @@
 		display0 = &framebuffer0;
 		hsuart0 = &uart6;
 		serial0 = &uart9;
+		hsuart0 = &uart6;
 	};
 
 	chosen {
