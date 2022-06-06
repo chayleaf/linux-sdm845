@@ -1,0 +1,504 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2021, BigfootACA <bigfoot@classfun.cn>
+ */
+
+#include "sdm845-xiaomi-common.dtsi"
+
+/ {
+	model = "Xiaomi Mi MIX 3";
+	compatible = "xiaomi,perseus", "qcom,sdm845-mtp", "qcom,sdm845";
+	/* required for bootloader to select correct board */
+	qcom,board-id = <0x63 0x0>;
+	qcom,msm-id = <0x141 0x20001>;
+
+	chosen {
+		framebuffer0: framebuffer@9d400000 {
+			compatible = "simple-framebuffer";
+			reg = <0 0x9D400000 0 0x2400000>;
+			width = <1080>;
+			height = <2340>;
+			stride = <(1080 * 4)>;
+			format = "a8r8g8b8";
+			status = "okay";
+		};
+	};
+
+	disp_vci_vreg: disp_vci_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "disp_vci_vreg";
+		start-delay-us = <4000>;
+		regulator-always-on;
+		regulator-boot-on;
+		enable-active-high;
+		gpio = <&tlmm 99 0>;
+	};
+
+	disp_vddio_vreg: disp_vddio_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "disp_vddio_vreg";
+		startup-delay-us = <4000>;
+		regulator-always-on;
+		regulator-boot-on;
+		enable-active-high;
+		gpio = <&tlmm 79 0>;
+	};
+
+	fp_vdd_vreg: fp_vdd_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "fp_vdd_vreg";
+		startup-delay-us = <4000>;
+		regulator-always-on;
+		enable-active-high;
+		gpio = <&tlmm 50 0>;
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		autorepeat;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&vol_up_pin_a &ai_key_active_default>;
+
+		vol-up {
+			label = "Volume Up";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&pm8998_gpio 6 GPIO_ACTIVE_LOW>;
+			debounce-interval = <15>;
+		};
+
+		ai_key {
+			label = "AI Key";
+			linux,code = <KEY_ASSISTANT>;
+			gpios = <&tlmm 44 GPIO_ACTIVE_LOW>;
+			debounce-interval = <39>;
+		};
+	};
+};
+
+&adsp_pas {
+	status = "okay";
+	firmware-name = "qcom/sdm845/xiaomi/adsp.mbn";
+};
+
+&cdsp_pas {
+	status = "okay";
+	firmware-name = "qcom/sdm845/xiaomi/cdsp.mbn";
+};
+
+&venus {
+	status = "okay";
+	firmware-name = "qcom/sdm845/xiaomi/venus.mbn";
+};
+
+&dsi0 {
+	status = "okay";
+	vdda-supply = <&vdda_mipi_dsi0_1p2>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	panel@0 {
+		compatible = "samsung,fhd-ea8076";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+		vddio-supply = <&vreg_l14a_1p8>;
+		reset-gpios = <&tlmm 6 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&dsi0_out>;
+			};
+		};
+	};
+};
+
+&dsi0_out {
+	remote-endpoint = <&panel_in>;
+	data-lanes = <0 1 2 3>;
+};
+
+&dsi0_phy {
+	status = "okay";
+	vdds-supply = <&vreg_l1a_0p875>;
+};
+
+&gpu {
+	status = "okay";
+	zap-shader {
+		memory-region = <&gpu_mem>;
+		firmware-name = "qcom/sdm845/xiaomi/a630_zap.mbn";
+	};
+};
+
+&gmu {
+	status = "okay";
+};
+
+&ipa {
+	status = "okay";
+	memory-region = <&ipa_fw_mem>;
+	firmware-name = "qcom/sdm845/xiaomi/ipa_fws.mbn";
+};
+
+&i2c5 {
+	tas2557_codec: tas2557@4c{
+		#sound-dai-cells = <1>;
+		compatible = "ti,tas2557";
+		reg = <0x4c>;
+		ti,cdc-reset-gpio = <&tlmm 69 0>;
+		ti,irq-gpio = <&tlmm 30 0>;
+		ti,i2s-bits = <16>;
+		ti,bypass-tmax = <0>;
+	};
+};
+
+/* fts touchscreen */
+&i2c14 {
+	fts@49 {
+		compatible = "st,fts";
+		reg = <0x49>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <31 0x2008>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		vdd-supply = <&disp_vddio_vreg>;
+		avdd-supply = <&vreg_l28a_3p0>;
+		fts,pwr-reg-name = "avdd";
+		fts,bus-reg-name = "vdd";
+		fts,irq-gpio = <&tlmm 31 0x2008>;
+		fts,irq-gpio-name = "fts_irq";
+		fts,reset-gpio-enable;
+		fts,reset-gpio = <&tlmm 32 0x00>;
+		fts,x-max = <1079>;
+		fts,y-max = <2339>;
+		fts,reset-gpio-name = "fts_rst";
+		fts,irq-flags = <0x2008>;
+		fts,key-num = <2>;
+		fts,key-codes = <158 139>;
+		fts,config-array-size = <1>;
+		fts,default-fw-name = "st_fts_e5.ftb";
+		fts,cfg_0 {
+			fts,tp-vendor = <0x52>;
+			fts,fw-name = "st_fts_e5.ftb";
+			fts,limit-name = "stm_fts_production_limits.csv";
+		};
+	};
+};
+
+&mdss {
+	status = "okay";
+};
+
+&mdss_mdp {
+	status = "okay";
+};
+
+&mss_pil {
+	status = "okay";
+	firmware-name = "qcom/sdm845/xiaomi/mba.mbn", "qcom/sdm845/xiaomi/modem.mbn";
+};
+
+&pmi8998_fg {
+	status = "okay";
+	qcom,max-voltage-uv = <4400000>;
+	qcom,min-voltage-uv = <3700000>;
+	qcom,battery-capacity-ua = <3200000>;
+};
+
+&pmi8998_haptics {
+	status = "okay";
+	qcom,wave-play-rate-us = <4878>;
+};
+
+&pmi8998_lpg {
+	status = "okay";
+	qcom,power-source = <1>;
+	led@5 {
+		reg = <5>;
+		label = "white";
+	};
+};
+
+&q6cvp {
+	status = "okay";
+};
+
+&q6cvs {
+	status = "okay";
+};
+
+&q6mvm {
+	status = "okay";
+};
+
+&q6afedai {
+	qi2s@22 {
+		reg = <22>;
+		qcom,sd-lines = <0 1 2 3>;
+	};
+};
+
+&q6asmdai {
+	dai@0 {
+		reg = <0>;
+	};
+
+	dai@1 {
+		reg = <1>;
+	};
+
+	dai@2 {
+		reg = <2>;
+	};
+};
+
+&sound {
+	compatible = "qcom,db845c-sndcard";
+	pinctrl-0 = <&quat_mi2s_active &quat_mi2s_sd0_active>;
+	pinctrl-names = "default";
+	model = "Xiaomi Mi MIX 3";
+	audio-routing =
+		"RX_BIAS", "MCLK",
+		"AMIC1", "MIC BIAS1",
+		"AMIC2", "MIC BIAS2",
+		"AMIC3", "MIC BIAS3";
+
+	mm1-dai-link {
+		link-name = "MultiMedia1";
+		cpu {
+			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA1>;
+		};
+	};
+
+	mm2-dai-link {
+		link-name = "MultiMedia2";
+		cpu {
+			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA2>;
+		};
+	};
+
+	mm3-dai-link {
+		link-name = "MultiMedia3";
+		cpu {
+			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA3>;
+		};
+	};
+
+        voicemmode1-dai-link {
+                link-name = "VoiceMMode1";
+                cpu {
+                        sound-dai = <&q6voicedai VOICEMMODE1>;
+                };
+        };
+
+	tas2557-dai-link {
+		link-name = "Primary Spkr Playback";
+		cpu {
+			sound-dai = <&q6afedai QUATERNARY_MI2S_RX>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+
+		codec {
+			sound-dai = <&tas2557_codec 0>;
+		};
+	};
+
+	slim-dai-link {
+		link-name = "SLIM Playback";
+		cpu {
+			sound-dai = <&q6afedai SLIMBUS_0_RX>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+
+		codec {
+			sound-dai = <&wcd9340 0>;
+		};
+	};
+
+	slimcap-dai-link {
+		link-name = "SLIM Capture";
+		cpu {
+			sound-dai = <&q6afedai SLIMBUS_0_TX>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+
+		codec {
+			sound-dai = <&wcd9340 1>;
+		};
+	};
+};
+
+&tlmm {
+	ts_int_active: ts_int_active {
+		mux {
+			pins = "gpio31";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio31";
+			drive-strength = <16>;
+			bias-pull-down;
+			input-enable;
+		};
+	};
+
+	ts_reset_active: ts_reset_active {
+		mux {
+			pins = "gpio32";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio32";
+			drive-strength = <16>;
+			output-high;
+		};
+	};
+
+	ts_reset_suspend: ts_reset_suspend {
+		mux {
+			pins = "gpio32";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio32";
+			drive-strength = <2>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	ts_int_suspend: ts_int_suspend {
+		mux {
+			pins = "gpio31";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio31";
+			drive-strength = <2>;
+			bias-pull-down;
+			input-enable;
+		};
+	};
+
+	sde_dsi_active: sde_dsi_active {
+		mux {
+			pins = "gpio6", "gpio52";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio6", "gpio52";
+			drive-strength = <8>;   /* 8 mA */
+			bias-disable = <0>;   /* no pull */
+		};
+	};
+
+	sde_dsi_suspend: sde_dsi_suspend {
+		mux {
+			pins = "gpio6", "gpio52";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio6", "gpio52";
+			drive-strength = <2>;   /* 2 mA */
+			bias-pull-down; /* PULL DOWN */
+		};
+	};
+
+	sde_te_active: sde_te_active {
+		mux {
+			pins = "gpio10";
+			function = "mdp_vsync";
+		};
+
+		config {
+			pins = "gpio10";
+			drive-strength = <2>;   /* 2 mA */
+			bias-pull-down; /* PULL DOWN */
+		};
+	};
+
+	sde_te_suspend: sde_te_suspend {
+		mux {
+			pins = "gpio10";
+			function = "mdp_vsync";
+		};
+
+		config {
+			pins = "gpio10";
+			drive-strength = <2>;   /* 2 mA */
+			bias-pull-down; /* PULL DOWN */
+		};
+	};
+
+	ai_key_ctrl {
+		ai_key_active_default: ai_key_active {
+			mux {
+				pins = "gpio44";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio44";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
+
+		ai_key_idle_default: ai_key_idle {
+			mux {
+				pins = "gpio44";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio44";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
+	};
+
+	wcd_intr_default: wcd_intr_default {
+		pins = <54>;
+		function = "gpio";
+		input-enable;
+		bias-pull-down;
+		drive-strength = <2>;
+	};
+};
+
+&wcd9340{
+	pinctrl-0 = <&wcd_intr_default>;
+	pinctrl-names = "default";
+	clock-names = "extclk";
+	clocks = <&rpmhcc RPMH_LN_BB_CLK2>;
+	reset-gpios = <&tlmm 64 0>;
+	vdd-buck-supply = <&vreg_s4a_1p8>;
+	vdd-buck-sido-supply = <&vreg_s4a_1p8>;
+	vdd-tx-supply = <&vreg_s4a_1p8>;
+	vdd-rx-supply = <&vreg_s4a_1p8>;
+	vdd-io-supply = <&vreg_s4a_1p8>;
+	qcom,micbias1-microvolt = <2700000>;
+	qcom,micbias2-microvolt = <1800000>;
+	qcom,micbias3-microvolt = <2700000>;
+	qcom,micbias4-microvolt = <2700000>;
+};
