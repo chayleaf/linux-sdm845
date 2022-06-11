@@ -575,8 +575,9 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
 		if (drm_rect_equals(&area->clip, &intersection))
 			return false;
 
-		/* Otherwise, start at the same time as the other area. */
-		frame_begin = other->frame_begin;
+		/* Otherwise, the earliest start is the same time as that of the other
+		 * area. */
+		frame_begin = max(frame_begin, other->frame_begin);
 	}
 
 	area->frame_begin = frame_begin;
