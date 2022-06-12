@@ -12,6 +12,8 @@
 #include <linux/platform_device.h>
 #include <linux/spmi.h>
 #include <linux/pm_runtime.h>
+#include <linux/debugfs.h>
+#include <linux/regmap.h>
 
 #include <dt-bindings/spmi/spmi.h>
 #define CREATE_TRACE_POINTS
@@ -19,6 +21,44 @@
 
 static bool is_registered;
 static DEFINE_IDA(ctrl_ida);
+
+#ifdef CONFIG_DEBUG_FS
+static struct dentry *spmi_dfs_dir;
+
+int debugfs_sdev_set(void *data, u64 val) {
+	struct spmi_device *sdev = data;
+	sdev->d_addr = val;
+
+	return 0;
+}
+
+int debugfs_sdev_get(void *data, u64 *val) {
+	struct spmi_device *sdev = data;
+	struct regmap *regmap = dev_get_regmap(&sdev->dev, NULL);
+	u32 rval;
+	
+	regmap_read(regmap, sdev->d_addr, &rval);
+
+	*val = (u64)rval;
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(sdev_rw_fops, debugfs_sdev_get, debugfs_sdev_set, "%llu\n");
+
+void spmi_init_debugfs(struct spmi_device *sdev) {
+	char name[8];
+	if (!sdev->ctrl->debugfs_dir) {
+		dev_err(&sdev->dev, "controller debugfs directory doesn't exist\n");
+		return;
+	}
+	snprintf(name, 8, "dev-%u", sdev->usid);
+	sdev->d_file = debugfs_create_file(name, 0644,
+		sdev->ctrl->debugfs_dir, sdev, &sdev_rw_fops);
+
+}
+#else
+void spmi_init_debugfs(struct spmi_device *sdev) {}
+#endif
 
 static void spmi_dev_release(struct device *dev)
 {
@@ -72,6 +112,8 @@ int spmi_device_add(struct spmi_device *sdev)
 			dev_name(&sdev->dev), err);
 		goto err_device_add;
 	}
+
+	spmi_init_debugfs(sdev);
 
 	dev_dbg(&sdev->dev, "device %s registered\n", dev_name(&sdev->dev));
 
@@ -535,10 +577,19 @@ static void of_spmi_register_devices(struct spmi_controller *ctrl)
 int spmi_controller_add(struct spmi_controller *ctrl)
 {
 	int ret;
+	char ctrl_name[8];
 
 	/* Can't register until after driver model init */
 	if (WARN_ON(!is_registered))
 		return -EAGAIN;
+
+#ifdef CONFIG_DEBUG_FS
+	if (spmi_dfs_dir) {
+		snprintf(ctrl_name, 8, "spmi-%d", ctrl->nr);
+		ctrl->debugfs_dir = debugfs_create_dir(ctrl_name, spmi_dfs_dir);
+		pr_info("Created debugfs dir for controller: %s\n", ctrl_name);
+	}
+#endif
 
 	ret = device_add(&ctrl->dev);
 	if (ret)
@@ -609,6 +660,11 @@ static int __init spmi_init(void)
 	ret = bus_register(&spmi_bus_type);
 	if (ret)
 		return ret;
+
+#ifdef CONFIG_DEBUG_FS
+	spmi_dfs_dir = debugfs_create_dir("spmi", NULL);
+	pr_info("Created spmi debugfs dir\n");
+#endif
 
 	is_registered = true;
 	return 0;

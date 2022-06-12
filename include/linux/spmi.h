@@ -40,6 +40,10 @@ struct spmi_device {
 	struct device		dev;
 	struct spmi_controller	*ctrl;
 	u8			usid;
+#ifdef CONFIG_DEBUG_FS
+	struct dentry 		*d_file;
+	u32			d_addr;
+#endif
 };
 
 static inline struct spmi_device *to_spmi_device(struct device *d)
@@ -80,6 +84,9 @@ void spmi_device_remove(struct spmi_device *sdev);
 struct spmi_controller {
 	struct device		dev;
 	unsigned int		nr;
+#ifdef CONFIG_DEBUG_FS
+	struct dentry *debugfs_dir;
+#endif
 	int	(*cmd)(struct spmi_controller *ctrl, u8 opcode, u8 sid);
 	int	(*read_cmd)(struct spmi_controller *ctrl, u8 opcode,
 			    u8 sid, u16 addr, u8 *buf, size_t len);
