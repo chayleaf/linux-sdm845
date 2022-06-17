@@ -350,6 +350,7 @@
 #define SDP_CURRENT_UA					500000
 #define CDP_CURRENT_UA					1500000
 #define DCP_CURRENT_UA					1500000
+#define CURRENT_MAX_UA DCP_CURRENT_UA
 
 enum charger_status {
 	TRICKLE_CHARGE = 0,
@@ -405,6 +406,8 @@ static enum power_supply_property smb2_properties[] = {
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_USB_TYPE,
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX,
 };
 
 static enum power_supply_usb_type smb2_usb_types[] = {
@@ -688,7 +691,11 @@ static int smb2_get_property(struct power_supply *psy,
 		val->strval = chip->name;
 		return 0;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
 		return smb2_get_current_limit(chip, &val->intval);
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
+		val->intval = CURRENT_MAX_UA;
+		return 0;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		return smb2_get_iio_chan(chip, chip->usb_in_i_chan,
 					  &val->intval);
