@@ -13,11 +13,11 @@
 #include <linux/usb/pd.h>
 
 struct gpio_aux_switch {
-	struct typec_mux *typec_mux;
+	struct typec_mux_dev *mux;
 	struct gpio_desc *gpio_en, *gpio_cc;
 };
 
-static int gpio_typec_mux_set(struct typec_mux *mux, struct typec_mux_state *state)
+static int gpio_typec_mux_set(struct typec_mux_dev *mux, struct typec_mux_state *state)
 {
 	struct gpio_aux_switch *gas = typec_mux_get_drvdata(mux);
 	bool enable = false, reverse = false;
@@ -53,9 +53,9 @@ static int gpio_aux_switch_probe(struct platform_device *pdev)
 	mux_desc.fwnode = dev->fwnode;
 	mux_desc.drvdata = gas;
 	mux_desc.set = gpio_typec_mux_set;
-	gas->typec_mux = typec_mux_register(dev, &mux_desc);
-	if (IS_ERR(gas->typec_mux))
-		return PTR_ERR(gas->typec_mux);
+	gas->mux = typec_mux_register(dev, &mux_desc);
+	if (IS_ERR(gas->mux))
+		return PTR_ERR(gas->mux);
 
 	platform_set_drvdata(pdev, gas);
 
@@ -66,7 +66,7 @@ static int gpio_aux_switch_remove(struct platform_device *pdev)
 {
 	struct gpio_aux_switch *gas = platform_get_drvdata(pdev);
 
-	typec_mux_unregister(gas->typec_mux);
+	typec_mux_unregister(gas->mux);
 
 	return 0;
 }
