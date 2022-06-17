@@ -106,6 +106,17 @@
 
 		vin-supply = <&vph_pwr>;
 	};
+
+	dp-aux-switch {
+		compatible = "gpio-aux-switch";
+		status = "okay";
+
+		enable-gpio = <&tlmm 43 GPIO_ACTIVE_HIGH>;
+		cc-gpio = <&tlmm 38 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&dp_aux_default &dp_aux_orientation>;
+	};
 };
 
 &adsp_pas {
@@ -528,6 +539,13 @@
 	status = "okay";
 };
 
+&msm_dp {
+	status = "okay";
+	data-lanes = <0 1>;
+	vdda-1p2-supply = <&vreg_l26a_1p2>;
+	vdda-0p9-supply = <&vreg_l1a_0p875>;
+};
+
 &mss_pil {
 	status = "okay";
 	firmware-name = "qcom/sdm845/axolotl/mba.mbn", "qcom/sdm845/axolotl/modem.mbn";
@@ -885,6 +903,25 @@
 		input-enable;
 		bias-pull-down;
 		drive-strength = <2>;
+	};
+
+	dp_aux_orientation: dp-aux-sel-HACK {
+		// SBU to AUX orientation switch, no driver so
+		// just force it, DP will only work in one orientation
+		pins = "gpio49";
+		function = "gpio";
+
+		bias-pull-down;
+		drive-strength = <16>;
+	};
+
+	dp_aux_default: dp-aux-default {
+		//      Enable    CC direction
+		pins = "gpio43", "gpio38";
+		function = "gpio";
+
+		bias-disable;
+		drive-strength = <8>;
 	};
 };
 
