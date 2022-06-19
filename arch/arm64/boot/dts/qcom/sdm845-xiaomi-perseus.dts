@@ -78,17 +78,17 @@
 
 &adsp_pas {
 	status = "okay";
-	firmware-name = "qcom/sdm845/perseus/adsp.mbn";
+	firmware-name = "qcom/sdm845/xiaomi/adsp.mbn";
 };
 
 &cdsp_pas {
 	status = "okay";
-	firmware-name = "qcom/sdm845/perseus/cdsp.mbn";
+	firmware-name = "qcom/sdm845/xiaomi/cdsp.mbn";
 };
 
 &venus {
 	status = "okay";
-	firmware-name = "qcom/sdm845/perseus/venus.mbn";
+	firmware-name = "qcom/sdm845/xiaomi/venus.mbn";
 };
 
 &dsi0 {
@@ -129,7 +129,7 @@
 	status = "okay";
 	zap-shader {
 		memory-region = <&gpu_mem>;
-		firmware-name = "qcom/sdm845/perseus/a630_zap.mbn";
+		firmware-name = "qcom/sdm845/xiaomi/a630_zap.mbn";
 	};
 };
 
@@ -140,7 +140,7 @@
 &ipa {
 	status = "okay";
 	memory-region = <&ipa_fw_mem>;
-	firmware-name = "qcom/sdm845/perseus/ipa_fws.mbn";
+	firmware-name = "qcom/sdm845/xiaomi/ipa_fws.mbn";
 };
 
 &i2c5 {
@@ -199,7 +199,7 @@
 
 &mss_pil {
 	status = "okay";
-	firmware-name = "qcom/sdm845/perseus/mba.mbn", "qcom/sdm845/perseus/modem.mbn";
+	firmware-name = "qcom/sdm845/xiaomi/mba.mbn", "qcom/sdm845/xiaomi/modem.mbn";
 };
 
 &pmi8998_fg {
