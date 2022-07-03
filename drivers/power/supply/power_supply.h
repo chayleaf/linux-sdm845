@@ -39,3 +39,29 @@ static inline int power_supply_create_triggers(struct power_supply *psy)
 static inline void power_supply_remove_triggers(struct power_supply *psy) {}
 
 #endif /* CONFIG_LEDS_TRIGGERS */
+
+#ifdef CONFIG_THERMAL
+static int power_supply_register_thermal(struct power_supply *psy);
+static void power_supply_unregister_thermal(struct power_supply *psy);
+static int power_supply_register_cooler(struct power_supply *psy);
+static void power_supply_unregister_cooler(struct power_supply *psy);
+#else
+
+static int power_supply_register_thermal(struct power_supply *psy)
+{
+	return 0;
+}
+
+static void power_supply_unregister_thermal(struct power_supply *psy)
+{
+}
+
+static int power_supply_register_cooler(struct power_supply *psy)
+{
+	return 0;
+}
+
+static void power_supply_unregister_cooler(struct power_supply *psy)
+{
+}
+#endif /* CONFIG_THERMAL */
