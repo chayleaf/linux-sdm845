@@ -725,6 +725,11 @@ properties:
           - enum:
               - google,sargo
           - const: qcom,sdm670
+      
+      - items:
+          - enum:
+              - xiaomi,polaris
+          - const: qcom,sdm845
 
       - items:
           - enum:
