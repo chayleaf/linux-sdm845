@@ -752,9 +752,14 @@ irqreturn_t smb2_handle_batt_overvoltage(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+struct qcom_pmic_typec;
+static void qcom_pmic_typec_check_connection(struct qcom_pmic_typec *qcom_usb);
+
 irqreturn_t smb2_handle_usb_plugin(int irq, void *data)
 {
 	struct smb2_chip *chip = data;
+
+	qcom_pmic_typec_check_connection(NULL);
 
 	power_supply_changed(chip->chg_psy);
 

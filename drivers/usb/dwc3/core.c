@@ -1838,6 +1838,8 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	pm_runtime_put(dev);
 
+	dev_info(dev, "Probed!\n");
+
 	return 0;
 
 err5:

@@ -107,7 +107,7 @@
 		vin-supply = <&vph_pwr>;
 	};
 
-	dp-aux-switch {
+	typec_sbu_sw: dp-aux-switch {
 		compatible = "gpio-aux-switch";
 		status = "okay";
 
@@ -621,6 +621,36 @@
 	};
 };
 
+&pmi8998_typec {
+	status = "okay";
+
+	connector {
+		compatible = "usb-c-connector";
+		power-role = "dual";
+		data-role = "dual";
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@1 {
+				reg = <1>;
+				usb3_data_ss: endpoint@0 {
+					remote-endpoint = <&qmp_ss_mux>;
+				};
+			};
+		};
+	};
+
+	port {
+		usb3_role: endpoint {
+			remote-endpoint = <&dwc3_drd_switch>;
+		};
+	};
+};
+
+&pmi8998_vbus {
+	status = "okay";
+};
+
 &q6cvp {
 	status = "okay";
 };
@@ -967,10 +997,18 @@
 
 &usb_1 {
 	status = "okay";
+
+	usb-role-switch;
+	port {
+		dwc3_drd_switch: endpoint@0 {
+			remote-endpoint = <&usb3_role>;
+		};
+	};
 };
 
 &usb_1_dwc3 {
-	dr_mode = "peripheral";
+	dr_mode = "otg";
+	usb-role-switch;
 };
 
 &usb_1_hsphy {
@@ -986,6 +1024,13 @@
 
 	vdda-phy-supply = <&vreg_l26a_1p2>;
 	vdda-pll-supply = <&vreg_l1a_0p875>;
+
+	orientation-switch;
+	port {
+		qmp_ss_mux: endpoint@0 {
+			remote-endpoint = <&usb3_data_ss>;
+		};
+	};
 };
 
 &venus {

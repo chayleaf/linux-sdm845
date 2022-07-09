@@ -43,6 +43,8 @@ static int gpio_aux_switch_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct gpio_aux_switch *gas;
 
+	dev_info(dev, "Start probe!\n");
+
 	gas = devm_kzalloc(dev, sizeof(*gas), GFP_KERNEL);
 	if (!gas)
 		return -ENOMEM;
@@ -58,6 +60,8 @@ static int gpio_aux_switch_probe(struct platform_device *pdev)
 		return PTR_ERR(gas->mux);
 
 	platform_set_drvdata(pdev, gas);
+
+	dev_info(dev, "Probed!\n");
 
 	return 0;
 }

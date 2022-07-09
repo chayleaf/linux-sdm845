@@ -1292,6 +1292,8 @@ static int dp_display_probe(struct platform_device *pdev)
 	struct dp_display_private *dp;
 	const struct msm_dp_desc *desc;
 
+	dev_info(&pdev->dev, "start probe!\n");
+
 	if (!pdev || !pdev->dev.of_node) {
 		DRM_ERROR("pdev not found\n");
 		return -ENODEV;
@@ -1301,6 +1303,7 @@ static int dp_display_probe(struct platform_device *pdev)
 	if (!dp)
 		return -ENOMEM;
 
+	dev_info(&pdev->dev, "before get desc!\n");
 	desc = dp_display_get_desc(pdev, &dp->id);
 	if (!desc)
 		return -EINVAL;
@@ -1312,6 +1315,7 @@ static int dp_display_probe(struct platform_device *pdev)
 	dp->dp_display.is_edp =
 		(dp->dp_display.connector_type == DRM_MODE_CONNECTOR_eDP);
 
+	dev_info(&pdev->dev, "before dp_init_sub_modules!\n");
 	rc = dp_init_sub_modules(dp);
 	if (rc) {
 		DRM_ERROR("init sub module failed\n");

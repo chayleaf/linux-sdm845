@@ -837,6 +837,8 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 	pm_runtime_forbid(dev);
 
+	dev_info(&pdev->dev, "Probed!\n");
+
 	return 0;
 
 interconnect_exit:

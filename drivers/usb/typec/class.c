@@ -1813,6 +1813,15 @@ int typec_set_orientation(struct typec_port *port,
 {
 	int ret;
 
+	if (IS_ERR(port->sw)) {
+		dev_info(&port->dev, "Port->sw had deferred\n");
+		port->sw = typec_switch_get(&port->dev);
+		if (IS_ERR(port->sw))
+			return PTR_ERR(port->sw);
+		else
+			dev_info(&port->dev, "Got port->sw!!!\n");
+	}
+
 	ret = typec_switch_set(port->sw, orientation);
 	if (ret)
 		return ret;
@@ -2102,13 +2111,19 @@ struct typec_port *typec_register_port(struct device *parent,
 		return ERR_PTR(-ENOMEM);
 	}
 
+	dev_info(&port->dev, "Before typec_switch_get!\n");
 	port->sw = typec_switch_get(&port->dev);
 	if (IS_ERR(port->sw)) {
-		ret = PTR_ERR(port->sw);
-		put_device(&port->dev);
-		return ERR_PTR(ret);
+		if (PTR_ERR(port->sw) == -EPROBE_DEFER) {
+			dev_warn(&port->dev, "Switch probe defer!\n");
+		} else {
+			ret = PTR_ERR(port->sw);
+			put_device(&port->dev);
+			return ERR_PTR(ret);
+		}
 	}
 
+	dev_info(&port->dev, "Before typec_mux_get!\n");
 	port->mux = typec_mux_get(&port->dev, NULL);
 	if (IS_ERR(port->mux)) {
 		ret = PTR_ERR(port->mux);
@@ -2116,6 +2131,7 @@ struct typec_port *typec_register_port(struct device *parent,
 		return ERR_PTR(ret);
 	}
 
+	dev_info(&port->dev, "Before device_add!\n");
 	ret = device_add(&port->dev);
 	if (ret) {
 		dev_err(parent, "failed to register port (%d)\n", ret);
@@ -2123,6 +2139,7 @@ struct typec_port *typec_register_port(struct device *parent,
 		return ERR_PTR(ret);
 	}
 
+	dev_info(&port->dev, "Before typec_link_ports!\n");
 	ret = typec_link_ports(port);
 	if (ret)
 		dev_warn(&port->dev, "failed to create symlinks (%d)\n", ret);
