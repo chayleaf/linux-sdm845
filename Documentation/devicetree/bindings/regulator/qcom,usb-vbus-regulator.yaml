@@ -18,6 +18,7 @@ properties:
   compatible:
     enum:
       - qcom,pm8150b-vbus-reg
+      - qcom,pmi8998-vbus-reg
 
   reg:
     maxItems: 1
