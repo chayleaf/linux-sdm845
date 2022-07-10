@@ -432,16 +432,15 @@ static int lg_panel_backlight_update_status(struct backlight_device *bl)
 {
 	struct panel_info *pinfo = bl_get_data(bl);
 	int ret = 0;
+	uint16_t brightness;
 
-	if (bl->props.power != FB_BLANK_UNBLANK ||
-	    bl->props.fb_blank != FB_BLANK_UNBLANK ||
-	    bl->props.state & BL_CORE_FBBLANK) {
-		pinfo->brightness = 0;
-	} else
-		pinfo->brightness = bl->props.brightness;
+	brightness = (uint16_t)backlight_get_brightness(bl);
+	// This panel needs the high and low bytes swapped for the brightness value
+	brightness = __swab16(brightness);
+
 
 	ret = mipi_dsi_dcs_set_display_brightness(pinfo->link,
-						  pinfo->brightness);
+						  brightness);
 	return ret;
 }
 
@@ -465,23 +464,15 @@ const struct backlight_ops lg_panel_backlight_ops = {
 
 static int lg_panel_backlight_init(struct panel_info *pinfo)
 {
-	struct backlight_properties props = {};
-	struct backlight_device *bl;
 	struct device *dev = &pinfo->link->dev;
+	const struct backlight_properties props = {
+		.type = BACKLIGHT_PLATFORM,
+		.brightness = 255,
+		.max_brightness = 255,
+	};
 
-	props.type = BACKLIGHT_RAW;
-
-	/* Set the max_brightness to 255 to begin with */
-	props.max_brightness = pinfo->max_brightness = 255;
-	props.brightness = pinfo->max_brightness;
-	pinfo->brightness = pinfo->max_brightness;
-	bl = devm_backlight_device_register(dev, "lg-sw43408", dev, pinfo,
-					    &lg_panel_backlight_ops, &props);
-	if (IS_ERR(bl)) {
-		DRM_ERROR("failed to register backlight device\n");
-		return PTR_ERR(bl);
-	}
-	pinfo->backlight = bl;
+	return devm_backlight_device_register(dev, dev_name(dev), dev, dsi,
+					      &lg_panel_backlight_ops, &props);
 
 	return 0;
 }
