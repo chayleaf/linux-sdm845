@@ -68,7 +68,7 @@
 			no-map;
 		};
 
-		cdsp_mem: cdsp-mem@0x97D00000 {
+		cdsp_mem: cdsp-mem@97D00000 {
 			reg = <0 0x97D00000 0 0x800000>;
 			no-map;
 		};
