@@ -15,6 +15,11 @@
 #include "pmi8998.dtsi"
 
 /delete-node/ &mpss_region;
+/delete-node/ &venus_mem;
+/delete-node/ &cdsp_mem;
+/delete-node/ &mba_region;
+/delete-node/ &slpi_mem;
+/delete-node/ &spss_mem;
 /delete-node/ &rmtfs_mem;
 
 / {
@@ -55,6 +60,31 @@
 
 		mpss_region: memory@8e00000 {
 			reg = <0 0x8e00000 0 0x9800000>;
+			no-map;
+		};
+
+		venus_mem: venus@95800000 {
+			reg = <0 0x97800000 0 0x500000>;
+			no-map;
+		};
+
+		cdsp_mem: cdsp-mem@0x97D00000 {
+			reg = <0 0x97D00000 0 0x800000>;
+			no-map;
+		};
+
+		mba_region: mba@98500000 {
+			reg = <0 0x98500000 0 0x200000>;
+			no-map;
+		};
+
+		slpi_mem: slpi@98700000 {
+			reg = <0 0x98700000 0 0x1400000>;
+			no-map;
+		};
+
+		spss_mem: spss@99B00000 {
+			reg = <0 0x99B00000 0 0x100000>;
 			no-map;
 		};
 
