@@ -2,19 +2,12 @@
 
 /dts-v1/;
 
-#include <dt-bindings/dma/qcom-gpi.h>
-#include <dt-bindings/input/linux-event-codes.h>
-#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
-#include <dt-bindings/sound/qcom,q6afe.h>
-#include <dt-bindings/sound/qcom,q6asm.h>
-#include <dt-bindings/sound/qcom,q6voice.h>
-
 #include "sdm845.dtsi"
 #include "pm8998.dtsi"
 #include "pmi8998.dtsi"
-
-/delete-node/ &rmtfs_mem;
 
 / {
 	model = "Google Pixel 3";
@@ -24,34 +17,127 @@
 
 	aliases {
 		serial0 = &uart9;
-		serial1 = &uart6;
+		hsuart0 = &uart6;
 	};
 
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
 
-	volume-keys {
+	dc12v: dc12v-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "DC12V";
+		regulator-min-microvolt = <12000000>;
+		regulator-max-microvolt = <12000000>;
+		regulator-always-on;
+	};
+
+	pcie0_1p05v: pcie-0-1p05v-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "PCIE0_1.05V";
+
+		vin-supply = <&vbat>;
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1050000>;
+
+		// TODO: make it possible to drive same GPIO from two clients
+		// gpio = <&tlmm 90 GPIO_ACTIVE_HIGH>;
+		// enable-active-high;
+	};
+
+	pcie0_3p3v_dual: vldo-3v3-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "VLDO_3V3";
+
+		vin-supply = <&vbat>;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+
+		gpio = <&tlmm 90 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pcie0_pwren_state>;
+	};
+
+	gpio_keys {
 		compatible = "gpio-keys";
-		label = "Volume keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
 		autorepeat;
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&volume_up_gpio>;
+		pinctrl-0 = <&vol_up_pin_a>;
 
 		vol-up {
 			label = "Volume Up";
 			linux,code = <KEY_VOLUMEUP>;
 			gpios = <&pm8998_gpio 6 GPIO_ACTIVE_LOW>;
-			debounce-interval = <15>;
 		};
 	};
 
-	vph_pwr: vph-pwr-regulator {
+	leds {
+		compatible = "gpio-leds";
+
+		user4 {
+			label = "green:user4";
+			gpios = <&pm8998_gpio 13 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "panic-indicator";
+			default-state = "off";
+		};
+
+		wlan {
+			label = "yellow:wlan";
+			gpios = <&pm8998_gpio 9 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "phy0tx";
+			default-state = "off";
+		};
+
+		bt {
+			label = "blue:bt";
+			gpios = <&pm8998_gpio 5 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "bluetooth-power";
+			default-state = "off";
+		};
+	};
+
+	vbat: vbat-regulator {
 		compatible = "regulator-fixed";
-		regulator-name = "vph_pwr";
-		regulator-min-microvolt = <3700000>;
-		regulator-max-microvolt = <3700000>;
+		regulator-name = "VBAT";
+
+		vin-supply = <&dc12v>;
+		regulator-min-microvolt = <4200000>;
+		regulator-max-microvolt = <4200000>;
+		regulator-always-on;
+	};
+
+	vbat_som: vbat-som-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "VBAT_SOM";
+
+		vin-supply = <&dc12v>;
+		regulator-min-microvolt = <4200000>;
+		regulator-max-microvolt = <4200000>;
+		regulator-always-on;
+	};
+
+	vdc_3v3: vdc-3v3-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "VDC_3V3";
+		vin-supply = <&dc12v>;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	vdc_5v: vdc-5v-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "VDC_5V";
+
+		vin-supply = <&dc12v>;
+		regulator-min-microvolt = <500000>;
+		regulator-max-microvolt = <500000>;
+		regulator-always-on;
 	};
 
 	vreg_s4a_1p8: vreg-s4a-1p8 {
@@ -61,49 +147,56 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
-		regulator-boot-on;
-
-		vin-supply = <&vph_pwr>;
 	};
 
-	ts-i2c-gpio {
-		compatible = "i2c-gpio";
-		status = "disabled";
-		sda-gpios = <&tlmm 27 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
-		scl-gpios = <&tlmm 28 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
+	vph_pwr: vph-pwr-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vph_pwr";
 
-		pinctrl-names = "default";
-		pinctrl-0 = <&touchscreen_i2c_pins>;
+		vin-supply = <&vbat_som>;
+	};
+};
 
-		#address-cells = <1>;
-		#size-cells = <0>;
+&pm8998_gpio {
+	/* Don't drive these, for display */
+	sde_pmgpio_active: sde_pmgpio_active {
+		pins = "gpio2", "gpio5";
+		function = "normal";
+		input-enable;
+		bias-disable;
+		power-source = <0>;
+	};
+	sde_pmgpio_suspend: sde_pmgpio_suspend {
+		pins = "gpio2", "gpio5";
+		function = "normal";
+		input-enable;
+		bias-disable;
+		power-source = <0>;
+	};
+};
 
-		touchscreen@49 {
-			compatible = "st,fts";
-			reg = <0x49>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&touchscreen_pins &touchscreen_reset>;
-			interrupt-parent = <&tlmm>;
-			interrupts = <125 IRQ_TYPE_LEVEL_LOW>;
-			avdd-supply = <&vreg_l14a_1p88>;
-			vdd-supply = <&vreg_l19a_3p3>;
-			// touchscreen-size-x = <1080>;
-			// touchscreen-size-y = <2160>;
+&sde_te_active {
+	mux {
+		pins = "gpio12";
+	};
+	config {
+		pins = "gpio12";
+	};
+};
 
-			st,irq-gpio = <&tlmm 125 0>;
-			st,reset-gpio = <&tlmm 99 0>;
-			st,switch_gpio = <&tlmm 136 0>;
-			st,max-coords = <1079 2159>;
-			st,regulator_dvdd = "vdd";
-			st,regulator_avdd = "avdd";
-		};
+&sde_te_suspend {
+	mux {
+		pins = "gpio12";
+	};
+	config {
+		pins = "gpio12";
 	};
 };
 
 &adsp_pas {
 	status = "okay";
 
-	firmware-name = "qcom/sdm845/pixel3/adsp.mbn";
+	firmware-name = "qcom/sdm845/adsp.mdt";
 };
 
 &apps_rsc {
@@ -189,28 +282,14 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-			regulator-allowed-modes = <RPMH_REGULATOR_MODE_HPM>;
 			regulator-boot-on;
 			regulator-always-on;
-		};
+                };
 
 		vreg_l17a_1p3: ldo17 {
 			regulator-min-microvolt = <1304000>;
 			regulator-max-microvolt = <1304000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-
-		/*
-		 * The touchscreen needs this to be 3.3v, which is apparently
-		 * quite close to the hardware limit for this LDO (3.312v)
-		 * It must be kept in high power mode to prevent TS brownouts
-		 */
-		vreg_l19a_3p3: ldo19 {
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3312000>;
-			qcom,init-voltage = <3300000>;
-			qcom,initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-			regulator-allowed-modes = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
 		vreg_l20a_2p95: ldo20 {
@@ -267,49 +346,26 @@
 			regulator-allow-bypass;
 		};
 	};
-
-	pm8005-rpmh-regulators {
-		compatible = "qcom,pm8005-rpmh-regulators";
-		qcom,pmic-id = "c";
-
-		vdd-s1-supply = <&vph_pwr>;
-		vdd-s2-supply = <&vph_pwr>;
-		vdd-s3-supply = <&vph_pwr>;
-		vdd-s4-supply = <&vph_pwr>;
-
-		vreg_s3c_0p6: smps3 {
-			regulator-min-microvolt = <600000>;
-			regulator-max-microvolt = <600000>;
-		};
-	};
 };
 
 &cdsp_pas {
 	status = "okay";
-	firmware-name = "qcom/sdm845/pixel3/cdsp.mbn";
+	firmware-name = "qcom/sdm845/cdsp.mdt";
 };
 
 &gcc {
 	protected-clocks = <GCC_QSPI_CORE_CLK>,
-					 <GCC_QSPI_CORE_CLK_SRC>,
-					 <GCC_QSPI_CNOC_PERIPH_AHB_CLK>;
+			   <GCC_QSPI_CORE_CLK_SRC>,
+			   <GCC_QSPI_CNOC_PERIPH_AHB_CLK>;
 };
 
 &pm8998_gpio {
-	volume_up_gpio: vol-up-active {
+	vol_up_pin_a: vol-up-active {
 		pins = "gpio6";
 		function = "normal";
 		input-enable;
 		bias-pull-up;
-		qcom,drive-strength = <0>;
-	};
-
-	panel_pmgpio_pins: panel-pmgpio-active {
-		pins = "gpio2", "gpio5";
-		function = "normal";
-		input-enable;
-		bias-disable;
-		power-source = <0>;
+		qcom,drive-strength = <PMIC_GPIO_STRENGTH_NO>;
 	};
 };
 
@@ -331,101 +387,60 @@
 	status = "okay";
 };
 
+&sdhc_2 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdc2_default_state &sdc2_card_det_n>;
+
+	vmmc-supply = <&vreg_l21a_2p95>;
+	vqmmc-supply = <&vreg_l13a_2p95>;
+
+	bus-width = <4>;
+	cd-gpios = <&tlmm 126 GPIO_ACTIVE_LOW>;
+};
+
 &tlmm {
 	gpio-reserved-ranges = <0 4>, <81 4>;
 
-	panel_te_pin: panel-te {
-		mux {
-			pins = "gpio12";
-			function = "mdp_vsync";
-			drive-strength = <2>;
-			bias-disable;
-			input-enable;
-		};
-	};
-
-	panel_reset_pins: panel-active {
-		mux {
-			pins = "gpio6", "gpio52";
-			function = "gpio";
-			drive-strength = <8>;
-			bias-disable = <0>;
-		};
-	};
-
-	panel_suspend: panel-suspend {
-		mux {
-			pins = "gpio6", "gpio52";
-			function = "gpio";
-			drive-strength = <2>;
-			bias-pull-down;
-		};
-	};
-
-	touchscreen_reset: ts-reset {
-		mux {
-			pins = "gpio99";
-			function = "gpio";
-			drive-strength = <8>;
-			bias-pull-up;
-			//output-high;
-		};
-	};
-
-	touchscreen_pins: ts-pins {
-		mux {
-			pins = "gpio125";
-			function = "gpio";
-			drive-strength = <2>;
-			bias-disable;
-		};
-	};
-
-	touchscreen_i2c_pins: qup-i2c2-gpio {
-		pins = "gpio27", "gpio28";
+	pcie0_pwren_state: pcie0-pwren {
+		pins = "gpio90";
 		function = "gpio";
 
 		drive-strength = <2>;
 		bias-disable;
 	};
-};
 
-&gpi_dma0 {
-	status = "okay";
-};
+	sdc2_default_state: sdc2-default {
+		clk {
+			pins = "sdc2_clk";
+			bias-disable;
 
-&i2c2 {
-	status = "okay";
-	#dma-cells = <3>;
+			/*
+			 * It seems that mmc_test reports errors if drive
+			 * strength is not 16 on clk, cmd, and data pins.
+			 */
+			drive-strength = <16>;
+		};
 
-	dmas =  <&gpi_dma0 0 2 QCOM_GPI_I2C>,
-		<&gpi_dma0 1 2 QCOM_GPI_I2C>;
-	dma-names = "tx", "rx";
+		cmd {
+			pins = "sdc2_cmd";
+			bias-pull-up;
+			drive-strength = <10>;
+		};
 
-	touchscreen@49 {
-		compatible = "st,fts";
-		reg = <0x49>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&touchscreen_pins &touchscreen_reset>;
-		interrupt-parent = <&tlmm>;
-		interrupts = <125 IRQ_TYPE_LEVEL_LOW>;
-		avdd-supply = <&vreg_l14a_1p88>;
-		vdd-supply = <&vreg_l19a_3p3>;
-		// touchscreen-size-x = <1080>;
-		// touchscreen-size-y = <2160>;
-
-		st,irq-gpio = <&tlmm 125 0>;
-		st,reset-gpio = <&tlmm 99 0>;
-		st,switch_gpio = <&tlmm 136 0>;
-		st,max-coords = <1079 2159>;
-		st,regulator_dvdd = "vdd";
-		st,regulator_avdd = "avdd";
+		data {
+			pins = "sdc2_data";
+			bias-pull-up;
+			drive-strength = <10>;
+		};
 	};
-};
 
-&venus {
-	//status = "okay";
-	firmware-name = "qcom/sdm845/oneplus6/venus.mbn";
+	sdc2_card_det_n: sd-card-det-n {
+		pins = "gpio126";
+		function = "gpio";
+		bias-pull-up;
+	};
 };
 
 &uart6 {
@@ -566,22 +581,16 @@
 	};
 };
 
-&gmu {
-	status = "okay";
-};
-
 &gpu {
-	status = "okay";
-
 	zap-shader {
 		memory-region = <&gpu_mem>;
-		firmware-name = "qcom/sdm845/pixel3/a630_zap.mbn";
+		//firmware-name = "qcom/sdm845/a630_zap.mbn";
 	};
 };
 
 &mss_pil {
 	status = "okay";
-	firmware-name = "qcom/sdm845/pixel3/mba.mbn", "qcom/sdm845/pixel3/modem.mbn";
+	firmware-name = "qcom/sdm845/mba.mbn", "qcom/sdm845/modem.mbn";
 };
 
 &dsi0 {
@@ -606,8 +615,9 @@
 
 		reset-gpios = <&tlmm 6 GPIO_ACTIVE_HIGH>;
 
-		pinctrl-names = "default";
-		pinctrl-0 = <&panel_reset_pins &panel_te_pin &panel_pmgpio_pins>;
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active &sde_pmgpio_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend &sde_pmgpio_suspend>;
 
 		ports {
 			#address-cells = <1>;
@@ -623,18 +633,13 @@
 	};
 };
 
-&dsi0_out {
-	remote-endpoint = <&lg_sw43408_in_0>;
-	data-lanes = <0 1 2 3>;
-};
-
 &dsi0_phy {
 	status = "okay";
 	vdds-supply = <&vdda_mipi_dsi0_pll>;
 };
 
 &vreg_l28a_3p0{
-	qcom,init-voltage = <3000000>;
+        qcom,init-voltage = <3000000>;
 };
 
 &mdss {
