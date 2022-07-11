@@ -430,7 +430,7 @@ static int lg_panel_get_modes(struct drm_panel *panel,
 
 static int lg_panel_backlight_update_status(struct backlight_device *bl)
 {
-	struct panel_info *pinfo = bl_get_data(bl);
+	struct mipi_dsi_device *dsi = bl_get_data(bl);
 	int ret = 0;
 	uint16_t brightness;
 
@@ -439,18 +439,17 @@ static int lg_panel_backlight_update_status(struct backlight_device *bl)
 	brightness = __swab16(brightness);
 
 
-	ret = mipi_dsi_dcs_set_display_brightness(pinfo->link,
-						  brightness);
+	ret = mipi_dsi_dcs_set_display_brightness(dsi, brightness);
 	return ret;
 }
 
 static int lg_panel_backlight_get_brightness(struct backlight_device *bl)
 {
-	struct panel_info *pinfo = bl_get_data(bl);
+	struct mipi_dsi_device *dsi = bl_get_data(bl);
 	int ret = 0;
 	u16 brightness = 0;
 
-	ret = mipi_dsi_dcs_get_display_brightness(pinfo->link, &brightness);
+	ret = mipi_dsi_dcs_get_display_brightness(dsi, &brightness);
 	if (ret < 0)
 		return ret;
 
@@ -471,9 +470,13 @@ static int lg_panel_backlight_init(struct panel_info *pinfo)
 		.max_brightness = 255,
 	};
 
-	return devm_backlight_device_register(dev, dev_name(dev), dev, dsi,
+	pinfo->backlight = devm_backlight_device_register(dev, dev_name(dev), dev, pinfo->link,
 					      &lg_panel_backlight_ops, &props);
 
+	if (IS_ERR(pinfo->backlight))
+		return dev_err_probe(dev, PTR_ERR(pinfo->backlight),
+				     "Failed to create backlight\n");
+	
 	return 0;
 }
 
