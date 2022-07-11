@@ -110,6 +110,14 @@
 		};
 	};
 
+	battery: battery {
+		compatible = "simple-battery";
+
+		charge-full-design-microamp-hours = <2970000>;
+		voltage-min-design-microvolt = <3600000>;
+		voltage-max-design-microvolt = <4400000>;
+	};
+
 	vph_pwr: vph-pwr-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "vph_pwr";
@@ -129,11 +137,19 @@
 		vin-supply = <&vph_pwr>;
 	};
 
+	/*
+	 * GPI_DMA on qup2 seems to be broken, so use i2c-gpio
+	 * for the touchscreen for now
+	 */
 	ts-i2c-gpio {
 		compatible = "i2c-gpio";
 		status = "disabled";
 		sda-gpios = <&tlmm 27 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
 		scl-gpios = <&tlmm 28 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
+		// 5us ~= 100kHz
+		// 2us ~= 250kHz
+		// RIP one CPU core
+		i2c-gpio,delay-us = <1>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&touchscreen_i2c_pins>;
@@ -472,6 +488,10 @@
 	status = "okay";
 };
 
+/*
+ * For some reason the touchscreen doesn't work properly
+ * with the proper i2c controller, leave it disabled for now
+ */
 &i2c2 {
 	status = "okay";
 	#dma-cells = <3>;
@@ -658,7 +678,7 @@
 };
 
 &mss_pil {
-	status = "okay";
+	//status = "okay";
 	firmware-name = "qcom/sdm845/pixel3/mba.mbn", "qcom/sdm845/pixel3/modem.mbn";
 };
 
