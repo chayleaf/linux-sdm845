@@ -67,7 +67,7 @@ int initCore(struct fts_ts_info *info)
 {
 	int ret = OK;
 
-	pr_info("%s: Initialization of the Core...\n", __func__);
+	pr_debug("%s: Initialization of the Core...\n", __func__);
 	ret |= openChannel(info->client);
 	ret |= resetErrorList();
 	ret |= initTestToDo();
@@ -76,7 +76,7 @@ int initCore(struct fts_ts_info *info)
 		pr_err("%s: Initialization Core ERROR %08X!\n",
 			 __func__, ret);
 	else
-		pr_info("%s: Initialization Finished!\n",
+		pr_debug("%s: Initialization Finished!\n",
 			 __func__);
 	return ret;
 }
@@ -89,7 +89,7 @@ int initCore(struct fts_ts_info *info)
 void setResetGpio(int gpio)
 {
 	reset_gpio = gpio;
-	pr_info("setResetGpio: reset_gpio = %d\n", reset_gpio);
+	pr_debug("setResetGpio: reset_gpio = %d\n", reset_gpio);
 }
 
 /**
@@ -108,7 +108,7 @@ int fts_system_reset(void)
 
 	event_to_search = (int)EVT_ID_CONTROLLER_READY;
 
-	pr_info("System resetting...\n");
+	pr_debug("System resetting...\n");
 	for (i = 0; i < RETRY_SYSTEM_RESET && res < 0; i++) {
 		resetErrorList();
 		fts_disableInterrupt();
@@ -331,7 +331,7 @@ int checkEcho(u8 *cmd, int size)
 			return ERROR_CHECK_ECHO_FAIL;
 		}
 
-		pr_info("ECHO OK!\n");
+		pr_debug("ECHO OK!\n");
 		return ret;
 	}
 }
@@ -393,7 +393,7 @@ int setFeatures(u8 feat, u8 *settings, int size)
 	int buff_len = sizeof(buff);
 	int index = 0;
 
-	pr_info("%s: Setting feature: feat = %02X !\n", __func__, feat);
+	pr_debug("%s: Setting feature: feat = %02X !\n", __func__, feat);
 	cmd[0] = FTS_CMD_FEATURE;
 	cmd[1] = feat;
 	for (i = 0; i < size; i++) {
@@ -401,7 +401,7 @@ int setFeatures(u8 feat, u8 *settings, int size)
 		index += scnprintf(buff + index, buff_len - index,
 					"%02X ", settings[i]);
 	}
-	pr_info("%s: Settings = %s\n", __func__, buff);
+	pr_debug("%s: Settings = %s\n", __func__, buff);
 	ret = fts_write(cmd, 2 + size);
 	/* use write instead of writeFw because can be called while the
 	 * interrupts are enabled */
@@ -409,7 +409,7 @@ int setFeatures(u8 feat, u8 *settings, int size)
 		pr_err("%s: write failed...ERROR %08X !\n", __func__, ret);
 		return ret | ERROR_SET_FEATURE_FAIL;
 	}
-	pr_info("%s: Setting feature OK!\n", __func__);
+	pr_debug("%s: Setting feature OK!\n", __func__);
 	return OK;
 }
 /** @}*/
@@ -443,9 +443,9 @@ int writeSysCmd(u8 sys_cmd, u8 *sett, int size)
 		index += scnprintf(buff + index, buff_len - index,
 					"%02X ", sett[ret]);
 	}
-	pr_info("%s: Command = %02X %02X %s\n", __func__, cmd[0],
+	pr_debug("%s: Command = %02X %02X %s\n", __func__, cmd[0],
 		 cmd[1], buff);
-	pr_info("%s: Writing Sys command...\n", __func__);
+	pr_debug("%s: Writing Sys command...\n", __func__);
 	if (sys_cmd != SYS_CMD_LOAD_DATA)
 		ret = fts_writeFwCmd(cmd, 2 + size);
 	else {
@@ -460,7 +460,7 @@ int writeSysCmd(u8 sys_cmd, u8 *sett, int size)
 	if (ret < OK)
 		pr_err("%s: ERROR %08X\n", __func__, ret);
 	else
-		pr_info("%s: FINISHED!\n", __func__);
+		pr_debug("%s: FINISHED!\n", __func__);
 
 	return ret;
 }
@@ -480,7 +480,7 @@ int defaultSysInfo(int i2cError)
 {
 	int i;
 
-	pr_info("Setting default System Info...\n");
+	pr_debug("Setting default System Info...\n");
 
 	if (i2cError == 1) {
 		systemInfo.u16_fwVer = 0xFFFF;
@@ -499,7 +499,7 @@ int defaultSysInfo(int i2cError)
 	systemInfo.u8_scrRxLen = 0;
 	systemInfo.u8_scrTxLen = 0;
 
-	pr_info("default System Info DONE!\n");
+	pr_debug("default System Info DONE!\n");
 	return OK;
 }
 
@@ -518,7 +518,7 @@ int readSysInfo(int request)
 	char temp[256] = { 0 };
 
 	if (request == 1) {
-		pr_info("%s: Requesting System Info...\n", __func__);
+		pr_debug("%s: Requesting System Info...\n", __func__);
 
 		ret = writeSysCmd(SYS_CMD_LOAD_DATA, &sett, 1);
 		if (ret < OK) {
@@ -528,7 +528,7 @@ int readSysInfo(int request)
 		}
 	}
 
-	pr_info("%s: Reading System Info...\n", __func__);
+	pr_debug("%s: Reading System Info...\n", __func__);
 	ret = fts_writeReadU8UX(FTS_CMD_FRAMEBUFFER_R, BITS_16,
 				ADDR_FRAMEBUFFER, data, SYS_INFO_SIZE,
 				DUMMY_FRAMEBUFFER);
@@ -538,7 +538,7 @@ int readSysInfo(int request)
 		goto FAIL;
 	}
 
-	pr_info("%s: Parsing System Info...\n", __func__);
+	pr_debug("%s: Parsing System Info...\n", __func__);
 
 	if (data[0] != HEADER_SIGNATURE) {
 		pr_err("%s: The Header Signature is wrong!  sign: %02X != %02X ERROR %08X\n",
@@ -572,30 +572,30 @@ int readSysInfo(int request)
 	index += 2;
 	u8ToU16(&data[index], &systemInfo.u16_fwVer);
 	index += 2;
-	pr_info("FW VER = %04X\n", systemInfo.u16_fwVer);
+	pr_debug("FW VER = %04X\n", systemInfo.u16_fwVer);
 	u8ToU16(&data[index], &systemInfo.u16_svnRev);
 	index += 2;
-	pr_info("SVN REV = %04X\n", systemInfo.u16_svnRev);
+	pr_debug("SVN REV = %04X\n", systemInfo.u16_svnRev);
 	u8ToU16(&data[index], &systemInfo.u16_cfgVer);
 	index += 2;
-	pr_info("CONFIG VER = %04X\n", systemInfo.u16_cfgVer);
+	pr_debug("CONFIG VER = %04X\n", systemInfo.u16_cfgVer);
 	u8ToU16(&data[index], &systemInfo.u16_cfgProjectId);
 	index += 2;
-	pr_info("CONFIG PROJECT ID = %04X\n", systemInfo.u16_cfgProjectId);
+	pr_debug("CONFIG PROJECT ID = %04X\n", systemInfo.u16_cfgProjectId);
 	u8ToU16(&data[index], &systemInfo.u16_cxVer);
 	index += 2;
-	pr_info("CX VER = %04X\n", systemInfo.u16_cxVer);
+	pr_debug("CX VER = %04X\n", systemInfo.u16_cxVer);
 	u8ToU16(&data[index], &systemInfo.u16_cxProjectId);
 	index += 2;
-	pr_info("CX PROJECT ID = %04X\n", systemInfo.u16_cxProjectId);
+	pr_debug("CX PROJECT ID = %04X\n", systemInfo.u16_cxProjectId);
 	systemInfo.u8_cfgAfeVer = data[index++];
 	systemInfo.u8_cxAfeVer =  data[index++];
 	systemInfo.u8_panelCfgAfeVer = data[index++];
-	pr_info("AFE VER: CFG = %02X - CX = %02X - PANEL = %02X\n",
+	pr_debug("AFE VER: CFG = %02X - CX = %02X - PANEL = %02X\n",
 		 systemInfo.u8_cfgAfeVer, systemInfo.u8_cxAfeVer,
 		 systemInfo.u8_panelCfgAfeVer);
 	systemInfo.u8_protocol = data[index++];
-	pr_info("Protocol = %02X\n", systemInfo.u8_protocol);
+	pr_debug("Protocol = %02X\n", systemInfo.u8_protocol);
 	/* index+= 1; */
 	/* skip reserved area */
 
@@ -604,7 +604,7 @@ int readSysInfo(int request)
 		systemInfo.u8_dieInfo[i] = data[index++];
 
 	/* pr_err("\n"); */
-	pr_info("%s\n",
+	pr_debug("%s\n",
 		 printHex("Die Info =  ",
 			  systemInfo.u8_dieInfo,
 			  DIE_INFO_SIZE, temp, sizeof(temp)));
@@ -617,7 +617,7 @@ int readSysInfo(int request)
 
 	/* pr_err("\n"); */
 
-	pr_info("%s\n",
+	pr_debug("%s\n",
 		 printHex("Release Info =  ",
 			  systemInfo.u8_releaseInfo,
 			  RELEASE_INFO_SIZE,
@@ -636,16 +636,16 @@ int readSysInfo(int request)
 	index += 2;
 	u8ToU16(&data[index], &systemInfo.u16_scrResY);
 	index += 2;
-	pr_info("Screen Resolution = %d x %d\n",
+	pr_debug("Screen Resolution = %d x %d\n",
 		 systemInfo.u16_scrResX, systemInfo.u16_scrResY);
 	systemInfo.u8_scrTxLen = data[index++];
-	pr_info("TX Len = %d\n", systemInfo.u8_scrTxLen);
+	pr_debug("TX Len = %d\n", systemInfo.u8_scrTxLen);
 	systemInfo.u8_scrRxLen = data[index++];
-	pr_info("RX Len = %d\n", systemInfo.u8_scrRxLen);
+	pr_debug("RX Len = %d\n", systemInfo.u8_scrRxLen);
 	systemInfo.u8_keyLen = data[index++];
-	pr_info("Key Len = %d\n", systemInfo.u8_keyLen);
+	pr_debug("Key Len = %d\n", systemInfo.u8_keyLen);
 	systemInfo.u8_forceLen = data[index++];
-	pr_info("Force Len = %d\n", systemInfo.u8_forceLen);
+	pr_debug("Force Len = %d\n", systemInfo.u8_forceLen);
 
 	index += 40;	/* skip reserved area */
 
@@ -735,7 +735,7 @@ int readSysInfo(int request)
 	u8ToU16(&data[index], &systemInfo.u16_ssPrxRxBaselineAddr);
 	index += 2;
 
-	pr_info("Parsed %d bytes!\n", index);
+	pr_debug("Parsed %d bytes!\n", index);
 
 
 	if (index != SYS_INFO_SIZE) {
@@ -745,7 +745,7 @@ int readSysInfo(int request)
 		return ERROR_OP_NOT_ALLOW;
 	}
 
-	pr_info("System Info Read DONE!\n");
+	pr_debug("System Info Read DONE!\n");
 	return OK;
 
 FAIL:
@@ -767,7 +767,7 @@ int readConfig(u16 offset, u8 *outBuf, int len)
 	int ret;
 	u64 final_address = offset + ADDR_CONFIG_OFFSET;
 
-	pr_info("%s: Starting to read config memory at %llx ...\n",
+	pr_debug("%s: Starting to read config memory at %llx ...\n",
 		__func__, final_address);
 	ret = fts_writeReadU8UX(FTS_CMD_CONFIG_R, BITS_16, final_address,
 				outBuf, len, DUMMY_CONFIG);
@@ -777,7 +777,7 @@ int readConfig(u16 offset, u8 *outBuf, int len)
 		return ret;
 	}
 
-	pr_info("%s: Read config memory FINISHED!\n", __func__);
+	pr_debug("%s: Read config memory FINISHED!\n", __func__);
 	return OK;
 }
 
@@ -793,7 +793,7 @@ int writeConfig(u16 offset, u8 *data, int len)
 	int ret;
 	u64 final_address = offset + ADDR_CONFIG_OFFSET;
 
-	pr_info("%s: Starting to write config memory at %llx ...\n",
+	pr_debug("%s: Starting to write config memory at %llx ...\n",
 		__func__, final_address);
 	ret = fts_writeU8UX(FTS_CMD_CONFIG_W, BITS_16, final_address, data,
 			    len);
@@ -803,7 +803,7 @@ int writeConfig(u16 offset, u8 *data, int len)
 		return ret;
 	}
 
-	pr_info("%s: Write config memory FINISHED!\n", __func__);
+	pr_debug("%s: Write config memory FINISHED!\n", __func__);
 	return OK;
 }
 
@@ -933,16 +933,16 @@ int fts_crc_check(void)
 		return CRC_CODE;
 	}
 
-	pr_info("%s: Verifying if Config CRC Error...\n", __func__);
+	pr_debug("%s: Verifying if Config CRC Error...\n", __func__);
 	res = fts_system_reset();
 	if (res >= OK) {
 		res = pollForErrorType(error_to_search, 2);
 		if (res < OK) {
-			pr_info("%s: No Config CRC Error Found!\n", __func__);
-			pr_info("%s: Verifying if Cx CRC Error...\n", __func__);
+			pr_debug("%s: No Config CRC Error Found!\n", __func__);
+			pr_debug("%s: Verifying if Cx CRC Error...\n", __func__);
 			res = pollForErrorType(&error_to_search[2], 4);
 			if (res < OK) {
-				pr_info("%s: No Cx CRC Error Found!\n",
+				pr_debug("%s: No Cx CRC Error Found!\n",
 					__func__);
 				return OK;
 			} else {
@@ -978,10 +978,10 @@ int requestSyncFrame(u8 type)
 	int ret, retry = 0, retry2 = 0, time_to_count;
 	int count, new_count;
 
-	pr_info("%s: Starting to get a sync frame...\n", __func__);
+	pr_debug("%s: Starting to get a sync frame...\n", __func__);
 
 	while (retry2 < RETRY_MAX_REQU_DATA) {
-		pr_info("%s: Reading count...\n", __func__);
+		pr_debug("%s: Reading count...\n", __func__);
 
 		ret = fts_writeReadU8UX(FTS_CMD_FRAMEBUFFER_R, BITS_16,
 					ADDR_FRAMEBUFFER, readData, DATA_HEADER,
@@ -1000,13 +1000,13 @@ int requestSyncFrame(u8 type)
 
 		count = (readData[3] << 8) | readData[2];
 		new_count = count;
-		pr_info("%s: Base count = %d\n", __func__, count);
+		pr_debug("%s: Base count = %d\n", __func__, count);
 
-		pr_info("%s: Requesting frame %02X  attempt = %d\n",
+		pr_debug("%s: Requesting frame %02X  attempt = %d\n",
 			__func__,  type, retry2 + 1);
 		ret = fts_write(request, ARRAY_SIZE(request));
 		if (ret >= OK) {
-			pr_info("%s: Polling for new count...\n", __func__);
+			pr_debug("%s: Polling for new count...\n", __func__);
 			time_to_count = TIMEOUT_REQU_DATA / TIMEOUT_RESOLUTION;
 			while (count == new_count && retry < time_to_count) {
 				ret = fts_writeReadU8UX(FTS_CMD_FRAMEBUFFER_R,
@@ -1033,7 +1033,7 @@ int requestSyncFrame(u8 type)
 					ERROR_TIMEOUT | ERROR_REQU_DATA);
 				ret = ERROR_TIMEOUT | ERROR_REQU_DATA;
 			} else {
-				pr_info("%s: New count found! count = %d! Frame ready!\n",
+				pr_debug("%s: New count found! count = %d! Frame ready!\n",
 					__func__, new_count);
 				return OK;
 			}
@@ -1056,7 +1056,7 @@ int setActiveScanFrequency(u32 freq)
 	u8 temp[2] = { 0 };
 	u16 t_cycle;
 
-	pr_info("%s: Setting the scanning frequency to %uHz...\n",
+	pr_debug("%s: Setting the scanning frequency to %uHz...\n",
 		__func__, freq);
 
 	/* read MRN register */
@@ -1091,7 +1091,7 @@ int setActiveScanFrequency(u32 freq)
 	  * scan_freq = 30Mhz/(2*(T_cycle+R_cycle)) */
 	temp[0] = (30000000) / (freq * 2) - t_cycle;
 	/* write R cycle in Config Area */
-	pr_info("%s: T cycle  = %d (0x%04X) => R0 cycle = %d (0x%02X)\n",
+	pr_debug("%s: T cycle  = %d (0x%04X) => R0 cycle = %d (0x%02X)\n",
 		__func__, t_cycle, t_cycle, temp[0], temp[0]);
 	res = writeConfig(ADDR_CONFIG_R0_CYCLE, temp, 1);
 	if (res < OK) {
@@ -1100,7 +1100,7 @@ int setActiveScanFrequency(u32 freq)
 		return res;
 	}
 
-	pr_info("%s: Saving Config into the flash ...\n", __func__);
+	pr_debug("%s: Saving Config into the flash ...\n", __func__);
 	/* save config */
 	temp[0] = SAVE_FW_CONF;
 	res = writeSysCmd(SYS_CMD_SAVE_FLASH, temp, 1);
@@ -1118,7 +1118,7 @@ int setActiveScanFrequency(u32 freq)
 		return res;
 	}
 
-	pr_info("%s: Setting the scanning frequency FINISHED!\n", __func__);
+	pr_debug("%s: Setting the scanning frequency FINISHED!\n", __func__);
 	return OK;
 }
 
@@ -1142,7 +1142,7 @@ int writeHostDataMemory(u8 type, u8 *data, u8 msForceLen, u8 msSenseLen,
 	u8 temp[size + SYNCFRAME_DATA_HEADER];
 
 	memset(temp, 0, size + SYNCFRAME_DATA_HEADER);
-	pr_info("%s: Starting to write Host Data Memory\n", __func__);
+	pr_debug("%s: Starting to write Host Data Memory\n", __func__);
 
 	temp[0] = 0x5A;
 	temp[1] = type;
@@ -1153,7 +1153,7 @@ int writeHostDataMemory(u8 type, u8 *data, u8 msForceLen, u8 msSenseLen,
 
 	memcpy(&temp[16], data, size);
 
-	pr_info("%s: Write Host Data Memory in buffer...\n", __func__);
+	pr_debug("%s: Write Host Data Memory in buffer...\n", __func__);
 	res = fts_writeU8UX(FTS_CMD_FRAMEBUFFER_R, BITS_16,
 			    ADDR_FRAMEBUFFER, temp, size +
 			    SYNCFRAME_DATA_HEADER);
@@ -1166,7 +1166,7 @@ int writeHostDataMemory(u8 type, u8 *data, u8 msForceLen, u8 msSenseLen,
 
 	/* save host data memory into the flash */
 	if (save == 1) {
-		pr_info("%s: Trigger writing into the flash...\n", __func__);
+		pr_debug("%s: Trigger writing into the flash...\n", __func__);
 		res = writeSysCmd(SYS_CMD_SPECIAL, &sett, 1);
 		if (res < OK) {
 			pr_err("%s: error while writing into the flash! ERROR %08X\n",
@@ -1176,6 +1176,6 @@ int writeHostDataMemory(u8 type, u8 *data, u8 msForceLen, u8 msSenseLen,
 	}
 
 
-	pr_info("%s: write Host Data Memory FINISHED!\n", __func__);
+	pr_debug("%s: write Host Data Memory FINISHED!\n", __func__);
 	return OK;
 }
