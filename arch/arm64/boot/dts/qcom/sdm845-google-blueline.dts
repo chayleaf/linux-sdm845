@@ -143,7 +143,7 @@
 	 */
 	ts-i2c-gpio {
 		compatible = "i2c-gpio";
-		status = "disabled";
+		status = "okay";
 		sda-gpios = <&tlmm 27 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
 		scl-gpios = <&tlmm 28 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
 		// 5us ~= 100kHz
@@ -493,7 +493,7 @@
  * with the proper i2c controller, leave it disabled for now
  */
 &i2c2 {
-	status = "okay";
+	status = "disabled";
 	#dma-cells = <3>;
 
 	dmas =  <&gpi_dma0 0 2 QCOM_GPI_I2C>,
