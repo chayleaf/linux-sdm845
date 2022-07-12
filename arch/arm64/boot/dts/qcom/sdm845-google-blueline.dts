@@ -58,12 +58,12 @@
 		#size-cells = <2>;
 		ranges;
 
-		mpss_region: memory@8e00000 {
-			reg = <0 0x8e00000 0 0x9800000>;
+		mpss_region: memory@8e000000 {
+			reg = <0 0x8e000000 0 0x9800000>;
 			no-map;
 		};
 
-		venus_mem: venus@95800000 {
+		venus_mem: venus@97800000 {
 			reg = <0 0x97800000 0 0x500000>;
 			no-map;
 		};
@@ -104,8 +104,8 @@
 		};
 
 		/* rmtfs upper guard */
-		memory@f2701000 {
-			reg = <0 0xf2701000 0 0x1000>;
+		memory@f2901000 {
+			reg = <0 0xf2901000 0 0x1000>;
 			no-map;
 		};
 	};
@@ -678,7 +678,7 @@
 };
 
 &mss_pil {
-	//status = "okay";
+	status = "okay";
 	firmware-name = "qcom/sdm845/pixel3/mba.mbn", "qcom/sdm845/pixel3/modem.mbn";
 };
 
