@@ -12,7 +12,6 @@
 #include <linux/of_device.h>
 
 #include <linux/gpio/consumer.h>
-#include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
 
 #include <drm/drm_device.h>
@@ -59,30 +58,20 @@ struct sw43408_panel {
 
 	const struct drm_display_mode *mode;
 	struct backlight_device *backlight;
-	u32 brightness;
-	u32 max_brightness;
-
-	u32 init_delay_us;
 
 	struct regulator_bulk_data supplies[ARRAY_SIZE(regulator_names)];
 
 	struct gpio_desc *reset_gpio;
-
-	struct pinctrl *pinctrl;
-	struct pinctrl_state *active;
-	struct pinctrl_state *suspend;
 
 	bool prepared;
 	bool enabled;
 };
 
 static const struct panel_cmd lg_sw43408_on_cmds_1[] = {
-	_INIT_CMD(0x00, 0x26, 0x02), // MIPI_DCS_SET_GAMMA_CURVE, 0x02
-	_INIT_CMD(0x00, 0x35, 0x00), // MIPI_DCS_SET_TEAR_ON
+	
 	_INIT_CMD(0x00, 0x53, 0x0C, 0x30),
 	_INIT_CMD(0x00, 0x55, 0x00, 0x70, 0xDF, 0x00, 0x70, 0xDF),
 	_INIT_CMD(0x00, 0xF7, 0x01, 0x49, 0x0C),
-	_INIT_CMD(0x03, 0x51, 0x01, 0xA0), // Disable edge rounding?
 
 	{},
 };
@@ -118,8 +107,6 @@ static __always_unused int panel_reset(struct sw43408_panel *ctx)
 {
 	int ret = 0, i;
 
-	DRM_DEV_ERROR(ctx->base.dev, "panel_reset\n");
-	/* enable supplies */
 	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++) {
 		ret = regulator_set_load(ctx->supplies[i].consumer,
 					 regulator_enable_loads[i]);
@@ -131,7 +118,6 @@ static __always_unused int panel_reset(struct sw43408_panel *ctx)
 	if (ret < 0)
 		return ret;
 
-	/* Disable supplies */
 	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++) {
 		ret = regulator_set_load(ctx->supplies[i].consumer,
 					 regulator_disable_loads[i]);
@@ -146,11 +132,6 @@ static __always_unused int panel_reset(struct sw43408_panel *ctx)
 	if (ret < 0)
 		return ret;
 
-	/*
-	 * Reset sequence of LG sw43408 panel requires the panel to be
-	 * out of reset for 9ms, followed by being held in reset
-	 * for 1ms and then out again
-	 */
 	gpiod_set_value(ctx->reset_gpio, 0);
 	usleep_range(9000, 10000);
 	gpiod_set_value(ctx->reset_gpio, 1);
@@ -230,7 +211,7 @@ static __always_unused int lg_panel_power_off(struct drm_panel *panel)
 static int lg_panel_unprepare(struct drm_panel *panel)
 {
 	struct sw43408_panel *ctx = to_panel_info(panel);
-	int ret;
+	int ret, i;
 
 	if (!ctx->prepared)
 		return 0;
@@ -256,6 +237,16 @@ static int lg_panel_unprepare(struct drm_panel *panel)
 		DRM_DEV_ERROR(panel->dev, "power_off failed ret = %d\n", ret);
 	*/
 
+	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++) {
+		ret = regulator_set_load(ctx->supplies[i].consumer,
+					 regulator_disable_loads[i]);
+		if (ret) {
+			DRM_DEV_ERROR(panel->dev,
+				      "regulator_set_load failed %d\n", ret);
+			return ret;
+		}
+	}
+
 	ctx->prepared = false;
 
 	return ret;
@@ -278,8 +269,6 @@ static int lg_panel_prepare(struct drm_panel *panel)
 	}
 	*/
 
-	usleep_range(ctx->init_delay_us, ctx->init_delay_us);
-
 	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++) {
 		err = regulator_set_load(ctx->supplies[i].consumer,
 					 regulator_enable_loads[i]);
@@ -292,6 +281,21 @@ static int lg_panel_prepare(struct drm_panel *panel)
 		return err;
 
 	usleep_range(9000, 10000);
+
+	err = mipi_dsi_dcs_write(ctx->link, MIPI_DCS_SET_GAMMA_CURVE,
+				 (u8[]){ 0x02 }, 1);
+	if (err < 0) {
+		DRM_DEV_ERROR(panel->dev,
+			      "failed to set gamma curve: %d\n", err);
+		goto poweroff;
+	}
+
+	err = mipi_dsi_dcs_set_tear_on(ctx->link, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
+	if (err < 0) {
+		DRM_DEV_ERROR(panel->dev,
+			      "failed to set tear on: %d\n", err);
+		goto poweroff;
+	}
 
 	err = send_mipi_cmds(panel, &lg_sw43408_on_cmds_1[0]);
 
@@ -367,8 +371,6 @@ static int lg_panel_enable(struct drm_panel *panel)
 	}
 
 	drm_dsc_pps_payload_pack(&pps, panel->dsc);
-	print_hex_dump(KERN_DEBUG, "DSC params:", DUMP_PREFIX_NONE, 16, 1, &pps,
-		       sizeof(pps), false);
 
 	ctx->enabled = true;
 
@@ -489,8 +491,6 @@ static int panel_add(struct sw43408_panel *ctx)
 {
 	struct device *dev = &ctx->link->dev;
 	int i, ret;
-
-	ctx->init_delay_us = 5000;
 
 	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++)
 		ctx->supplies[i].supply = regulator_names[i];
