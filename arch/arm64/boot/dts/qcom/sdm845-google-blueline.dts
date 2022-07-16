@@ -268,8 +268,11 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-			regulator-allowed-modes = <RPMH_REGULATOR_MODE_HPM>;
 			regulator-boot-on;
+			/*
+			 * We can't properly bring the panel back if it gets turned off
+			 * so keep it's regulators always on for now.
+			 */
 			regulator-always-on;
 		};
 
@@ -279,16 +282,16 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		/*
-		 * The touchscreen needs this to be 3.3v, which is apparently
-		 * quite close to the hardware limit for this LDO (3.312v)
-		 * It must be kept in high power mode to prevent TS brownouts
-		 */
 		vreg_l19a_3p3: ldo19 {
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3312000>;
 			qcom,init-voltage = <3300000>;
 			qcom,initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			/*
+			* The touchscreen needs this to be 3.3v, which is apparently
+			* quite close to the hardware limit for this LDO (3.312v)
+			* It must be kept in high power mode to prevent TS brownouts
+			*/
 			regulator-allowed-modes = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
@@ -329,6 +332,10 @@
 			regulator-max-microvolt = <3008000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 			regulator-boot-on;
+			/*
+			 * We can't properly bring the panel back if it gets turned off
+			 * so keep it's regulators always on for now.
+			 */
 			regulator-always-on;
 		};
 	};
