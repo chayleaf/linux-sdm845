@@ -200,6 +200,10 @@
 #define GCC_LPASS_Q6_AXI_CLK					190
 #define GCC_LPASS_SWAY_CLK					191
 
+/* GCC SSC */
+#define SSC_XO							192
+#define SSC_CNOC_AHBS_CLK					193
+
 /* GCC Resets */
 #define GCC_MMSS_BCR						0
 #define GCC_PCIE_0_BCR						1
@@ -227,6 +231,8 @@
 #define GCC_USB_PHY_CFG_AHB2PHY_BCR				23
 #define GCC_PCIE_0_PHY_BCR					24
 #define GCC_PCIE_1_PHY_BCR					25
+#define GCC_SSC_RESET						26
+#define GCC_SSC_BCR						27
 
 /* GCC GDSCRs */
 #define PCIE_0_GDSC						0

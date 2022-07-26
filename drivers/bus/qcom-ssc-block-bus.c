@@ -71,6 +71,8 @@ static int qcom_ssc_block_bus_init(struct device *dev)
 		goto err_xo_clk;
 	}
 
+// 8998 only
+#if 0
 	ret = clk_prepare_enable(data->aggre2_clk);
 	if (ret) {
 		dev_err(dev, "error enabling aggre2_clk: %d\n", ret);
@@ -97,7 +99,7 @@ static int qcom_ssc_block_bus_init(struct device *dev)
 		dev_err(dev, "error enabling aggre2_north_clk: %d\n", ret);
 		goto err_aggre2_north_clk;
 	}
-
+#endif
 	ret = reset_control_deassert(data->ssc_reset);
 	if (ret) {
 		dev_err(dev, "error deasserting ssc_reset: %d\n", ret);
@@ -110,17 +112,22 @@ static int qcom_ssc_block_bus_init(struct device *dev)
 		goto err_ssc_bcr;
 	}
 
+// 8998 only
+#if 0
+
 	regmap_write(data->halt_map, data->ssc_axi_halt + AXI_HALTREQ_REG, 0);
+
+#endif
 
 	ret = clk_prepare_enable(data->ssc_xo_clk);
 	if (ret) {
-		dev_err(dev, "error deasserting ssc_xo_clk: %d\n", ret);
+		dev_err(dev, "error enabling ssc_xo_clk: %d\n", ret);
 		goto err_ssc_xo_clk;
 	}
 
 	ret = clk_prepare_enable(data->ssc_ahbs_clk);
 	if (ret) {
-		dev_err(dev, "error deasserting ssc_ahbs_clk: %d\n", ret);
+		dev_err(dev, "error enabling ssc_ahbs_clk: %d\n", ret);
 		goto err_ssc_ahbs_clk;
 	}
 
@@ -168,21 +175,23 @@ static void qcom_ssc_block_bus_deinit(struct device *dev)
 	ret = reset_control_assert(data->ssc_bcr);
 	if (ret)
 		dev_err(dev, "error asserting ssc_bcr: %d\n", ret);
-
+#if 0
 	regmap_write(data->halt_map, data->ssc_axi_halt + AXI_HALTREQ_REG, 1);
 
 	reg32_set_bits(data->reg_mpm_sscaon_config1, BIT(31));
 	reg32_set_bits(data->reg_mpm_sscaon_config0, BIT(4) | BIT(5));
+#endif
 
 	ret = reset_control_assert(data->ssc_reset);
 	if (ret)
 		dev_err(dev, "error asserting ssc_reset: %d\n", ret);
-
+#if 0
 	clk_disable(data->gcc_im_sleep_clk);
 
 	clk_disable(data->aggre2_north_clk);
 
 	clk_disable(data->aggre2_clk);
+#endif
 	clk_disable(data->xo_clk);
 }
 
@@ -276,6 +285,7 @@ static int qcom_ssc_block_bus_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return dev_err_probe(&pdev->dev, ret, "error when enabling power domains\n");
 
+#if 0
 	/* low level overrides for when the HW logic doesn't "just work" */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mpm_sscaon_config0");
 	data->reg_mpm_sscaon_config0 = devm_ioremap_resource(&pdev->dev, res);
@@ -288,7 +298,7 @@ static int qcom_ssc_block_bus_probe(struct platform_device *pdev)
 	if (IS_ERR(data->reg_mpm_sscaon_config1))
 		return dev_err_probe(&pdev->dev, PTR_ERR(data->reg_mpm_sscaon_config1),
 				     "Failed to ioremap mpm_sscaon_config1\n");
-
+#endif
 	/* resets */
 	data->ssc_bcr = devm_reset_control_get_exclusive(&pdev->dev, "ssc_bcr");
 	if (IS_ERR(data->ssc_bcr))
@@ -305,7 +315,7 @@ static int qcom_ssc_block_bus_probe(struct platform_device *pdev)
 	if (IS_ERR(data->xo_clk))
 		return dev_err_probe(&pdev->dev, PTR_ERR(data->xo_clk),
 				     "Failed to get clock: xo\n");
-
+#if 0
 	data->aggre2_clk = devm_clk_get(&pdev->dev, "aggre2");
 	if (IS_ERR(data->aggre2_clk))
 		return dev_err_probe(&pdev->dev, PTR_ERR(data->aggre2_clk),
@@ -320,7 +330,7 @@ static int qcom_ssc_block_bus_probe(struct platform_device *pdev)
 	if (IS_ERR(data->aggre2_north_clk))
 		return dev_err_probe(&pdev->dev, PTR_ERR(data->aggre2_north_clk),
 				     "Failed to get clock: aggre2_north\n");
-
+#endif
 	data->ssc_xo_clk = devm_clk_get(&pdev->dev, "ssc_xo");
 	if (IS_ERR(data->ssc_xo_clk))
 		return dev_err_probe(&pdev->dev, PTR_ERR(data->ssc_xo_clk),
@@ -330,7 +340,7 @@ static int qcom_ssc_block_bus_probe(struct platform_device *pdev)
 	if (IS_ERR(data->ssc_ahbs_clk))
 		return dev_err_probe(&pdev->dev, PTR_ERR(data->ssc_ahbs_clk),
 				     "Failed to get clock: ssc_ahbs\n");
-
+#if 0
 	ret = of_parse_phandle_with_fixed_args(pdev->dev.of_node, "qcom,halt-regs", 1, 0,
 					       &halt_args);
 	if (ret < 0)
@@ -342,7 +352,7 @@ static int qcom_ssc_block_bus_probe(struct platform_device *pdev)
 		return PTR_ERR(data->halt_map);
 
 	data->ssc_axi_halt = halt_args.args[0];
-
+#endif
 	qcom_ssc_block_bus_init(&pdev->dev);
 
 	of_platform_populate(np, NULL, NULL, &pdev->dev);

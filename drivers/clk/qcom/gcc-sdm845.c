@@ -3191,6 +3191,32 @@ static struct clk_branch gcc_lpass_sway_clk = {
 };
 #endif
 
+static struct clk_branch ssc_xo_clk = {
+	.halt_reg = 0x63014,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x63014,
+		.enable_mask = BIT(0),
+		.hw.init = &(const struct clk_init_data){
+			.name = "ssc_xo_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch ssc_cnoc_ahbs_clk = {
+	.halt_reg = 0x6300c,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x6300c,
+		.enable_mask = BIT(0),
+		.hw.init = &(const struct clk_init_data){
+			.name = "ssc_cnoc_ahbs_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct gdsc pcie_0_gdsc = {
 	.gdscr = 0x6b004,
 	.pd = {
@@ -3502,6 +3528,8 @@ static struct clk_regmap *gcc_sdm845_clocks[] = {
 	[GCC_LPASS_Q6_AXI_CLK] = &gcc_lpass_q6_axi_clk.clkr,
 	[GCC_LPASS_SWAY_CLK] = &gcc_lpass_sway_clk.clkr,
 #endif
+	[SSC_XO] = &ssc_xo_clk.clkr,
+	[SSC_CNOC_AHBS_CLK] = &ssc_cnoc_ahbs_clk.clkr,
 };
 
 static const struct qcom_reset_map gcc_sdm845_resets[] = {
@@ -3531,6 +3559,8 @@ static const struct qcom_reset_map gcc_sdm845_resets[] = {
 	[GCC_USB_PHY_CFG_AHB2PHY_BCR] = { 0x6a000 },
 	[GCC_PCIE_0_PHY_BCR] = { 0x6c01c },
 	[GCC_PCIE_1_PHY_BCR] = { 0x8e01c },
+	[GCC_SSC_BCR] = { 0x63000 },
+	[GCC_SSC_RESET] = { 0x63020 },
 };
 
 static struct gdsc *gcc_sdm845_gdscs[] = {

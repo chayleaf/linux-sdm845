@@ -106,6 +106,35 @@
 
 		vin-supply = <&vph_pwr>;
 	};
+
+	sensor-spi {
+		compatible = "spi-gpio";
+		sck-gpios = <&ssc_tlmm 4 GPIO_ACTIVE_HIGH>;
+		miso-gpios = <&ssc_tlmm 2 GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <&ssc_tlmm 3 GPIO_ACTIVE_HIGH>;
+		cs-gpios = <&ssc_tlmm 5 GPIO_ACTIVE_HIGH>;
+		num-chipselects = <1>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&ssc_spi1_default>;
+
+		imu@0 {
+			compatible = "invensense,icm20600";
+			reg = <0x0>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <117 IRQ_TYPE_LEVEL_HIGH>;
+
+			vdd-supply = <&vreg_l19a_3p0>;
+			vddio-supply = <&vreg_lvs2a_1p8>;
+
+			mount-matrix =  "-1", "0", "0",
+					"0", "1", "0",
+					"0", "0", "1";
+		};
+	};
 };
 
 &adsp_pas {
@@ -376,6 +405,8 @@
 		vreg_lvs2a_1p8: lvs2 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
+			/* Used to pull up i2c lines for sensors */
+			regulator-always-on;
 		};
 	};
 
@@ -520,7 +551,7 @@
 };
 
 &slpi_pas {
-	status = "okay";
+	status = "disabled";
 	firmware-name = "qcom/sdm845/axolotl/slpi.mbn";
 };
 
@@ -682,6 +713,76 @@
 
 &qupv3_id_1 {
 	status = "okay";
+};
+
+&soc {
+	ssc_ahb_slave { // devices under this node are physically located in the SSC block, connected to an ssc-internal bus;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		compatible = "qcom,ssc-block-bus";
+/*		reg = <0x10AC008 0x4>, <0x10AC010 0x4>;
+		reg-names = "mpm_sscaon_config0", "mpm_sscaon_config1";
+*/
+		clocks = <&rpmhcc RPMH_CXO_CLK>, // TODO: use <&rpmcc RPM_SMD_XO_CLK_SRC>
+/*			 <&rpmcc RPM_SMD_AGGR2_NOC_CLK>,
+			 <&gcc GCC_IM_SLEEP>,
+			 <&gcc AGGRE2_SNOC_NORTH_AXI>,
+*/			 <&gcc SSC_XO>,
+			 <&gcc SSC_CNOC_AHBS_CLK>;
+		clock-names = "xo", /*"aggre2", "gcc_im_sleep", "aggre2_north",*/ "ssc_xo", "ssc_ahbs";
+
+		resets = <&gcc GCC_SSC_RESET>, <&gcc GCC_SSC_BCR>;
+		reset-names = "ssc_reset", "ssc_bcr";
+
+		power-domains = <&rpmhpd SDM845_CX>, <&rpmhpd SDM845_MX>;
+		power-domain-names = "ssc_cx", "ssc_mx";
+
+//		qcom,halt-regs = <&tcsr_mutex_regs 0x26000>;
+
+		ssc_tlmm: pinctrl@5f40000 {
+			compatible = "qcom,sdm845-ssc-tlmm-pinctrl";
+			reg = <0x05f40000 0x12000>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&ssc_tlmm 0 0 18>;
+
+			/* TODO: are these actually needed (try turning them off)
+			assigned-clocks = <&scc AHB_TIMEOUT_CLK>, <&scc CFG_AHB_CLK>;
+			assigned-clock-parents = <&scc SCC_100M_CLK_SRC>, <&scc SCC_100M_CLK_SRC>;*/
+
+			ssc_spi1_default: ssc-spi1-default {
+				sck {
+					pins = "gpio4";
+					function = "gpio";
+					drive-strength = <2>;
+					bias-disable;
+				};
+
+				miso {
+					pins = "gpio2";
+					function = "gpio";
+					drive-strength = <2>;
+					bias-disable;
+				};
+
+				mosi {
+					pins = "gpio3";
+					function = "gpio";
+					drive-strength = <2>;
+					bias-disable;
+				};
+
+				cs {
+					pins = "gpio5";
+					function = "gpio";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+	};
 };
 
 &sound {
@@ -886,6 +987,15 @@
 		bias-pull-down;
 		drive-strength = <2>;
 	};
+
+	// icm20600_intr_default: imu-intr-default {
+	// 	pins = "gpio117";
+	// 	function = "gpio";
+
+	// 	input-enable;
+	// 	bias-pull-down;
+	// 	drive-strength = <2>;
+	// };
 };
 
 &uart6 {

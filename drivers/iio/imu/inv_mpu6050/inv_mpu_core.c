@@ -209,6 +209,15 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.startup_time = {INV_MPU6500_GYRO_STARTUP_TIME, INV_MPU6500_ACCEL_STARTUP_TIME},
 	},
 	{
+		.whoami = INV_ICM20600_WHOAMI_VALUE,
+		.name = "ICM20600",
+		.reg = &reg_set_6500,
+		.config = &chip_config_6500,
+		.fifo_size = 512,
+		.temp = {INV_ICM20608_TEMP_OFFSET, INV_ICM20608_TEMP_SCALE},
+		.startup_time = {INV_MPU6500_GYRO_STARTUP_TIME, INV_MPU6500_ACCEL_STARTUP_TIME},
+	},
+	{
 		.whoami = INV_ICM20608_WHOAMI_VALUE,
 		.name = "ICM20608",
 		.reg = &reg_set_6500,
@@ -1323,9 +1332,13 @@ static int inv_check_and_setup_chip(struct inv_mpu6050_state *st)
 	       sizeof(st->chip_config));
 
 	/* check chip self-identification */
+	pr_err("mpu-i2c: before read whoami\n");
 	result = regmap_read(st->map, INV_MPU6050_REG_WHOAMI, &regval);
-	if (result)
+	if (result) {
+		pr_err("mpu-i2c: failed to read WHOAMI! %d\n", result);
 		return result;
+	}
+	pr_err("mpu-i2c: read WHOAMI: %u\n", regval);
 	if (regval != st->hw->whoami) {
 		/* check whoami against all possible values */
 		for (i = 0; i < INV_NUM_PARTS; ++i) {
@@ -1346,6 +1359,7 @@ static int inv_check_and_setup_chip(struct inv_mpu6050_state *st)
 	}
 
 	/* reset to make sure previous state are not there */
+	pr_err("mpu-i2c: before write INV_MPU6050_BIT_H_RESET\n");
 	result = regmap_write(st->map, st->reg->pwr_mgmt_1,
 			      INV_MPU6050_BIT_H_RESET);
 	if (result)
@@ -1377,6 +1391,7 @@ static int inv_check_and_setup_chip(struct inv_mpu6050_state *st)
 	 * make it in a definite state as well as making the hardware
 	 * state align with the software state
 	 */
+	pr_err("mpu-i2c: before set_power_itg\n");
 	result = inv_mpu6050_set_power_itg(st, true);
 	if (result)
 		return result;
@@ -1528,8 +1543,11 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 	}
 	msleep(INV_MPU6050_POWER_UP_TIME);
 
+	dev_info(dev, "Before enable vddio\n");
+
 	result = inv_mpu_core_enable_regulator_vddio(st);
 	if (result) {
+		dev_err(dev, "Failed to enable vddio regulator!\n");
 		regulator_disable(st->vdd_supply);
 		return result;
 	}
@@ -1543,11 +1561,13 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 	}
 
 	/* fill magnetometer orientation */
+	dev_info(dev, "Before inv_mpu_magn_set_orient\n");
 	result = inv_mpu_magn_set_orient(st);
 	if (result)
 		return result;
 
 	/* power is turned on inside check chip type*/
+	dev_info(dev, "Before inv_check_and_setup_chip\n");
 	result = inv_check_and_setup_chip(st);
 	if (result)
 		return result;
@@ -1566,6 +1586,7 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 		indio_dev->name = dev_name(dev);
 
 	/* requires parent device set in indio_dev */
+	dev_info(dev, "Before inv_mpu_bus_setup\n");
 	if (inv_mpu_bus_setup) {
 		result = inv_mpu_bus_setup(indio_dev);
 		if (result)
@@ -1641,6 +1662,7 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 		}
 	}
 
+	dev_info(dev, "Before devm_iio_device_register\n");
 	result = devm_iio_device_register(dev, indio_dev);
 	if (result) {
 		dev_err(dev, "IIO register fail %d\n", result);

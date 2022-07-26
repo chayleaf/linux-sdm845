@@ -110,6 +110,10 @@ static const struct of_device_id inv_of_match[] = {
 		.data = (void *)INV_MPU9255
 	},
 	{
+		.compatible = "invensense,icm20600",
+		.data = (void *)INV_ICM20600
+	},
+	{
 		.compatible = "invensense,icm20608",
 		.data = (void *)INV_ICM20608
 	},

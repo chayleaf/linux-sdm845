@@ -105,9 +105,13 @@ static int inv_mpu_probe(struct i2c_client *client,
 	struct regmap *regmap;
 	const char *name;
 
+	dev_info(&client->dev, "mpu probe start\n");
+
 	if (!i2c_check_functionality(client->adapter,
 				     I2C_FUNC_SMBUS_I2C_BLOCK))
 		return -EOPNOTSUPP;
+
+	dev_info(&client->dev, "before get match data\n");
 
 	match = device_get_match_data(&client->dev);
 	if (match) {
@@ -121,6 +125,8 @@ static int inv_mpu_probe(struct i2c_client *client,
 		return -ENOSYS;
 	}
 
+	dev_info(&client->dev, "before regmap_init\n");
+
 	regmap = devm_regmap_init_i2c(client, &inv_mpu_regmap_config);
 	if (IS_ERR(regmap)) {
 		dev_err(&client->dev, "Failed to register i2c regmap: %pe\n",
@@ -128,6 +134,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 		return PTR_ERR(regmap);
 	}
 
+	dev_info(&client->dev, "before core probe\n");
 	result = inv_mpu_core_probe(regmap, client->irq, name,
 				    inv_mpu_i2c_aux_setup, chip_type);
 	if (result < 0)
@@ -135,6 +142,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 
 	st = iio_priv(dev_get_drvdata(&client->dev));
 	if (inv_mpu_i2c_aux_bus(&client->dev)) {
+		dev_info(&client->dev, "before declare i2c aux bus\n");
 		/* declare i2c auxiliary bus */
 		st->muxc = i2c_mux_alloc(client->adapter, &client->dev,
 					 1, 0, I2C_MUX_LOCKED | I2C_MUX_GATE,
@@ -149,6 +157,8 @@ static int inv_mpu_probe(struct i2c_client *client,
 		if (result)
 			goto out_del_mux;
 	}
+
+	dev_info(&client->dev, "mpu probe success!\n");
 
 	return 0;
 
@@ -222,6 +232,10 @@ static const struct of_device_id inv_of_match[] = {
 	{
 		.compatible = "invensense,mpu9255",
 		.data = (void *)INV_MPU9255
+	},
+	{
+		.compatible = "invensense,icm20600",
+		.data = (void *)INV_ICM20600
 	},
 	{
 		.compatible = "invensense,icm20608",
