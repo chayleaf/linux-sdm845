@@ -25,17 +25,13 @@ properties:
   vpnl-supply: true
   reset-gpios: true
 
-  backlight: false
-  power-supply: false
-
 additionalProperties: false
 
 required:
   - compatible
-  - data-mapping
-  - width-mm
-  - height-mm
-  - panel-timing
   - port
+  - vddi-supply
+  - vpnl-supply
+  - reset-gpios
 
 ...
