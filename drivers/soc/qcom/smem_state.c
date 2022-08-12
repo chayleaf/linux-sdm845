@@ -99,7 +99,11 @@ struct qcom_smem_state *qcom_smem_state_get(struct device *dev,
 						 "qcom,smem-state-names",
 						 con_id);
 		if (index < 0) {
-			dev_err(dev, "missing qcom,smem-state-names\n");
+			if (index == -EINVAL)
+				dev_err(dev, "missing qcom,smem-state-names\n");
+			else
+				dev_err(dev, "qcom,smem-state-names doesn't contain '%s'\n",
+					con_id);
 			return ERR_PTR(index);
 		}
 	}
