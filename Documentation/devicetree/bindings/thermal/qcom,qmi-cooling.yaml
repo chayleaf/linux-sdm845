@@ -1,0 +1,156 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/thermal/qcom,qmi-cooling.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Qualcomm QMI based thermal mitigation (TMD) cooling devices.
+
+maintainers:
+  - Bhupesh Sharma <bhupesh.sharma@linaro.org>
+  - Caleb Connolly <caleb.connolly@linaro.org>
+
+description:
+  Qualcomm QMI based TMD cooling device(s) are used for various mitigations for
+  remote subsystem(s) including remote processor mitigation, rail voltage
+  restriction etc. Some devices such as "cpuv_restriction_cold" are for warming,
+  (e.g. by raising minimum voltage on core system rails).
+
+  Each node represents a client for a single instance of the TMD service running
+  on a remote subsystem.
+
+definitions:
+  tmd:
+    type: object
+    properties:
+      label:
+        maxItems: 1
+      "#cooling-cells":
+        $ref: /schemas/thermal/thermal-cooling-devices.yaml#/properties/#cooling-cells
+
+    required:
+      - label
+      - "#cooling-cells"
+
+    additionalProperties: false
+
+properties:
+  compatible:
+    const: qcom,qmi-cooling
+
+  qcom,instance-id:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: 
+      Remote subsystem QMI TMD server instance id to match against.
+    enum: [0x0, 0x1, 0x43, 0x53]
+
+  pa:
+    $ref: "#/definitions/tmd"
+    description:
+      Power Amplifier TMD
+    properties:
+      label:
+        const: pa
+
+  proc:
+    $ref: "#/definitions/tmd"
+    description:
+      Modem processor temperature TMD
+    properties:
+      label:
+        const: modem
+
+  current:
+    $ref: "#/definitions/tmd"
+    description:
+      Modem peak current TMD
+    properties:
+      label:
+        const: modem_current
+
+  skin:
+    $ref: "#/definitions/tmd"
+    description:
+      Modem skin temperature TMD
+    properties:
+      label:
+        const: modem_skin
+
+  vdd:
+    $ref: "#/definitions/tmd"
+    description:
+      Restrict primary rail minimum voltage to "nominal" setting (all instances).
+    properties:
+      label:
+        const: cpuv_restriction_cold
+
+required:
+  - compatible
+  - qcom,instance-id
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/thermal/qcom,tmd.h>
+    qmi-tmd-modem {
+      compatible = "qcom,qmi-cooling";
+      qcom,instance-id = <MODEM0_INSTANCE_ID>;
+
+      modem_pa: pa {
+        label = "pa";
+        #cooling-cells = <2>;
+      };
+
+      modem_proc: proc {
+        label = "modem";
+        #cooling-cells = <2>;
+      };
+
+      modem_current: current {
+        label = "modem_current";
+        #cooling-cells = <2>;
+      };
+
+      modem_skin: skin {
+        label = "modem_skin";
+        #cooling-cells = <2>;
+      };
+
+      modem_vdd: vdd {
+        label = "cpuv_restriction_cold";
+        #cooling-cells = <2>;
+      };
+    };
+
+    qmi-tmd-adsp {
+      compatible = "qcom,qmi-cooling";
+      qcom,instance-id = <ADSP_INSTANCE_ID>;
+
+      adsp_vdd: vdd {
+        label = "cpuv_restriction_cold";
+        #cooling-cells = <2>;
+      };
+    };
+
+    qmi-tmd-cdsp {
+      compatible = "qcom,qmi-cooling";
+      qcom,instance-id = <CDSP_INSTANCE_ID>;
+
+      cdsp_vdd: vdd {
+        label = "cpuv_restriction_cold";
+        #cooling-cells = <2>;
+      };
+    };
+
+    qmi-tmd-slpi {
+      compatible = "qcom,qmi-cooling";
+      qcom,instance-id = <SLPI_INSTANCE_ID>;
+
+      slpi_vdd: vdd {
+        label = "cpuv_restriction_cold";
+        #cooling-cells = <2>;
+      };
+    };
+...
