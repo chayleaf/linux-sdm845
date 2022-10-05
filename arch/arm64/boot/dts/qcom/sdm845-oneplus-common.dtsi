@@ -560,6 +560,18 @@
 	dai@2 {
 		reg = <2>;
 	};
+
+	dai@3 {
+		reg = <3>;
+	};
+
+	dai@4 {
+		reg = <4>;
+	};
+
+	dai@5 {
+		reg = <5>;
+	};
 };
 
 &qupv3_id_1 {
@@ -631,6 +643,16 @@
 	compatible = "qcom,sdm845-sndcard";
 	pinctrl-0 = <&quat_mi2s_active &quat_mi2s_sd0_active &quat_mi2s_sd1_active>;
 	pinctrl-names = "default";
+	audio-routing = "RX_BIAS", "MCLK",
+			"AMIC1", "MIC BIAS1",
+			"AMIC2", "MIC BIAS2",
+			"AMIC3", "MIC BIAS3",
+			"MM_DL1",  "MultiMedia1 Playback",
+			"MM_DL3",  "MultiMedia3 Playback",
+			"MM_DL5",  "MultiMedia5 Playback",
+			"MultiMedia2 Capture", "MM_UL2",
+			"MultiMedia4 Capture", "MM_UL4",
+			"MultiMedia6 Capture", "MM_UL6";
 
 	mm1-dai-link {
 		link-name = "MultiMedia1";
@@ -653,10 +675,25 @@
 		};
 	};
 
-	voicemmode1-dai-link {
-		link-name = "VoiceMMode1";
+
+	mm4-dai-link {
+		link-name = "MultiMedia4";
 		cpu {
-			sound-dai = <&q6voicedai VOICEMMODE1>;
+			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA4>;
+		};
+	};
+
+	mm5-dai-link {
+		link-name = "MultiMedia5"; /* Headphones */
+		cpu {
+			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA5>;
+		};
+	};
+
+	mm6-dai-link {
+		link-name = "MultiMedia6";
+		cpu {
+			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA6>;
 		};
 	};
 
@@ -664,6 +701,21 @@
 		link-name = "Speaker Playback";
 		cpu {
 			sound-dai = <&q6afedai QUATERNARY_MI2S_RX>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+	};
+
+	slimcap-wcd-dai-link {
+		link-name = "SLIM WCD Capture 1";
+		codec {
+			sound-dai = <&wcd9340 1>; /* AIF1_CAP */
+		};
+
+		cpu {
+			sound-dai = <&q6afedai SLIMBUS_1_TX>;
 		};
 
 		platform {
@@ -687,7 +739,12 @@
 	};
 
 	slimcap-dai-link {
-		link-name = "SLIM Capture";
+		link-name = "SLIM WCD Capture 2";
+
+		codec {
+			sound-dai = <&wcd9340 3>; /* AIF2_CAP */
+		};
+
 		cpu {
 			sound-dai = <&q6afedai SLIMBUS_0_TX>;
 		};
@@ -695,9 +752,42 @@
 		platform {
 			sound-dai = <&q6routing>;
 		};
+	};
 
+	slim-wcd-dai-link {
+		link-name = "SLIM WCD Playback 2";
 		codec {
-			sound-dai = <&wcd9340 1>;
+			sound-dai = <&wcd9340 2>; /* AIF2_PB - Headphones */
+		};
+
+		cpu {
+			sound-dai = <&q6afedai SLIMBUS_1_RX>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+	};
+
+	slimcap2-wcd-dai-link {
+		link-name = "SLIM WCD Capture 3";
+		codec {
+			sound-dai = <&wcd9340 5>; /* AIF3_CAP */
+		};
+
+		cpu {
+			sound-dai = <&q6afedai SLIMBUS_2_TX>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+	};
+
+	voicemmode1-dai-link {
+		link-name = "VoiceMMode1";
+		cpu {
+			sound-dai = <&q6voicedai VOICEMMODE1>;
 		};
 	};
 };
@@ -857,6 +947,11 @@
 	vdd-tx-supply = <&vreg_s4a_1p8>;
 	vdd-rx-supply = <&vreg_s4a_1p8>;
 	vdd-io-supply = <&vreg_s4a_1p8>;
+
+	qcom,micbias1-microvolt = <2700000>;
+	qcom,micbias2-microvolt = <2700000>;
+	qcom,micbias3-microvolt = <2700000>;
+	qcom,micbias4-microvolt = <2700000>;
 };
 
 &wifi {
