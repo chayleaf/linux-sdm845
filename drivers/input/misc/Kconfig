@@ -189,11 +189,14 @@ config INPUT_PMIC8XXX_PWRKEY
 config INPUT_QCOM_SPMI_HAPTICS
 	tristate "Qualcomm SPMI HAPTICS"
 	depends on ARCH_QCOM
-	depends on SPMI
+	depends on MFD_PM8XXX || MFD_SPMI_PMIC
 	select INPUT_FF_MEMLESS
 	help
 	  This option enables support for the haptics found in pmi8998 and
 	  related PMICs. Based on the ff-memless interface.
+
+	  This driver is for hardware too new for the INPUT_PM8XXX_VIBRATOR
+	  driver.
 
 	  To compile this driver as module, choose M here: the
 	  module will be called qcom_spmi_haptics.
