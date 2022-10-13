@@ -4654,7 +4654,7 @@ ProbeErrorExit_0:
   * This function is called when the driver need to be removed.
   */
 #ifdef I2C_INTERFACE
-static int fts_remove(struct i2c_client *client)
+static void fts_remove(struct i2c_client *client)
 {
 #else
 static int fts_remove(struct spi_device *client)
@@ -4712,7 +4712,7 @@ static int fts_remove(struct spi_device *client)
 	/* free all */
 	kfree(info);
 
-	return OK;
+	return;
 }
 
 /**
