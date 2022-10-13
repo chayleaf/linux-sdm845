@@ -102,7 +102,7 @@ static inline struct sw43408_panel *to_panel_info(struct drm_panel *panel)
  * Currently unable to bring up the panel after resetting, must be missing
  * some init commands somewhere.
  */
-static __always_unused int panel_reset(struct sw43408_panel *ctx)
+static int panel_reset(struct sw43408_panel *ctx)
 {
 	int ret = 0, i;
 
@@ -259,14 +259,12 @@ static int lg_panel_prepare(struct drm_panel *panel)
 	if (ctx->prepared)
 		return 0;
 
-	/*
 	err = panel_reset(ctx);
 	if (err < 0) {
 		pr_err("sw43408 panel_reset failed: %d\n",
 		       err);
 		return err;
 	}
-	*/
 
 	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++) {
 		err = regulator_set_load(ctx->supplies[i].consumer,
@@ -364,12 +362,18 @@ static int lg_panel_enable(struct drm_panel *panel)
 		return ret;
 	}
 
-	if (!panel->dsc) {
-		DRM_DEV_ERROR(panel->dev, "Can't find DSC\n");
-		return -ENODEV;
-	}
+	if (ctx->link->dsc) {
+		print_hex_dump(KERN_DEBUG, "DSC params:", DUMP_PREFIX_NONE,
+			       16, 1, &pps, sizeof(pps), false);
+		drm_dsc_pps_payload_pack(&pps, ctx->link->dsc);
 
-	drm_dsc_pps_payload_pack(&pps, panel->dsc);
+		ret = mipi_dsi_picture_parameter_set(ctx->link, &pps);
+		if (ret < 0) {
+			dev_err(panel->dev, "failed to set pps: %d\n", ret);
+			return ret;
+		}
+		msleep(28); /* TODO: Is this panel-dependent? */
+	}
 
 	ctx->enabled = true;
 
@@ -550,15 +554,15 @@ static int panel_probe(struct mipi_dsi_device *dsi)
 	dsc->slice_width = 540;
 	dsc->slice_count = 1;
 	dsc->bits_per_component = 8;
-	dsc->bits_per_pixel = 8;
+	dsc->bits_per_pixel = 8 << 4;
 	dsc->block_pred_enable = true;
 
-	ctx->base.dsc = dsc;
+	dsi->dsc = dsc;
 
 	return mipi_dsi_attach(dsi);
 }
 
-static int panel_remove(struct mipi_dsi_device *dsi)
+static void panel_remove(struct mipi_dsi_device *dsi)
 {
 	struct sw43408_panel *ctx = mipi_dsi_get_drvdata(dsi);
 	int err;
@@ -580,7 +584,7 @@ static int panel_remove(struct mipi_dsi_device *dsi)
 	if (ctx->base.dev)
 		drm_panel_remove(&ctx->base);
 
-	return 0;
+	return;
 }
 
 static struct mipi_dsi_driver panel_driver = {
