@@ -70,6 +70,7 @@ lx-symbols command."""
     def __init__(self):
         super(LxSymbols, self).__init__("lx-symbols", gdb.COMMAND_FILES,
                                         gdb.COMPLETE_FILENAME)
+        self.vmlinux_offset = 0
 
     def _update_module_files(self):
         self.module_files = []
@@ -95,6 +96,13 @@ lx-symbols command."""
         except gdb.error:
             return ""
         attrs = sect_attrs['attrs']
+
+        gdb.write("sect_attrs: {0}\n".format(sect_attrs))
+
+        for n in range(int(sect_attrs['nsections'])):
+            gdb.write("{0}: {1}\n".format(attrs[n]['battr']['attr']['name'].string(),
+                attrs[n]['address']))
+
         section_name_to_address = {
             attrs[n]['battr']['attr']['name'].string(): attrs[n]['address']
             for n in range(int(sect_attrs['nsections']))}
@@ -105,6 +113,7 @@ lx-symbols command."""
             if address:
                 args.append(" -s {name} {addr}".format(
                     name=section_name, addr=str(address)))
+
         return "".join(args)
 
     def load_module_symbols(self, module):
@@ -152,7 +161,12 @@ lx-symbols command."""
                 obj.filename.endswith('vmlinux.debug')):
                 orig_vmlinux = obj.filename
         gdb.execute("symbol-file", to_string=True)
-        gdb.execute("symbol-file {0}".format(orig_vmlinux))
+
+        cmd = "symbol-file {0}".format(orig_vmlinux)
+        if self.vmlinux_offset > 0:
+            gdb.write("Using vmlinux offset {0}\n".format(hex(self.vmlinux_offset)))
+            cmd += " -o {0}".format(hex(self.vmlinux_offset))
+        gdb.execute(cmd)
 
         self.loaded_modules = []
         module_list = modules.module_list()
@@ -165,8 +179,14 @@ lx-symbols command."""
             saved_state['breakpoint'].enabled = saved_state['enabled']
 
     def invoke(self, arg, from_tty):
+        args = arg.split()
+
+        if args[0] == "-o":
+            self.vmlinux_offset = int(args[1], 16)
+            args = args[2:]
+
         self.module_paths = [os.path.abspath(os.path.expanduser(p))
-                             for p in arg.split()]
+                             for p in args]
         self.module_paths.append(os.getcwd())
 
         # enforce update
