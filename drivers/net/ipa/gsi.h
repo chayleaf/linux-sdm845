@@ -175,6 +175,16 @@ int gsi_setup(struct gsi *gsi);
 void gsi_teardown(struct gsi *gsi);
 
 /**
+ * gsi_channel_disable_scheduled() - Disable active channels
+ * @gsi:	GSI pointer
+ * 
+ * Waits for pending transaction polling to complete and then disables polling
+ * on active channels. This may cause transactions to be dropped and should
+ * only be used in a crash context.
+ */
+void gsi_channel_disable_scheduled(struct gsi *gsi);
+
+/**
  * gsi_channel_tre_max() - Channel maximum number of in-flight TREs
  * @gsi:	GSI pointer
  * @channel_id:	Channel whose limit is to be returned

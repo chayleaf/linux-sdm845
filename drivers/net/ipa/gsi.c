@@ -7,6 +7,7 @@
 #include <linux/types.h>
 #include <linux/bits.h>
 #include <linux/bitfield.h>
+#include <linux/delay.h>
 #include <linux/mutex.h>
 #include <linux/completion.h>
 #include <linux/io.h>
@@ -277,6 +278,19 @@ static void gsi_irq_ieob_disable(struct gsi *gsi, u32 event_mask)
 
 	val = gsi->ieob_enabled_bitmap;
 	iowrite32(val, gsi->virt + GSI_CNTXT_SRC_IEOB_IRQ_MSK_OFFSET);
+}
+
+void gsi_channel_disable_scheduled(struct gsi *gsi)
+{
+	int i;
+
+	mutex_lock(&gsi->mutex);
+
+	for (i = 0; i < GSI_CHANNEL_COUNT_MAX; i++)
+		if (test_bit(NAPI_STATE_SCHED, &gsi->channel[i].napi.state))
+			napi_disable(&gsi->channel[i].napi);
+
+	mutex_unlock(&gsi->mutex);
 }
 
 static void gsi_irq_ieob_disable_one(struct gsi *gsi, u32 evt_ring_id)

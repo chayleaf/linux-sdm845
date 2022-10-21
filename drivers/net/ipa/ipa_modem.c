@@ -373,6 +373,12 @@ static void ipa_modem_crashed(struct ipa *ipa)
 	struct device *dev = &ipa->pdev->dev;
 	int ret;
 
+	/*
+	 * Have the GSI complete pending transactions
+	 * and disable active channels
+	 */
+	gsi_channel_disable_scheduled(&ipa->gsi);
+
 	/* Prevent the modem from triggering a call to ipa_setup() */
 	ipa_smp2p_irq_disable_setup(ipa);
 
