@@ -19,6 +19,8 @@ static int q6voice_dai_startup(struct snd_pcm_substream *substream,
 	struct device *dev = dai->component->dev;
 	int ret;
 
+	printk("q6voice_dai_startup: path id: %d,  capture substream? = %d", dai->driver->id, substream->stream);
+
 	switch (dai->driver->id) {
 	case CS_VOICE:
 		ret = q6voice_start(v, Q6VOICE_PATH_VOICE, substream->stream);
@@ -39,6 +41,8 @@ static void q6voice_dai_shutdown(struct snd_pcm_substream *substream,
 {
 	struct q6voice *v = snd_soc_dai_get_drvdata(dai);
 	struct device *dev = dai->component->dev;
+
+	printk("q6voice_dai_shutdown: path id: %d,  capture substream? = %d", dai->driver->id, substream->stream);
 
 	switch (dai->driver->id) {
 	case CS_VOICE:
@@ -134,6 +138,8 @@ static int q6voice_get_mixer(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_
 		(struct soc_mixer_control *)kcontrol->private_value;
 	struct q6voice *v = snd_soc_component_get_drvdata(c);
 
+	printk("q6voice_get_mixer: mc->reg  = %d", mc->reg);
+
 	switch (mc->reg) {
 	case PRIMARY_MI2S_TX:
 	case SECONDARY_MI2S_TX:
@@ -184,6 +190,8 @@ static int q6voice_put_mixer(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_
 		(struct soc_mixer_control *)kcontrol->private_value;
 	struct q6voice *v = snd_soc_component_get_drvdata(c);
 	struct snd_soc_dapm_update *update = NULL;
+
+	printk("q6voice_put_mixer: mc->reg  = %d", mc->reg);
 
 	switch (mc->reg) {
 	case PRIMARY_MI2S_TX:

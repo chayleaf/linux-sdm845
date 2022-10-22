@@ -40,7 +40,7 @@ static int q6voice_path_start(struct q6voice_path *p)
 	struct q6voice_session *mvm, *cvp;
 	int ret;
 
-	dev_dbg(dev, "start path %d\n", p->type);
+	dev_info(dev, "start path %d\n", p->type);
 
 	mvm = p->runtime->sessions[Q6VOICE_SERVICE_MVM];
 	if (!mvm) {
@@ -134,7 +134,7 @@ static void q6voice_path_stop(struct q6voice_path *p)
 	struct q6voice_session *cvp = p->runtime->sessions[Q6VOICE_SERVICE_CVP];
 	int ret;
 
-	dev_dbg(dev, "stop path %d\n", p->type);
+	dev_info(dev, "stop path %d\n", p->type);
 
 	ret = q6mvm_start(mvm, false);
 	if (ret)

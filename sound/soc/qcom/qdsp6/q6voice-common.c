@@ -140,7 +140,7 @@ q6voice_session_create(enum q6voice_service_type type,
 	svc->sessions[path] = s;
 	spin_unlock_irqrestore(&svc->lock, flags);
 
-	dev_dbg(s->dev, "create session\n");
+	dev_info(s->dev, "create session\n");
 
 	ret = q6voice_common_send(s, hdr);
 	if (ret)
@@ -152,7 +152,7 @@ q6voice_session_create(enum q6voice_service_type type,
 		goto err;
 	}
 
-	dev_dbg(s->dev, "handle: %d\n", s->handle);
+	dev_info(s->dev, "handle: %d\n", s->handle);
 
 	return s;
 
@@ -171,7 +171,7 @@ static void q6voice_session_callback(struct q6voice_session *s,
 	if (data->hdr.opcode != APR_BASIC_RSP_RESULT)
 		return; /* Not handled here */
 
-	dev_dbg(s->dev, "basic result: opcode %#x, status: %#x\n",
+	dev_info(s->dev, "basic result: opcode %#x, status: %#x\n",
 		result->opcode, result->status);
 
 	spin_lock_irqsave(&s->lock, flags);
@@ -205,7 +205,7 @@ int q6voice_common_callback(struct apr_device *adev, struct apr_resp_pkt *data)
 	struct q6voice_session *s;
 	unsigned long flags;
 
-	dev_dbg(dev, "callback: %#x\n", data->hdr.opcode);
+	dev_info(dev, "callback: %#x\n", data->hdr.opcode);
 
 	if (data->hdr.dest_port >= Q6VOICE_PATH_COUNT) {
 		dev_warn(dev, "callback() called for unhandled/invalid path: %d\n",
