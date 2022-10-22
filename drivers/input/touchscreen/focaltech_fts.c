@@ -31,6 +31,7 @@
 #include <linux/delay.h>
 #include <linux/regmap.h>
 #include <linux/mutex.h>
+#include <linux/pm_runtime.h>
 
 #define FTS_REG_CHIP_ID_H 0xA3
 #define FTS_REG_CHIP_ID_L 0x9F
@@ -174,10 +175,16 @@ static irqreturn_t fts_ts_interrupt(int irq, void *dev_id)
 {
 	struct fts_ts_data *data = dev_id;
 
-	if (data->resume_irq_counter <= 0)
-		fts_report_touch(data);
-	else
-		data->resume_irq_counter = data->resume_irq_counter - 1;
+	// if (data->resume_irq_counter <= 0)
+	// 	fts_report_touch(data);
+	// else
+	// 	data->resume_irq_counter = data->resume_irq_counter - 1;
+	if (pm_runtime_suspended(&data->client->dev)) {
+		dev_warn(&data->client->dev, "Interrupt received while suspended\n");
+		return IRQ_NONE;
+	}
+
+	fts_report_touch(data);
 
 	return IRQ_HANDLED;
 }
@@ -223,6 +230,10 @@ static int fts_input_open(struct input_dev *dev)
 	struct fts_ts_data *data = input_get_drvdata(dev);
 	int error;
 
+	error = pm_runtime_resume_and_get(&data->client->dev);
+	if (error)
+		return error;
+
 	error = fts_start(data);
 	if (error)
 		return error;
@@ -230,6 +241,7 @@ static int fts_input_open(struct input_dev *dev)
 	error = fts_check_status(data);
 	if (error) {
 		dev_err(&data->client->dev, "Failed to start or unsupported chip");
+		pm_runtime_put_sync(&data->client->dev);
 		return error;
 	}
 
@@ -241,6 +253,8 @@ static void fts_input_close(struct input_dev *dev)
 	struct fts_ts_data *data = input_get_drvdata(dev);
 
 	fts_stop(data);
+
+	pm_runtime_put_sync(&data->client->dev);
 }
 
 static int fts_input_init(struct fts_ts_data *data)
@@ -393,6 +407,15 @@ static int fts_ts_probe(struct i2c_client *client,
 	if (error)
 		return error;
 
+	pm_runtime_enable(&client->dev);
+
+	return 0;
+}
+
+static int fts_ts_remove(struct i2c_client *client)
+{
+	pm_runtime_disable(&client->dev);
+
 	return 0;
 }
 
@@ -428,8 +451,9 @@ static int fts_pm_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops fts_dev_pm_ops = {
-	.suspend = fts_pm_suspend,
-	.resume = fts_pm_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				pm_runtime_force_resume)
+	SET_RUNTIME_PM_OPS(fts_pm_suspend, fts_pm_resume, NULL)
 };
 
 static const struct of_device_id fts_match_table[] = {
@@ -442,6 +466,7 @@ MODULE_DEVICE_TABLE(of, fts_match_table);
 
 static struct i2c_driver fts_ts_driver = {
 	.probe = fts_ts_probe,
+	.remove = fts_ts_remove,
 	.driver = {
 		.name = FTS_DRIVER_NAME,
 		.pm = &fts_dev_pm_ops,
