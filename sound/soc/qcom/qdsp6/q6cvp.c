@@ -30,6 +30,34 @@
 
 #define VSS_IVOCPROC_CMD_CREATE_FULL_CONTROL_SESSION_V2	0x000112BF
 
+#define VSS_IVOLUME_CMD_SET_STEP			0x000112C2
+#define VSS_IVOLUME_DIRECTION_TX	0
+#define VSS_IVOLUME_DIRECTION_RX	1
+
+struct vss_ivolume_cmd_set_step_t {
+	uint16_t direction;
+	/*
+	 * The direction field sets the direction to apply the volume command.
+	 * The supported values:
+	 * #VSS_IVOLUME_DIRECTION_RX
+	 */
+	uint32_t value;
+	/*
+	 * Volume step used to find the corresponding linear volume and
+	 * the best match index in the registered volume calibration table.
+	 */
+	uint16_t ramp_duration_ms;
+	/*
+	 * Volume change ramp duration in milliseconds.
+	 * The supported values: 0 to 5000.
+	 */
+} __packed;
+
+struct cvp_set_rx_volume_step_cmd {
+	struct apr_hdr hdr;
+	struct vss_ivolume_cmd_set_step_t cvp_set_vol_step;
+} __packed;
+
 struct vss_ivocproc_cmd_create_full_control_session_v2_cmd {
 	struct apr_hdr hdr;
 
@@ -124,6 +152,21 @@ int q6cvp_enable(struct q6voice_session *cvp, bool state)
 	return q6voice_common_send(cvp, &cmd.hdr);
 }
 EXPORT_SYMBOL_GPL(q6cvp_enable);
+
+int q6cvp_set_rx_volume(struct q6voice_session *cvp, uint32_t vol_step)
+{
+	struct cvp_set_rx_volume_step_cmd cmd; 
+
+	cmd.hdr.pkt_size = sizeof(cmd);
+	cmd.hdr.opcode = VSS_IVOLUME_CMD_SET_STEP;
+
+	cmd.cvp_set_vol_step.direction = VSS_IVOLUME_DIRECTION_RX;
+	cmd.cvp_set_vol_step.value = vol_step;
+	cmd.cvp_set_vol_step.ramp_duration_ms = 20; //20ms
+
+	return q6voice_common_send(cvp, &cmd.hdr);
+}
+EXPORT_SYMBOL_GPL(q6cvp_set_rx_volume);
 
 static int q6cvp_probe(struct apr_device *adev)
 {
