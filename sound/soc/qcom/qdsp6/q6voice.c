@@ -72,11 +72,6 @@ static int q6voice_path_start(struct q6voice_path *p)
 		goto attach_err;
 	}
 
-	ret = q6cvp_set_rx_volume(cvp, 2); //volume step = 2
-	if (ret) {
-		dev_err(dev, "failed to set rx volume: %d\n; proceeding as it's not fatal", ret);
-	}
-
 	ret = q6mvm_start(mvm, true);
 	if (ret) {
 		dev_err(dev, "failed to start voice: %d\n", ret);
