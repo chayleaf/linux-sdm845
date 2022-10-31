@@ -12,6 +12,9 @@
 #include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/sound/qcom,q6afe.h>
 #include <dt-bindings/sound/qcom,q6asm.h>
+#include <dt-bindings/sound/qcom,q6afe.h>
+#include <dt-bindings/sound/qcom,q6asm.h>
+#include <dt-bindings/sound/qcom,q6voice.h>
 #include "sdm845.dtsi"
 #include "pm8998.dtsi"
 #include "pmi8998.dtsi"
@@ -140,6 +143,11 @@
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
+};
+
+&adsp_pas {
+	status = "okay";
+	firmware-name = "qcom/sdm845/polaris/adsp.mbn";
 };
 
 &apps_rsc {
@@ -454,6 +462,24 @@
 	status = "okay";
 };
 
+&i2c5 {
+	clock-frequency = <400000>;
+	dmas = <&gpi_dma0 0 5 QCOM_GPI_I2C>,
+		   <&gpi_dma0 1 5 QCOM_GPI_I2C>;
+	dma-names = "tx", "rx";
+	status = "okay";
+
+	tas2559_codec: codec@4c{
+		#sound-dai-cells = <1>;
+		compatible = "ti,tas2559";
+		reg = <0x4c>;
+		ti,tas2559-reset-gpio = <&tlmm 14 0>;
+		ti,tas2560-reset-gpio = <&tlmm 25 0>;
+		ti,tas2559-addr = <0x4c>;
+		ti,tas2560-addr = <0x4d>;
+	};
+};
+
 &i2c14 {
 	clock-frequency = <400000>;
 	dmas = <&gpi_dma1 0 6 QCOM_GPI_I2C>,
@@ -507,6 +533,26 @@
 
 &mss_pil {
 	firmware-name = "qcom/sdm845/polaris/mba.mbn", "qcom/sdm845/polaris/modem.mbn";
+	status = "okay";
+};
+
+&pmi8998_charger {
+	monitored-battery = <&battery>;
+	status = "okay";
+};
+
+&pmi8998_fg {
+	power-supplies = <&pmi8998_charger>;
+	monitored-battery = <&battery>;
+	status = "okay";
+};
+
+&pmi8998_haptics {
+	qcom,wave-play-rate-us = <4255>;
+	status = "okay";
+};
+
+&pmi8998_rradc {
 	status = "okay";
 };
 
@@ -564,6 +610,18 @@
 	};
 };
 
+&q6cvp {
+	status = "okay";
+};
+
+&q6cvs {
+	status = "okay";
+};
+
+&q6mvm {
+	status = "okay";
+};
+
 &qupv3_id_0 {
 	status = "okay";
 };
@@ -577,6 +635,97 @@
 		pins = "gpio33", "gpio34";
 		drive-strength = <2>;
 		bias-disable;
+	};
+};
+
+&slpi_pas {
+	firmware-name = "qcom/sdm845/polaris/slpi.mbn";
+	status = "okay";
+};
+
+&sound {
+	compatible = "qcom,db845c-sndcard";
+	pinctrl-0 = <&quat_mi2s_active
+			&quat_mi2s_sd0_active>;
+	pinctrl-names = "default";
+	model = "Xiaomi Mi Mix2S";
+	audio-routing =
+		"RX_BIAS", "MCLK",
+		"AMIC1", "MIC BIAS1",
+		"AMIC2", "MIC BIAS2",
+		"AMIC3", "MIC BIAS3";
+
+	mm1-dai-link {
+		link-name = "MultiMedia1";
+		cpu {
+			sound-dai = <&q6asmdai  MSM_FRONTEND_DAI_MULTIMEDIA1>;
+		};
+	};
+
+	mm2-dai-link {
+		link-name = "MultiMedia2";
+		cpu {
+			sound-dai = <&q6asmdai  MSM_FRONTEND_DAI_MULTIMEDIA2>;
+		};
+	};
+
+	mm3-dai-link {
+		link-name = "MultiMedia3";
+		cpu {
+			sound-dai = <&q6asmdai  MSM_FRONTEND_DAI_MULTIMEDIA3>;
+		};
+	};
+
+	dai-link-voicemmode1 {
+		link-name = "VoiceMMode1";
+		cpu {
+			sound-dai = <&q6voicedai VOICEMMODE1>;
+		};
+	};
+
+	tas2559-dai-link {
+		link-name = "Primary Spkr Playback";
+		cpu {
+			sound-dai = <&q6afedai QUATERNARY_MI2S_RX>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+
+		codec {
+			sound-dai =  <&tas2559_codec 0>;
+		};
+	};
+
+	slim-dai-link {
+		link-name = "SLIM Playback";
+		cpu {
+			sound-dai = <&q6afedai SLIMBUS_0_RX>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+
+		codec {
+			sound-dai =  <&wcd9340 0>;
+		};
+	};
+
+	slimcap-dai-link {
+		link-name = "SLIM Capture";
+		cpu {
+			sound-dai = <&q6afedai SLIMBUS_0_TX>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+
+		codec {
+			sound-dai = <&wcd9340 1>;
+		};
 	};
 };
 
@@ -628,7 +777,7 @@
 	};
 
 	wcd_intr_default: wcd-intr-default {
-		pins = "goui54";
+		pins = "gpio54";
 		function = "gpio";
 		input-enable;
 		bias-pull-down;
