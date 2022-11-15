@@ -10,40 +10,17 @@
 #include <linux/bits.h>
 
 struct ipa;
-struct ipa_interrupt;
 
 /**
- * typedef ipa_irq_handler_t - IPA interrupt handler function type
- * @ipa:	IPA pointer
- * @irq_id:	interrupt type
- *
- * Callback function registered by ipa_interrupt_add() to handle a specific
- * IPA interrupt type
+ * ipa_interrupt_clear_irq - Clear an IRQ by ID
+ * @ipa:		IPA Structure
+ * @irq_id:		The ID of the IRQ to clear
+ * 
+ * This function is called by interrupt handlers. The microcontroller
+ * interrupts need to be cleared before processing, but the TX SUSPEND
+ * interrupt must be clear after processing.
  */
-typedef void (*ipa_irq_handler_t)(struct ipa *ipa, enum ipa_irq_id irq_id);
-
-/**
- * ipa_interrupt_add() - Register a handler for an IPA interrupt type
- * @interrupt:	IPA interrupt structure
- * @irq_id:	IPA interrupt type
- * @handler:	Handler function for the interrupt
- *
- * Add a handler for an IPA interrupt and enable it.  IPA interrupt
- * handlers are run in threaded interrupt context, so are allowed to
- * block.
- */
-void ipa_interrupt_add(struct ipa_interrupt *interrupt, enum ipa_irq_id irq_id,
-		       ipa_irq_handler_t handler);
-
-/**
- * ipa_interrupt_remove() - Remove the handler for an IPA interrupt type
- * @interrupt:	IPA interrupt structure
- * @irq_id:	IPA interrupt type
- *
- * Remove an IPA interrupt handler and disable it.
- */
-void ipa_interrupt_remove(struct ipa_interrupt *interrupt,
-			  enum ipa_irq_id irq_id);
+void ipa_interrupt_clear_irq(struct ipa *ipa, enum ipa_irq_id irq_id);
 
 /**
  * ipa_interrupt_suspend_enable - Enable TX_SUSPEND for an endpoint
@@ -55,7 +32,7 @@ void ipa_interrupt_remove(struct ipa_interrupt *interrupt,
  * be delivered to the endpoint because it is suspended (or its underlying
  * channel is stopped).
  */
-void ipa_interrupt_suspend_enable(struct ipa_interrupt *interrupt,
+void ipa_interrupt_suspend_enable(struct ipa *ipa,
 				  u32 endpoint_id);
 
 /**
@@ -63,7 +40,7 @@ void ipa_interrupt_suspend_enable(struct ipa_interrupt *interrupt,
  * @interrupt:		IPA interrupt structure
  * @endpoint_id:	Endpoint whose interrupt should be disabled
  */
-void ipa_interrupt_suspend_disable(struct ipa_interrupt *interrupt,
+void ipa_interrupt_suspend_disable(struct ipa *ipa,
 				   u32 endpoint_id);
 
 /**
@@ -72,7 +49,7 @@ void ipa_interrupt_suspend_disable(struct ipa_interrupt *interrupt,
  *
  * Clear the TX_SUSPEND interrupt for all endpoints that signaled it.
  */
-void ipa_interrupt_suspend_clear_all(struct ipa_interrupt *interrupt);
+void ipa_interrupt_suspend_clear_all(struct ipa *ipa);
 
 /**
  * ipa_interrupt_simulate_suspend() - Simulate TX_SUSPEND IPA interrupt
@@ -83,7 +60,7 @@ void ipa_interrupt_suspend_clear_all(struct ipa_interrupt *interrupt);
  * that occurs if aggregation is active on an endpoint when its underlying
  * channel is suspended.
  */
-void ipa_interrupt_simulate_suspend(struct ipa_interrupt *interrupt);
+void ipa_interrupt_simulate_suspend(struct ipa *ipa);
 
 /**
  * ipa_interrupt_config() - Configure the IPA interrupt framework
@@ -91,12 +68,12 @@ void ipa_interrupt_simulate_suspend(struct ipa_interrupt *interrupt);
  *
  * Return:	Pointer to IPA SMP2P info, or a pointer-coded error
  */
-struct ipa_interrupt *ipa_interrupt_config(struct ipa *ipa);
+int ipa_interrupt_config(struct ipa *ipa);
 
 /**
  * ipa_interrupt_deconfig() - Inverse of ipa_interrupt_config()
  * @interrupt:	IPA interrupt structure
  */
-void ipa_interrupt_deconfig(struct ipa_interrupt *interrupt);
+void ipa_interrupt_deconfig(struct ipa *ipa);
 
 #endif /* _IPA_INTERRUPT_H_ */

@@ -23,6 +23,20 @@ extern const struct dev_pm_ops ipa_pm_ops;
 u32 ipa_core_clock_rate(struct ipa *ipa);
 
 /**
+ * ipa_suspend_handler() - Handle the suspend IPA interrupt
+ * @ipa:	IPA pointer
+ *
+ * If an RX endpoint is suspended, and the IPA has a packet destined for
+ * that endpoint, the IPA generates a SUSPEND interrupt to inform the AP
+ * that it should resume the endpoint.  If we get one of these interrupts
+ * we just wake up the system.
+ * 
+ * returns true if we were in system suspend, false if we aren't or if
+ * we're in the process of resuming.
+ */
+void ipa_suspend_isr_handler(struct ipa *ipa);
+
+/**
  * ipa_power_modem_queue_stop() - Possibly stop the modem netdev TX queue
  * @ipa:	IPA pointer
  */

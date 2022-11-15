@@ -103,10 +103,6 @@ int ipa_setup(struct ipa *ipa)
 	if (ret)
 		return ret;
 
-	ret = ipa_power_setup(ipa);
-	if (ret)
-		goto err_gsi_teardown;
-
 	ipa_endpoint_setup(ipa);
 
 	/* We need to use the AP command TX endpoint to perform other
@@ -153,7 +149,6 @@ err_command_disable:
 	ipa_endpoint_disable_one(command_endpoint);
 err_endpoint_teardown:
 	ipa_endpoint_teardown(ipa);
-	ipa_power_teardown(ipa);
 err_gsi_teardown:
 	gsi_teardown(&ipa->gsi);
 
@@ -179,7 +174,6 @@ static void ipa_teardown(struct ipa *ipa)
 	command_endpoint = ipa->name_map[IPA_ENDPOINT_AP_COMMAND_TX];
 	ipa_endpoint_disable_one(command_endpoint);
 	ipa_endpoint_teardown(ipa);
-	ipa_power_teardown(ipa);
 	gsi_teardown(&ipa->gsi);
 }
 
@@ -512,12 +506,9 @@ static int ipa_config(struct ipa *ipa, const struct ipa_data *data)
 	if (ret)
 		goto err_hardware_deconfig;
 
-	ipa->interrupt = ipa_interrupt_config(ipa);
-	if (IS_ERR(ipa->interrupt)) {
-		ret = PTR_ERR(ipa->interrupt);
-		ipa->interrupt = NULL;
+	ret = ipa_interrupt_config(ipa);
+	if (ret)
 		goto err_mem_deconfig;
-	}
 
 	ipa_uc_config(ipa);
 
@@ -542,8 +533,6 @@ err_endpoint_deconfig:
 	ipa_endpoint_deconfig(ipa);
 err_uc_deconfig:
 	ipa_uc_deconfig(ipa);
-	ipa_interrupt_deconfig(ipa->interrupt);
-	ipa->interrupt = NULL;
 err_mem_deconfig:
 	ipa_mem_deconfig(ipa);
 err_hardware_deconfig:
@@ -561,8 +550,6 @@ static void ipa_deconfig(struct ipa *ipa)
 	ipa_modem_deconfig(ipa);
 	ipa_endpoint_deconfig(ipa);
 	ipa_uc_deconfig(ipa);
-	ipa_interrupt_deconfig(ipa->interrupt);
-	ipa->interrupt = NULL;
 	ipa_mem_deconfig(ipa);
 	ipa_hardware_deconfig(ipa);
 }
@@ -768,6 +755,10 @@ static int ipa_probe(struct platform_device *pdev)
 	ipa->version = data->version;
 	init_completion(&ipa->completion);
 
+	ret = device_init_wakeup(&ipa->pdev->dev, true);
+	if (ret)
+		goto err_kfree_ipa;
+
 	ret = ipa_reg_init(ipa);
 	if (ret)
 		goto err_kfree_ipa;
@@ -892,6 +883,8 @@ out_power_put:
 	gsi_exit(&ipa->gsi);
 	ipa_mem_exit(ipa);
 	ipa_reg_exit(ipa);
+	// Is this even needed?
+	device_init_wakeup(&ipa->pdev->dev, false);
 	kfree(ipa);
 	ipa_power_exit(power);
 

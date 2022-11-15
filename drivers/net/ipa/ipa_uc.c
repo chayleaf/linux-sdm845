@@ -124,10 +124,12 @@ static struct ipa_uc_mem_area *ipa_uc_shared(struct ipa *ipa)
 }
 
 /* Microcontroller event IPA interrupt handler */
-static void ipa_uc_event_handler(struct ipa *ipa, enum ipa_irq_id irq_id)
+void ipa_uc_event_handler(struct ipa *ipa, enum ipa_irq_id irq_id)
 {
 	struct ipa_uc_mem_area *shared = ipa_uc_shared(ipa);
 	struct device *dev = &ipa->pdev->dev;
+
+	ipa_interrupt_clear_irq(ipa, irq_id);
 
 	if (shared->event == IPA_UC_EVENT_ERROR)
 		dev_err(dev, "microcontroller error event\n");
@@ -138,10 +140,12 @@ static void ipa_uc_event_handler(struct ipa *ipa, enum ipa_irq_id irq_id)
 }
 
 /* Microcontroller response IPA interrupt handler */
-static void ipa_uc_response_hdlr(struct ipa *ipa, enum ipa_irq_id irq_id)
+void ipa_uc_response_hdlr(struct ipa *ipa, enum ipa_irq_id irq_id)
 {
 	struct ipa_uc_mem_area *shared = ipa_uc_shared(ipa);
 	struct device *dev = &ipa->pdev->dev;
+
+	ipa_interrupt_clear_irq(ipa, irq_id);
 
 	/* An INIT_COMPLETED response message is sent to the AP by the
 	 * microcontroller when it is operational.  Other than this, the AP
@@ -175,8 +179,6 @@ void ipa_uc_config(struct ipa *ipa)
 {
 	ipa->uc_powered = false;
 	ipa->uc_loaded = false;
-	ipa_interrupt_add(ipa->interrupt, IPA_IRQ_UC_0, ipa_uc_event_handler);
-	ipa_interrupt_add(ipa->interrupt, IPA_IRQ_UC_1, ipa_uc_response_hdlr);
 }
 
 /* Inverse of ipa_uc_config() */
@@ -184,8 +186,6 @@ void ipa_uc_deconfig(struct ipa *ipa)
 {
 	struct device *dev = &ipa->pdev->dev;
 
-	ipa_interrupt_remove(ipa->interrupt, IPA_IRQ_UC_1);
-	ipa_interrupt_remove(ipa->interrupt, IPA_IRQ_UC_0);
 	if (ipa->uc_loaded)
 		ipa_power_retention(ipa, false);
 

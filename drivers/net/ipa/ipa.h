@@ -85,7 +85,7 @@ struct ipa {
 	dma_addr_t table_addr;
 	__le64 *table_virt;
 
-	struct ipa_interrupt *interrupt;
+	unsigned int irq;
 	bool uc_powered;
 	bool uc_loaded;
 

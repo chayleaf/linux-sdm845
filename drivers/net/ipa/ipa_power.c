@@ -145,6 +145,13 @@ static int ipa_runtime_suspend(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
 
+	dev_info(&ipa->pdev->dev, "Runtime suspend");
+
+	if (__test_and_clear_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags)) {
+		dev_info(&ipa->pdev->dev, "pm_relax()");
+		pm_relax(dev);
+	}
+
 	/* Endpoints aren't usable until setup is complete */
 	if (ipa->setup_complete) {
 		__clear_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags);
@@ -161,6 +168,8 @@ static int ipa_runtime_resume(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
 	int ret;
+
+	dev_info(dev, "Runtime resume");
 
 	ret = ipa_power_enable(ipa);
 	if (WARN_ON(ret < 0))
@@ -187,13 +196,10 @@ static int ipa_suspend(struct device *dev)
 static int ipa_resume(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
-	int ret;
-
-	ret = pm_runtime_force_resume(dev);
 
 	__clear_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags);
 
-	return ret;
+	return pm_runtime_force_resume(dev);
 }
 
 /* Return the current IPA core clock rate */
@@ -202,28 +208,25 @@ u32 ipa_core_clock_rate(struct ipa *ipa)
 	return ipa->power ? (u32)clk_get_rate(ipa->power->core) : 0;
 }
 
-/**
- * ipa_suspend_handler() - Handle the suspend IPA interrupt
- * @ipa:	IPA pointer
- * @irq_id:	IPA interrupt type (unused)
- *
- * If an RX endpoint is suspended, and the IPA has a packet destined for
- * that endpoint, the IPA generates a SUSPEND interrupt to inform the AP
- * that it should resume the endpoint.  If we get one of these interrupts
- * we just wake up the system.
+/* Returns true if in system suspend and this is the first time we've
+ * been called.
  */
-static void ipa_suspend_handler(struct ipa *ipa, enum ipa_irq_id irq_id)
+void ipa_suspend_isr_handler(struct ipa *ipa)
 {
 	/* To handle an IPA interrupt we will have resumed the hardware
 	 * just to handle the interrupt, so we're done.  If we are in a
 	 * system suspend, trigger a system resume.
 	 */
-	if (!__test_and_set_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags))
-		if (test_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags))
-			pm_wakeup_dev_event(&ipa->pdev->dev, 0, true);
+	if (!__test_and_set_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags)
+		&& _test_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags)) {
+		dev_info(&ipa->pdev->dev, "Wake from system suspend!\n");
+		pm_wakeup_dev_event(&ipa->pdev->dev, 0, true);
+	}
 
 	/* Acknowledge/clear the suspend interrupt on all endpoints */
-	ipa_interrupt_suspend_clear_all(ipa->interrupt);
+	ipa_interrupt_suspend_clear_all(ipa);
+	/* It is now safe to clear the main TX_SUSPEND IRQ */
+	ipa_interrupt_clear_irq(ipa, IPA_IRQ_TX_SUSPEND);
 }
 
 /* The next few functions coordinate stopping and starting the modem
@@ -333,22 +336,12 @@ void ipa_power_retention(struct ipa *ipa, bool enable)
 
 int ipa_power_setup(struct ipa *ipa)
 {
-	int ret;
-
-	ipa_interrupt_add(ipa->interrupt, IPA_IRQ_TX_SUSPEND,
-			  ipa_suspend_handler);
-
-	ret = device_init_wakeup(&ipa->pdev->dev, true);
-	if (ret)
-		ipa_interrupt_remove(ipa->interrupt, IPA_IRQ_TX_SUSPEND);
-
-	return ret;
+	return device_init_wakeup(&ipa->pdev->dev, true);
 }
 
 void ipa_power_teardown(struct ipa *ipa)
 {
 	(void)device_init_wakeup(&ipa->pdev->dev, false);
-	ipa_interrupt_remove(ipa->interrupt, IPA_IRQ_TX_SUSPEND);
 }
 
 /* Initialize IPA power management */

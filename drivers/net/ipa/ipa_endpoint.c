@@ -393,7 +393,7 @@ static void ipa_endpoint_suspend_aggr(struct ipa_endpoint *endpoint)
 	/* Force close aggregation */
 	ipa_endpoint_force_close(endpoint);
 
-	ipa_interrupt_simulate_suspend(ipa->interrupt);
+	ipa_interrupt_simulate_suspend(ipa);
 }
 
 /* Returns previous suspend state (true means suspend was enabled) */
@@ -1675,8 +1675,7 @@ int ipa_endpoint_enable_one(struct ipa_endpoint *endpoint)
 	}
 
 	if (!endpoint->toward_ipa) {
-		ipa_interrupt_suspend_enable(ipa->interrupt,
-					     endpoint->endpoint_id);
+		ipa_interrupt_suspend_enable(ipa, endpoint->endpoint_id);
 		ipa_endpoint_replenish_enable(endpoint);
 	}
 
@@ -1699,8 +1698,7 @@ void ipa_endpoint_disable_one(struct ipa_endpoint *endpoint)
 
 	if (!endpoint->toward_ipa) {
 		ipa_endpoint_replenish_disable(endpoint);
-		ipa_interrupt_suspend_disable(ipa->interrupt,
-					      endpoint->endpoint_id);
+		ipa_interrupt_suspend_disable(ipa, endpoint->endpoint_id);
 	}
 
 	/* Note that if stop fails, the channel's state is not well-defined */

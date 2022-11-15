@@ -255,6 +255,8 @@ static void qcom_smp2p_notify_in(struct qcom_smp2p *smp2p)
 		if (!status)
 			continue;
 
+		dev_info(smp2p->dev, "%s: %s", __func__, entry->name);
+
 		for_each_set_bit(i, entry->irq_enabled, 32) {
 			if (!(status & BIT(i)))
 				continue;
