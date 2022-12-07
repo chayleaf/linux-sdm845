@@ -19,14 +19,17 @@
  * time only these three are supported.
  */
 
+#include <linux/clk.h>
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_wakeirq.h>
 
 #include "ipa.h"
 #include "ipa_reg.h"
 #include "ipa_endpoint.h"
 #include "ipa_interrupt.h"
+#include "ipa_power.h"
 
 /**
  * struct ipa_interrupt - IPA interrupt information
@@ -76,23 +79,15 @@ static void ipa_interrupt_process(struct ipa_interrupt *interrupt, u32 irq_id)
 		iowrite32(mask, ipa->reg_virt + offset);
 }
 
-/* IPA IRQ handler is threaded */
-static irqreturn_t ipa_isr_thread(int irq, void *dev_id)
+void ipa_interrupt_process_pending(struct ipa_interrupt *interrupt)
 {
-	struct ipa_interrupt *interrupt = dev_id;
 	struct ipa *ipa = interrupt->ipa;
 	u32 enabled = interrupt->enabled;
 	const struct ipa_reg *reg;
-	struct device *dev;
+	struct device *dev = &ipa->pdev->dev;
 	u32 pending;
 	u32 offset;
 	u32 mask;
-	int ret;
-
-	dev = &ipa->pdev->dev;
-	ret = pm_runtime_get_sync(dev);
-	if (WARN_ON(ret < 0))
-		goto out_power_put;
 
 	/* The status register indicates which conditions are present,
 	 * including conditions whose interrupt is not enabled.  Handle
@@ -104,6 +99,8 @@ static irqreturn_t ipa_isr_thread(int irq, void *dev_id)
 	while ((mask = pending & enabled)) {
 		do {
 			u32 irq_id = __ffs(mask);
+
+			dev_info(dev, "%s: irq_id %d pending\n", __func__, irq_id);
 
 			mask ^= BIT(irq_id);
 
@@ -120,6 +117,41 @@ static irqreturn_t ipa_isr_thread(int irq, void *dev_id)
 		offset = ipa_reg_offset(reg);
 		iowrite32(pending, ipa->reg_virt + offset);
 	}
+}
+
+/* IPA IRQ handler is threaded */
+static irqreturn_t ipa_isr_thread(int irq, void *dev_id)
+{
+	struct ipa_interrupt *interrupt = dev_id;
+	struct ipa *ipa = interrupt->ipa;
+	const struct ipa_reg *reg;
+	struct device *dev = &ipa->pdev->dev;
+	u32 pending;
+	u32 offset;
+	int ret;
+
+	/* Caleb: the log line is printed when in suspend, so we could
+	 * use this directly. However it doesn't explicitly confirm
+	 * that we are in fact even in suspend...
+	 */
+	if (!pm_runtime_enabled(dev))
+		dev_info(dev, "%s: pm_runtime not enabled\n", __func__);
+
+	ret = pm_runtime_get_sync(dev);
+	/* If we're in system suspend pm_runtime is disabled 
+	 * until system_resume has complete, we'll mask the IRQ
+	 * and enable it again when we resume.
+	 */
+	if (ret == -EACCES) {
+		disable_irq_nosync(irq);
+		ipa_wakeup_triggered(ipa);
+		goto out_power_put;
+	}
+	if (WARN_ON(ret < 0))
+		goto out_power_put;
+
+	ipa_interrupt_process_pending(interrupt);
+
 out_power_put:
 	pm_runtime_mark_last_busy(dev);
 	(void)pm_runtime_put_autosuspend(dev);
@@ -250,29 +282,38 @@ struct ipa_interrupt *ipa_interrupt_config(struct ipa *ipa)
 	if (!interrupt)
 		return ERR_PTR(-ENOMEM);
 	interrupt->ipa = ipa;
-	interrupt->irq = irq;
+	ipa->irq = irq;
 
 	/* Start with all IPA interrupts disabled */
 	reg = ipa_reg(ipa, IPA_IRQ_EN);
 	iowrite32(0, ipa->reg_virt + ipa_reg_offset(reg));
 
-	ret = request_threaded_irq(irq, NULL, ipa_isr_thread, IRQF_ONESHOT,
+	ret = devm_request_threaded_irq(dev, irq, NULL, ipa_isr_thread, IRQF_ONESHOT,
 				   "ipa", interrupt);
 	if (ret) {
 		dev_err(dev, "error %d requesting \"ipa\" IRQ\n", ret);
 		goto err_kfree;
 	}
 
-	ret = enable_irq_wake(irq);
+	/**
+	 * Configure the IPA as a wakeup capable device, register the wake IRQ
+	 * but don't enable wakeup by default.
+	 * If a device doesn't have explicit handling in place for network
+	 * wakeup (e.g. a push notification daemon) then waking up here will
+	 * only cause unnecessary power consumption.
+	 */
+
+	device_set_wakeup_capable(dev, true);
+	ret = dev_pm_set_wake_irq(dev, irq);
 	if (ret) {
-		dev_err(dev, "error %d enabling wakeup for \"ipa\" IRQ\n", ret);
-		goto err_free_irq;
+		dev_err(dev, "error %d configuring wake irq\n", ret);
+		goto err_kfree;
 	}
+
+	device_wakeup_enable(dev);
 
 	return interrupt;
 
-err_free_irq:
-	free_irq(interrupt->irq, interrupt);
 err_kfree:
 	kfree(interrupt);
 
@@ -282,12 +323,6 @@ err_kfree:
 /* Inverse of ipa_interrupt_config() */
 void ipa_interrupt_deconfig(struct ipa_interrupt *interrupt)
 {
-	struct device *dev = &interrupt->ipa->pdev->dev;
-	int ret;
-
-	ret = disable_irq_wake(interrupt->irq);
-	if (ret)
-		dev_err(dev, "error %d disabling \"ipa\" IRQ wakeup\n", ret);
-	free_irq(interrupt->irq, interrupt);
+	device_init_wakeup(&interrupt->ipa->pdev->dev, false);
 	kfree(interrupt);
 }

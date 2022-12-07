@@ -86,6 +86,7 @@ struct ipa {
 	__le64 *table_virt;
 
 	struct ipa_interrupt *interrupt;
+	int irq;
 	bool uc_powered;
 	bool uc_loaded;
 

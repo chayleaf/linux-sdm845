@@ -145,6 +145,8 @@ static int ipa_runtime_suspend(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
 
+	dev_info(&ipa->pdev->dev, "%s\n", __func__);
+
 	/* Endpoints aren't usable until setup is complete */
 	if (ipa->setup_complete) {
 		__clear_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags);
@@ -161,6 +163,8 @@ static int ipa_runtime_resume(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
 	int ret;
+
+	dev_info(&ipa->pdev->dev, "%s\n", __func__);
 
 	ret = ipa_power_enable(ipa);
 	if (WARN_ON(ret < 0))
@@ -179,6 +183,8 @@ static int ipa_suspend(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
 
+	dev_info(&ipa->pdev->dev, "%s\n", __func__);
+
 	__set_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags);
 
 	return pm_runtime_force_suspend(dev);
@@ -189,9 +195,39 @@ static int ipa_resume(struct device *dev)
 	struct ipa *ipa = dev_get_drvdata(dev);
 	int ret;
 
+	dev_info(&ipa->pdev->dev, "%s\n", __func__);
+
+	/* This does not guarentee that ipa_runtime_resume() will be called */
 	ret = pm_runtime_force_resume(dev);
 
-	__clear_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags);
+	/* If waking up from system suspend then re-enable the IRQ
+	 * Might be fine to put this in ipa_resume(), potentially
+	 * worried about doing below _resume() calls with irq disabled
+	 * though...
+	 */
+	ret = pm_runtime_resume_and_get(dev);
+	dev_info(&ipa->pdev->dev,
+		"IPA_POWER_FLAG_RESUMED: %d, IPA_POWER_FLAG_SYSTEM: %d (0x%lx),"
+		" runtime_get: %d\n",
+		test_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags),
+		test_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags),
+		ipa->power->flags[0], ret);
+	if (ret) {
+		__clear_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags);
+		return 0;
+	}
+	if (test_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags) &&
+	    test_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags)) {
+		dev_info(&ipa->pdev->dev, "re-enabling IRQ\n");
+		__clear_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags);
+		enable_irq(ipa->irq);
+		ipa_interrupt_process_pending(ipa->interrupt);
+	}
+
+	if (!ret) {
+		pm_runtime_mark_last_busy(dev);
+		(void)pm_runtime_put_autosuspend(dev);
+	}
 
 	return ret;
 }
@@ -200,6 +236,19 @@ static int ipa_resume(struct device *dev)
 u32 ipa_core_clock_rate(struct ipa *ipa)
 {
 	return ipa->power ? (u32)clk_get_rate(ipa->power->core) : 0;
+}
+
+void ipa_wakeup_triggered(struct ipa *ipa)
+{
+	/* Set bits to indicate we've been woken up and notify the system
+	 */
+	if (!__test_and_set_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags))
+		if (test_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags))
+			/* Shortcut for pm_wakeup_dev_event(dev, 0, true) 
+			 * FIXME: is this still needed with
+			 * dev_pm_set_wake_irq() ?
+			 */
+			pm_wakeup_hard_event(&ipa->pdev->dev);
 }
 
 /**
@@ -214,13 +263,11 @@ u32 ipa_core_clock_rate(struct ipa *ipa)
  */
 static void ipa_suspend_handler(struct ipa *ipa, enum ipa_irq_id irq_id)
 {
-	/* To handle an IPA interrupt we will have resumed the hardware
-	 * just to handle the interrupt, so we're done.  If we are in a
-	 * system suspend, trigger a system resume.
+	/* caleb: In theory we shouldn't have to call this as we should
+	 * never hit this codepath with the IPA_POWER_FLAT_RESUMED bit
+	 * unset
 	 */
-	if (!__test_and_set_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags))
-		if (test_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags))
-			pm_wakeup_dev_event(&ipa->pdev->dev, 0, true);
+	ipa_wakeup_triggered(ipa);
 
 	/* Acknowledge/clear the suspend interrupt on all endpoints */
 	ipa_interrupt_suspend_clear_all(ipa->interrupt);
@@ -333,21 +380,15 @@ void ipa_power_retention(struct ipa *ipa, bool enable)
 
 int ipa_power_setup(struct ipa *ipa)
 {
-	int ret;
+	int ret = 0;
 
 	ipa_interrupt_add(ipa->interrupt, IPA_IRQ_TX_SUSPEND,
 			  ipa_suspend_handler);
-
-	ret = device_init_wakeup(&ipa->pdev->dev, true);
-	if (ret)
-		ipa_interrupt_remove(ipa->interrupt, IPA_IRQ_TX_SUSPEND);
-
 	return ret;
 }
 
 void ipa_power_teardown(struct ipa *ipa)
 {
-	(void)device_init_wakeup(&ipa->pdev->dev, false);
 	ipa_interrupt_remove(ipa->interrupt, IPA_IRQ_TX_SUSPEND);
 }
 
