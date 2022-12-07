@@ -422,6 +422,21 @@ static irqreturn_t tps65185_irq_handler(int irq, void *p)
 			       iio_get_time_ns(indio_dev));
 
 	ret = regmap_read(tps->regmap, TPS65185_REG_INT2, &status2);
+
+	if (!ret && (status2 & TPS65185_INT2_VB_UV))
+		dev_err(&indio_dev->dev, "Positive Boost Converter (VB) undervoltage detected");
+	if (!ret && (status2 & TPS65185_INT2_VDDH_UV))
+		dev_err(&indio_dev->dev, "VDDH undervoltage detected");
+	if (!ret && (status2 & TPS65185_INT2_VN_UV))
+		dev_err(&indio_dev->dev, "Inverting Boost Converter (VB) undervoltage detected");
+	if (!ret && (status2 & TPS65185_INT2_VPOS_UV))
+		dev_err(&indio_dev->dev, "VPOS undervoltage detected");
+	if (!ret && (status2 & TPS65185_INT2_VEE_UV))
+		dev_err(&indio_dev->dev, "VEE undervoltage detected");
+	if (!ret && (status2 & TPS65185_INT2_VCOMF))
+		dev_err(&indio_dev->dev, "VCOM fault detection");
+	if (!ret && (status2 & TPS65185_INT2_VNEG_UV))
+		dev_err(&indio_dev->dev, "VNEG undervoltage detected");
 	if (!ret && (status2 & TPS65185_INT2_EOC))
 		complete(&tps->temp_completion);
 
