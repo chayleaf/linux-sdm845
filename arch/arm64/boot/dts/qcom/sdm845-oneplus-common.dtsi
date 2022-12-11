@@ -434,6 +434,9 @@
 	vdda-csi1-supply = <&vdda_mipi_csi1_0p9>;
 	vdda-csi2-supply = <&vdda_mipi_csi2_0p9>;
 
+	vdda-phy-supply = <&vreg_l1a_0p875>;
+	vdda-pll-supply = <&vreg_l26a_1p2>;
+
 	status = "okay";
 
 	ports {
@@ -442,7 +445,7 @@
 		port@0 {
 			reg = <0>;
 			csiphy0_ep: endpoint {
-				data-lanes = <0 1>;
+				data-lanes = <0 1 2 3>;
 				remote-endpoint = <&imx519_ep>;
 			};
 		};
@@ -475,7 +478,7 @@
 		port {
 			imx519_ep: endpoint {
 				remote-endpoint = <&csiphy0_ep>;
-				data-lanes = <1 2>;      //   428750000
+				data-lanes = <1 2 3 4>;      //   428750000
 				link-frequencies = /bits/ 64 <493500000>;
 			};
 		};
