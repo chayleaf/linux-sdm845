@@ -855,7 +855,7 @@
 			reg = <0>;
 			csiphy0_ep: endpoint {
 				clock-lanes = <7>;
-				data-lanes = <0 1 2 3 >;
+				data-lanes = <0 1 2 3>;
 				remote-endpoint = <&imx363_ep>;
 			};
 		};
