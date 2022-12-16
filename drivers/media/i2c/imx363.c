@@ -51,7 +51,7 @@
 #define IMX363_INCLK_RATE	24000000
 
 /* CSI2 HW configuration */
-#define IMX363_LINK_FREQ	600000000
+#define IMX363_LINK_FREQ	493500000
 #define IMX363_NUM_DATA_LANES	4
 
 #define IMX363_REG_MIN		0x00
@@ -327,7 +327,7 @@ static const struct imx363_mode supported_mode = {
 	.vblank = 1000,
 	.vblank_min = 1000,
 	.vblank_max = 32420,
-	.pclk = 480000000,
+	.pclk = 686000000,
 	.link_freq_idx = 0,
 	.code = MEDIA_BUS_FMT_SRGGB10_1X10,
 	.reg_list = {
