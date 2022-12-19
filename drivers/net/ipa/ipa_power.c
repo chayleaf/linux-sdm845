@@ -361,9 +361,13 @@ int ipa_power_setup(struct ipa *ipa)
 	ipa_interrupt_add(ipa->interrupt, IPA_IRQ_TX_SUSPEND,
 			  ipa_suspend_handler);
 
-	ret = device_init_wakeup(&ipa->pdev->dev, true);
-	if (ret)
-		ipa_interrupt_remove(ipa->interrupt, IPA_IRQ_TX_SUSPEND);
+	/* Enable the IPA as a wakeup capable device, but don't register
+	 * a wakeup source for it, leave it disabled by default.
+	 * It is up to userspace to enable it if they want to be woken up
+	 * for incoming network data via the IPA.
+	 */
+
+	device_set_wakeup_capable(&ipa->pdev->dev, true);
 
 	return ret;
 }
