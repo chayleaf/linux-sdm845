@@ -75,6 +75,15 @@ void ipa_interrupt_suspend_disable(struct ipa_interrupt *interrupt,
 void ipa_interrupt_suspend_clear_all(struct ipa_interrupt *interrupt);
 
 /**
+ * ipa_interrupt_process_pending() - Process pending IPA interrupts
+ * @interrupt:	IPA interrupt structure
+ * 
+ * Called from system resume callback if the iPA interrupt fired during
+ * system suspend.
+*/
+void ipa_interrupt_process_pending(struct ipa_interrupt *interrupt);
+
+/**
  * ipa_interrupt_simulate_suspend() - Simulate TX_SUSPEND IPA interrupt
  * @interrupt:	IPA interrupt structure
  *
@@ -84,6 +93,14 @@ void ipa_interrupt_suspend_clear_all(struct ipa_interrupt *interrupt);
  * channel is suspended.
  */
 void ipa_interrupt_simulate_suspend(struct ipa_interrupt *interrupt);
+
+/**
+ * ipa_interrupt_irq() - Get the ipa IRQ number
+ * @ipa:	IPA pointer
+ *
+ * Return:	IPA IRQ number, or -ENODEV
+ */
+int ipa_interrupt_irq(struct ipa *ipa);
 
 /**
  * ipa_interrupt_config() - Configure the IPA interrupt framework

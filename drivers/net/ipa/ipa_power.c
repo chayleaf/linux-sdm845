@@ -9,6 +9,7 @@
 #include <linux/interconnect.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_wakeirq.h>
 #include <linux/bitops.h>
 
 #include "linux/soc/qcom/qcom_aoss.h"
@@ -145,6 +146,8 @@ static int ipa_runtime_suspend(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
 
+	dev_info(&ipa->pdev->dev, "%s\n", __func__);
+
 	/* Endpoints aren't usable until setup is complete */
 	if (ipa->setup_complete) {
 		__clear_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags);
@@ -161,6 +164,8 @@ static int ipa_runtime_resume(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
 	int ret;
+
+	dev_info(&ipa->pdev->dev, "%s\n", __func__);
 
 	ret = ipa_power_enable(ipa);
 	if (WARN_ON(ret < 0))
@@ -179,6 +184,14 @@ static int ipa_suspend(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
 
+	dev_info(&ipa->pdev->dev, "%s\n", __func__);
+
+	/* If wakeup is disabled we need to mask the ipa IRQ so it doesn't
+	 * fire too early during resume if data is pending.
+	 */
+	if (!device_may_wakeup(dev))
+		disable_irq(ipa_interrupt_irq(ipa));
+
 	__set_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags);
 
 	return pm_runtime_force_suspend(dev);
@@ -189,9 +202,24 @@ static int ipa_resume(struct device *dev)
 	struct ipa *ipa = dev_get_drvdata(dev);
 	int ret;
 
+	dev_info(&ipa->pdev->dev, "%s\n", __func__);
+
+	/* This does not guarantee that ipa_runtime_resume() will be called */
 	ret = pm_runtime_force_resume(dev);
 
+	/* If we caused the wakeup then we now need to handle the IRQ
+	 * we deferred whilst in suspend.
+	 */
+	if (test_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags)) {
+		dev_info(&ipa->pdev->dev, "Handling deferred IRQ\n");
+		ipa_interrupt_process_pending(ipa->interrupt);
+		enable_irq(ipa_interrupt_irq(ipa));
+	}
+
 	__clear_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags);
+
+	if (!device_may_wakeup(dev))
+		enable_irq(ipa_interrupt_irq(ipa));
 
 	return ret;
 }
@@ -202,6 +230,19 @@ u32 ipa_core_clock_rate(struct ipa *ipa)
 	return ipa->power ? (u32)clk_get_rate(ipa->power->core) : 0;
 }
 
+bool ipa_wakeup_triggered(struct ipa *ipa)
+{
+	/* Set bits to indicate we've been woken up and notify the system */
+	if (!__test_and_set_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags) &&
+	    test_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags)) {
+		/* Shortcut for pm_wakeup_dev_event(dev, 0, true) */
+		pm_wakeup_hard_event(&ipa->pdev->dev);
+		return true;
+	}
+
+	return false;
+}
+
 /**
  * ipa_suspend_handler() - Handle the suspend IPA interrupt
  * @ipa:	IPA pointer
@@ -210,18 +251,11 @@ u32 ipa_core_clock_rate(struct ipa *ipa)
  * If an RX endpoint is suspended, and the IPA has a packet destined for
  * that endpoint, the IPA generates a SUSPEND interrupt to inform the AP
  * that it should resume the endpoint.  If we get one of these interrupts
- * we just wake up the system.
+ * the system and IPA hardware will be woken up and the endpoint resumed.
+ * We only have to acknowledge the interrupt here.
  */
 static void ipa_suspend_handler(struct ipa *ipa, enum ipa_irq_id irq_id)
 {
-	/* To handle an IPA interrupt we will have resumed the hardware
-	 * just to handle the interrupt, so we're done.  If we are in a
-	 * system suspend, trigger a system resume.
-	 */
-	if (!__test_and_set_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags))
-		if (test_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags))
-			pm_wakeup_dev_event(&ipa->pdev->dev, 0, true);
-
 	/* Acknowledge/clear the suspend interrupt on all endpoints */
 	ipa_interrupt_suspend_clear_all(ipa->interrupt);
 }
@@ -333,15 +367,27 @@ void ipa_power_retention(struct ipa *ipa, bool enable)
 
 int ipa_power_setup(struct ipa *ipa)
 {
+	struct device *dev = &ipa->pdev->dev;
 	int ret;
 
 	ipa_interrupt_add(ipa->interrupt, IPA_IRQ_TX_SUSPEND,
 			  ipa_suspend_handler);
 
-	ret = device_init_wakeup(&ipa->pdev->dev, true);
-	if (ret)
-		ipa_interrupt_remove(ipa->interrupt, IPA_IRQ_TX_SUSPEND);
+	ret = device_init_wakeup(dev, true);
+	if (ret) {
+		dev_err(dev, "error %d enabling wakeup\n", ret);
+		goto remove_out;
+	}
 
+	ret = dev_pm_set_wake_irq(dev, ipa_interrupt_irq(ipa));
+	if (ret) {
+		dev_err(dev, "error %d configuring wake irq\n", ret);
+		goto remove_out;
+	}
+
+	return 0;
+remove_out:
+	ipa_interrupt_remove(ipa->interrupt, IPA_IRQ_TX_SUSPEND);
 	return ret;
 }
 
