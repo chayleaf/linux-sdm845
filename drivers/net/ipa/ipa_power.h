@@ -47,9 +47,6 @@ void ipa_power_modem_queue_active(struct ipa *ipa);
  */
 void ipa_power_retention(struct ipa *ipa, bool enable);
 
-/* Handle a the IRQ firing in system suspend */
-bool ipa_wakeup_triggered(struct ipa *ipa);
-
 /**
  * ipa_power_setup() - Set up IPA power management
  * @ipa:	IPA pointer

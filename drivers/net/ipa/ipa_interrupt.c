@@ -27,7 +27,6 @@
 #include "ipa_reg.h"
 #include "ipa_endpoint.h"
 #include "ipa_interrupt.h"
-#include "ipa_power.h"
 
 /**
  * struct ipa_interrupt - IPA interrupt information
@@ -77,8 +76,10 @@ static void ipa_interrupt_process(struct ipa_interrupt *interrupt, u32 irq_id)
 		iowrite32(mask, ipa->reg_virt + offset);
 }
 
-void ipa_interrupt_process_pending(struct ipa_interrupt *interrupt)
+/* IPA IRQ handler is threaded */
+static irqreturn_t ipa_isr_thread(int irq, void *dev_id)
 {
+	struct ipa_interrupt *interrupt = dev_id;
 	struct ipa *ipa = interrupt->ipa;
 	u32 enabled = interrupt->enabled;
 	const struct ipa_reg *reg;
@@ -104,8 +105,6 @@ void ipa_interrupt_process_pending(struct ipa_interrupt *interrupt)
 		do {
 			u32 irq_id = __ffs(mask);
 
-			dev_info(dev, "%s: irq_id %d pending\n", __func__, irq_id);
-
 			mask ^= BIT(irq_id);
 
 			ipa_interrupt_process(interrupt, irq_id);
@@ -124,25 +123,6 @@ void ipa_interrupt_process_pending(struct ipa_interrupt *interrupt)
 out_power_put:
 	pm_runtime_mark_last_busy(dev);
 	(void)pm_runtime_put_autosuspend(dev);
-}
-
-/* IPA IRQ handler is threaded */
-static irqreturn_t ipa_isr_thread(int irq, void *dev_id)
-{
-	struct ipa_interrupt *interrupt = dev_id;
-	struct ipa *ipa = interrupt->ipa;
-	struct device *dev = &ipa->pdev->dev;
-
-	/* If we're in system suspend, notify power code and defer IRQ
-	 * handling until after system resume.
-	 */
-	if (!pm_runtime_enabled(dev) && ipa_wakeup_triggered(ipa)) {
-		dev_info(dev, "%s: in suspend! deferring handler\n", __func__);
-		disable_irq_nosync(irq);
-		return IRQ_HANDLED;
-	}
-
-	ipa_interrupt_process_pending(interrupt);
 
 	return IRQ_HANDLED;
 }
@@ -249,11 +229,6 @@ ipa_interrupt_remove(struct ipa_interrupt *interrupt, enum ipa_irq_id ipa_irq)
 	interrupt->handler[ipa_irq] = NULL;
 }
 
-int ipa_interrupt_irq(struct ipa *ipa)
-{
-	return ipa->interrupt->irq ?: -ENODEV;
-}
-
 /* Configure the IPA interrupt framework */
 struct ipa_interrupt *ipa_interrupt_config(struct ipa *ipa)
 {
@@ -288,8 +263,16 @@ struct ipa_interrupt *ipa_interrupt_config(struct ipa *ipa)
 		goto err_kfree;
 	}
 
+	ret = enable_irq_wake(irq);
+	if (ret) {
+		dev_err(dev, "error %d enabling wakeup for \"ipa\" IRQ\n", ret);
+		goto err_free_irq;
+	}
+
 	return interrupt;
 
+err_free_irq:
+	free_irq(interrupt->irq, interrupt);
 err_kfree:
 	kfree(interrupt);
 
