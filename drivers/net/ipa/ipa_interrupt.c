@@ -22,11 +22,13 @@
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_wakeirq.h>
 
 #include "ipa.h"
 #include "ipa_reg.h"
 #include "ipa_endpoint.h"
 #include "ipa_interrupt.h"
+#include "ipa_power.h"
 
 /**
  * struct ipa_interrupt - IPA interrupt information
@@ -129,6 +131,14 @@ static irqreturn_t ipa_isr_thread(int irq, void *dev_id)
 	struct ipa_interrupt *interrupt = dev_id;
 	struct ipa *ipa = interrupt->ipa;
 	struct device *dev = &ipa->pdev->dev;
+
+	/* If we're in system suspend, notify power code and defer IRQ
+	 * handling until after system resume.
+	 */
+	if (!pm_runtime_enabled(dev) && ipa_wakeup_triggered(ipa)) {
+		disable_irq_nosync(irq);
+		return IRQ_HANDLED;
+	}
 
 	ipa_interrupt_process_pending(interrupt);
 
@@ -287,7 +297,7 @@ struct ipa_interrupt *ipa_interrupt_config(struct ipa *ipa)
 		goto err_kfree;
 	}
 
-	ret = enable_irq_wake(irq);
+	ret = dev_pm_set_wake_irq(dev, irq);
 	if (ret) {
 		dev_err(dev, "error %d enabling wakeup for \"ipa\" IRQ\n", ret);
 		goto err_free_irq;

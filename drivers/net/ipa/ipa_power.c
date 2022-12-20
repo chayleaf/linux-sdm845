@@ -179,6 +179,12 @@ static int ipa_suspend(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
 
+	/* If we aren't a wakeup source we need to mask the ipa IRQ
+	 * so it doesn't fire too early during resume if data is pending.
+	 */
+	if (!device_may_wakeup(dev))
+		ipa_interrupt_irq_disable(ipa->interrupt);
+
 	__set_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags);
 
 	return pm_runtime_force_suspend(dev);
@@ -189,9 +195,21 @@ static int ipa_resume(struct device *dev)
 	struct ipa *ipa = dev_get_drvdata(dev);
 	int ret;
 
+	/* This does not guarantee that ipa_runtime_resume() will be called */
 	ret = pm_runtime_force_resume(dev);
 
+	/* If we caused the wakeup then we now need to handle the IRQ
+	 * we deferred whilst in suspend.
+	 */
+	if (test_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags)) {
+		ipa_interrupt_process_pending(ipa->interrupt);
+		ipa_interrupt_irq_enable(ipa->interrupt);
+	}
+
 	__clear_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags);
+
+	if (!device_may_wakeup(dev))
+		ipa_interrupt_irq_enable(ipa->interrupt);
 
 	return ret;
 }
@@ -227,7 +245,6 @@ bool ipa_wakeup_triggered(struct ipa *ipa)
  */
 static void ipa_suspend_handler(struct ipa *ipa, enum ipa_irq_id irq_id)
 {
-	(void)ipa_wakeup_triggered(ipa);
 	/* Acknowledge/clear the suspend interrupt on all endpoints */
 	ipa_interrupt_suspend_clear_all(ipa->interrupt);
 }
