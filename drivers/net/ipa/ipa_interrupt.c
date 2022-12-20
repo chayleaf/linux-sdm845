@@ -229,6 +229,22 @@ ipa_interrupt_remove(struct ipa_interrupt *interrupt, enum ipa_irq_id ipa_irq)
 	interrupt->handler[ipa_irq] = NULL;
 }
 
+void ipa_interrupt_irq_disable(struct ipa_interrupt *interrupt)
+{
+	if (!interrupt || !interrupt->irq)
+		return;
+
+	disable_irq(interrupt->irq);
+}
+
+void ipa_interrupt_irq_enable(struct ipa_interrupt *interrupt)
+{
+	if (!interrupt || !interrupt->irq)
+		return;
+
+	enable_irq(interrupt->irq);
+}
+
 /* Configure the IPA interrupt framework */
 struct ipa_interrupt *ipa_interrupt_config(struct ipa *ipa)
 {
