@@ -86,6 +86,18 @@ void ipa_interrupt_suspend_clear_all(struct ipa_interrupt *interrupt);
 void ipa_interrupt_simulate_suspend(struct ipa_interrupt *interrupt);
 
 /**
+ * ipa_interrupt_irq_disable() - Mask the IPA interrupt
+ * @interrupt:	IPA interrupt structure
+ */
+void ipa_interrupt_irq_disable(struct ipa_interrupt *interrupt);
+
+/**
+ * ipa_interrupt_irq_enable() - Unmask the IPA interrupt
+ * @interrupt:	IPA interrupt structure
+ */
+void ipa_interrupt_irq_enable(struct ipa_interrupt *interrupt);
+
+/**
  * ipa_interrupt_config() - Configure the IPA interrupt framework
  * @ipa:	IPA pointer
  *
