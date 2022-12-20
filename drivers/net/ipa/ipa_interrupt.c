@@ -76,10 +76,8 @@ static void ipa_interrupt_process(struct ipa_interrupt *interrupt, u32 irq_id)
 		iowrite32(mask, ipa->reg_virt + offset);
 }
 
-/* IPA IRQ handler is threaded */
-static irqreturn_t ipa_isr_thread(int irq, void *dev_id)
+void ipa_interrupt_process_pending(struct ipa_interrupt *interrupt)
 {
-	struct ipa_interrupt *interrupt = dev_id;
 	struct ipa *ipa = interrupt->ipa;
 	u32 enabled = interrupt->enabled;
 	const struct ipa_reg *reg;
@@ -123,6 +121,14 @@ static irqreturn_t ipa_isr_thread(int irq, void *dev_id)
 out_power_put:
 	pm_runtime_mark_last_busy(dev);
 	(void)pm_runtime_put_autosuspend(dev);
+}
+
+/* IPA IRQ handler is threaded */
+static irqreturn_t ipa_isr_thread(int irq, void *dev_id)
+{
+	struct ipa_interrupt *interrupt = dev_id;
+
+	ipa_interrupt_process_pending(interrupt);
 
 	return IRQ_HANDLED;
 }
