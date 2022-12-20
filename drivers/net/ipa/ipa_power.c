@@ -202,6 +202,18 @@ u32 ipa_core_clock_rate(struct ipa *ipa)
 	return ipa->power ? (u32)clk_get_rate(ipa->power->core) : 0;
 }
 
+bool ipa_wakeup_triggered(struct ipa *ipa)
+{
+	/* Set bits to indicate we've been woken up and notify the system */
+	if (!__test_and_set_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags) &&
+	    test_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags)) {
+		pm_wakeup_hard_event(&ipa->pdev->dev);
+		return true;
+	}
+
+	return false;
+}
+
 /**
  * ipa_suspend_handler() - Handle the suspend IPA interrupt
  * @ipa:	IPA pointer
@@ -210,18 +222,12 @@ u32 ipa_core_clock_rate(struct ipa *ipa)
  * If an RX endpoint is suspended, and the IPA has a packet destined for
  * that endpoint, the IPA generates a SUSPEND interrupt to inform the AP
  * that it should resume the endpoint.  If we get one of these interrupts
- * we just wake up the system.
+ * the system and IPA hardware will be woken up and the endpoint resumed.
+ * We only have to acknowledge the interrupt here.
  */
 static void ipa_suspend_handler(struct ipa *ipa, enum ipa_irq_id irq_id)
 {
-	/* To handle an IPA interrupt we will have resumed the hardware
-	 * just to handle the interrupt, so we're done.  If we are in a
-	 * system suspend, trigger a system resume.
-	 */
-	if (!__test_and_set_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags))
-		if (test_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags))
-			pm_wakeup_dev_event(&ipa->pdev->dev, 0, true);
-
+	(void)ipa_wakeup_triggered(ipa);
 	/* Acknowledge/clear the suspend interrupt on all endpoints */
 	ipa_interrupt_suspend_clear_all(ipa->interrupt);
 }
