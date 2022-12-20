@@ -48,6 +48,16 @@ void ipa_power_modem_queue_active(struct ipa *ipa);
 void ipa_power_retention(struct ipa *ipa, bool enable);
 
 /**
+ * ipa_wakeup_triggered() - Handle a wakeup interrupt
+ * @ipa:	IPA pointer
+ *
+ * Return:	True if the interrupt caused a wakeup, false otherwise
+ *
+ * Handle the ipa IRQ firing during suspend and causing a wakeup.
+ */
+bool ipa_wakeup_triggered(struct ipa *ipa);
+
+/**
  * ipa_power_setup() - Set up IPA power management
  * @ipa:	IPA pointer
  *
