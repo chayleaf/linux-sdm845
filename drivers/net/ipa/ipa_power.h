@@ -60,20 +60,6 @@ void ipa_power_retention(struct ipa *ipa, bool enable);
 void ipa_power_suspend_handler(struct ipa *ipa, enum ipa_irq_id irq_id);
 
 /**
- * ipa_power_setup() - Set up IPA power management
- * @ipa:	IPA pointer
- *
- * Return:	0 if successful, or a negative error code
- */
-int ipa_power_setup(struct ipa *ipa);
-
-/**
- * ipa_power_teardown() - Inverse of ipa_power_setup()
- * @ipa:	IPA pointer
- */
-void ipa_power_teardown(struct ipa *ipa);
-
-/**
  * ipa_power_init() - Initialize IPA power management
  * @dev:	IPA device
  * @data:	Clock configuration data
