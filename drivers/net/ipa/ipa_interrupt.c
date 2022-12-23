@@ -164,6 +164,7 @@ static void ipa_interrupt_suspend_control(struct ipa_interrupt *interrupt,
 	u32 mask = BIT(endpoint_id % 32);
 	u32 unit = endpoint_id / 32;
 	const struct ipa_reg *reg;
+	unsigned long weight;
 	u32 offset;
 	u32 val;
 
@@ -172,6 +173,10 @@ static void ipa_interrupt_suspend_control(struct ipa_interrupt *interrupt,
 	/* IPA version 3.0 does not support TX_SUSPEND interrupt control */
 	if (ipa->version == IPA_VERSION_3_0)
 		return;
+
+	weight = bitmap_weight(interrupt->suspend_enabled, ipa->endpoint_count);
+	if (weight == 1 && !enable)
+		ipa_interrupt_disable(ipa, IPA_IRQ_TX_SUSPEND);
 
 	reg = ipa_reg(ipa, IRQ_SUSPEND_EN);
 	offset = ipa_reg_n_offset(reg, unit);
@@ -190,6 +195,9 @@ static void ipa_interrupt_suspend_control(struct ipa_interrupt *interrupt,
 	}
 
 	iowrite32(val, ipa->reg_virt + offset);
+
+	if (!weight && enable)
+		ipa_interrupt_enable(ipa, IPA_IRQ_TX_SUSPEND);
 }
 
 /* Enable TX_SUSPEND for an endpoint */
