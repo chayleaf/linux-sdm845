@@ -46,7 +46,7 @@ static int enable_eud(struct eud_chip *priv)
 	writel(EUD_ENABLE, priv->base + EUD_REG_CSR_EUD_EN);
 	writel(EUD_INT_VBUS | EUD_INT_SAFE_MODE,
 			priv->base + EUD_REG_INT1_EN_MASK);
-	writel(1, priv->mode_mgr + EUD_REG_EUD_EN2);
+	//writel(1, priv->mode_mgr + EUD_REG_EUD_EN2);
 
 	return usb_role_switch_set_role(priv->role_sw, USB_ROLE_DEVICE);
 }
@@ -54,7 +54,7 @@ static int enable_eud(struct eud_chip *priv)
 static void disable_eud(struct eud_chip *priv)
 {
 	writel(0, priv->base + EUD_REG_CSR_EUD_EN);
-	writel(0, priv->mode_mgr + EUD_REG_EUD_EN2);
+	//writel(0, priv->mode_mgr + EUD_REG_EUD_EN2);
 }
 
 static ssize_t enable_show(struct device *dev,
@@ -137,6 +137,7 @@ static irqreturn_t handle_eud_irq(int irq, void *data)
 	u32 reg;
 
 	reg = readl(chip->base + EUD_REG_INT_STATUS_1);
+	dev_info(chip->dev, "EUD interrupt status: 0x%x\n", reg);
 	switch (reg & EUD_INT_ALL) {
 	case EUD_INT_VBUS:
 		usb_attach_detach(chip);
@@ -200,9 +201,9 @@ static int eud_probe(struct platform_device *pdev)
 	if (IS_ERR(chip->base))
 		return PTR_ERR(chip->base);
 
-	chip->mode_mgr = devm_platform_ioremap_resource(pdev, 1);
-	if (IS_ERR(chip->mode_mgr))
-		return PTR_ERR(chip->mode_mgr);
+	// chip->mode_mgr = devm_platform_ioremap_resource(pdev, 1);
+	// if (IS_ERR(chip->mode_mgr))
+	// 	return PTR_ERR(chip->mode_mgr);
 
 	chip->irq = platform_get_irq(pdev, 0);
 	ret = devm_request_threaded_irq(&pdev->dev, chip->irq, handle_eud_irq,
