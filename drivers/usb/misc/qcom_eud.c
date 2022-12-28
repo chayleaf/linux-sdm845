@@ -20,15 +20,19 @@
 #define EUD_REG_INT_STATUS_1	0x0044
 #define EUD_REG_CTL_OUT_1	0x0074
 #define EUD_REG_VBUS_INT_CLR	0x0080
+#define EUD_REG_CHGR_INT_CLR	0x0084
 #define EUD_REG_CSR_EUD_EN	0x1014
 #define EUD_REG_SW_ATTACH_DET	0x1018
 #define EUD_REG_EUD_EN2        0x0000
 
 #define EUD_ENABLE		BIT(0)
-#define EUD_INT_PET_EUD	BIT(0)
+#define EUD_INT_PET_EUD		BIT(0)
+
+#define EUD_INT_RX		BIT(0)
+#define EUD_INT_TX		BIT(1)
+#define EUD_INT_CHGR		BIT(3)
 #define EUD_INT_VBUS		BIT(2)
 #define EUD_INT_SAFE_MODE	BIT(4)
-#define EUD_INT_ALL		(EUD_INT_VBUS | EUD_INT_SAFE_MODE)
 
 struct eud_chip {
 	struct device			*dev;
@@ -39,12 +43,13 @@ struct eud_chip {
 	int				irq;
 	bool				enabled;
 	bool				usb_attached;
+	struct clk *cfg_ahb_clk;
 };
 
 static int enable_eud(struct eud_chip *priv)
 {
 	writel(EUD_ENABLE, priv->base + EUD_REG_CSR_EUD_EN);
-	writel(EUD_INT_VBUS | EUD_INT_SAFE_MODE,
+	writel(EUD_INT_CHGR | EUD_INT_VBUS,
 			priv->base + EUD_REG_INT1_EN_MASK);
 	//writel(1, priv->mode_mgr + EUD_REG_EUD_EN2);
 
@@ -138,7 +143,7 @@ static irqreturn_t handle_eud_irq(int irq, void *data)
 
 	reg = readl(chip->base + EUD_REG_INT_STATUS_1);
 	dev_info(chip->dev, "EUD interrupt status: 0x%x\n", reg);
-	switch (reg & EUD_INT_ALL) {
+	switch (reg) {
 	case EUD_INT_VBUS:
 		usb_attach_detach(chip);
 		return IRQ_WAKE_THREAD;
@@ -186,6 +191,12 @@ static int eud_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	chip->dev = &pdev->dev;
+
+	chip->cfg_ahb_clk = devm_clk_get(&pdev->dev, "cfg_ahb");
+	clk_prepare_enable(chip->cfg_ahb_clk);
+
+	dev_info(&pdev->dev, "EUD cfg_ahb_clk rate: %ld\n",
+			clk_get_rate(chip->cfg_ahb_clk));
 
 	chip->role_sw = usb_role_switch_get(&pdev->dev);
 	if (IS_ERR(chip->role_sw))
