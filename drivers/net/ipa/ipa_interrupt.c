@@ -22,6 +22,7 @@
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_wakeirq.h>
 
 #include "ipa.h"
 #include "ipa_reg.h"
@@ -154,6 +155,16 @@ void ipa_interrupt_disable(struct ipa *ipa, enum ipa_irq_id ipa_irq)
 	/* Update the IPA interrupt mask to disable it */
 	ipa->interrupt->enabled &= ~BIT(ipa_irq);
 	ipa_interrupt_enabled_update(ipa);
+}
+
+void ipa_interrupt_irq_disable(struct ipa *ipa)
+{
+	disable_irq_nosync(ipa->interrupt->irq);
+}
+
+void ipa_interrupt_irq_enable(struct ipa *ipa)
+{
+	enable_irq(ipa->interrupt->irq);
 }
 
 /* Common function used to enable/disable TX_SUSPEND for an endpoint */
@@ -290,9 +301,9 @@ struct ipa_interrupt *ipa_interrupt_config(struct ipa *ipa)
 		goto err_free_irq;
 	}
 
-	ret = enable_irq_wake(irq);
+	ret = dev_pm_set_wake_irq(dev, irq);
 	if (ret) {
-		dev_err(dev, "error %d enabling wakeup for \"ipa\" IRQ\n", ret);
+		dev_err(dev, "error %d setting \"ipa\" as wake IRQ\n", ret);
 		goto err_disable_wakeup;
 	}
 

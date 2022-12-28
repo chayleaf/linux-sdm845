@@ -175,12 +175,36 @@ static int ipa_runtime_resume(struct device *dev)
 
 static int ipa_suspend(struct device *dev)
 {
+	struct ipa *ipa = dev_get_drvdata(dev);
+
+	/* Increment the disable depth to ensure that the IRQ won't
+	 * be re-enabled until the matching _enable call in
+	 * ipa_resume(). We do this to ensure that the interrupt
+	 * handler won't run whilst PM runtime is disabled.
+	 *
+	 * Note that disabling the IRQ is NOT the same as disabling
+	 * irq wake. If wakeup is enabled for the IPA then the IRQ
+	 * will still cause the system to wake up, see irq_set_irq_wake().
+	 */
+	ipa_interrupt_irq_disable(ipa);
+
 	return pm_runtime_force_suspend(dev);
 }
 
 static int ipa_resume(struct device *dev)
 {
-	return pm_runtime_force_resume(dev);
+	struct ipa *ipa = dev_get_drvdata(dev);
+	int ret;
+
+	ret = pm_runtime_force_resume(dev);
+
+	/* Now that PM runtime is enabled again it's safe
+	 * to turn the IRQ back on and process any data
+	 * that was received during suspend.
+	 */
+	ipa_interrupt_irq_enable(ipa);
+
+	return ret;
 }
 
 /* Return the current IPA core clock rate */
