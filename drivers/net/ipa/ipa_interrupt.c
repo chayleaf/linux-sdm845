@@ -286,7 +286,7 @@ struct ipa_interrupt *ipa_interrupt_config(struct ipa *ipa)
 
 	ret = device_init_wakeup(dev, true);
 	if (ret) {
-		dev_err(dev, "error %d setting \"ipa\" as wake IRQ\n", ret);
+		dev_err(dev, "error %d enabling wakeup\n", ret);
 		goto err_free_irq;
 	}
 
