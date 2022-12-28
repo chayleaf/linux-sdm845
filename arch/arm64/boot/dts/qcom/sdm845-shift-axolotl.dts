@@ -1020,7 +1020,7 @@
 };
 
 &usb_1_dwc3 {
-	dr_mode = "peripheral";
+	dr_mode = "otg";
 };
 
 &usb_1_hsphy {
