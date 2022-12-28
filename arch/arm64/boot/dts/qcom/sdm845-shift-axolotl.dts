@@ -336,6 +336,9 @@
 			regulator-min-microvolt = <3088000>;
 			regulator-max-microvolt = <3088000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			/* Apparently EUD interrupt mask is wiped when this
+			 * regulator is turned off, so we keep it on. */
+			regulator-always-on;
 		};
 
 		vreg_l25a_3p3: ldo25 {

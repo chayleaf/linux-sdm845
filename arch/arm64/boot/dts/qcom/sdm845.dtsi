@@ -4225,6 +4225,8 @@
 			reg = <0 0x88e0000 0 0x2000>,
 			      <0 0x88e2000 0 0x1000>;
 			interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>;
+			clock-names = "cfg_ahb";
 			ports {
 				port@0 {
 					eud_ep: endpoint {
