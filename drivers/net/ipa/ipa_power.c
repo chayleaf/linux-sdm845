@@ -37,14 +37,12 @@
 /**
  * enum ipa_power_flag - IPA power flags
  * @IPA_POWER_FLAG_RESUMED:	Whether resume from suspend has been signaled
- * @IPA_POWER_FLAG_SYSTEM:	Hardware is system (not runtime) suspended
  * @IPA_POWER_FLAG_STOPPED:	Modem TX is disabled by ipa_start_xmit()
  * @IPA_POWER_FLAG_STARTED:	Modem TX was enabled by ipa_runtime_resume()
  * @IPA_POWER_FLAG_COUNT:	Number of defined power flags
  */
 enum ipa_power_flag {
 	IPA_POWER_FLAG_RESUMED,
-	IPA_POWER_FLAG_SYSTEM,
 	IPA_POWER_FLAG_STOPPED,
 	IPA_POWER_FLAG_STARTED,
 	IPA_POWER_FLAG_COUNT,		/* Last; not a flag */
@@ -177,23 +175,12 @@ static int ipa_runtime_resume(struct device *dev)
 
 static int ipa_suspend(struct device *dev)
 {
-	struct ipa *ipa = dev_get_drvdata(dev);
-
-	__set_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags);
-
 	return pm_runtime_force_suspend(dev);
 }
 
 static int ipa_resume(struct device *dev)
 {
-	struct ipa *ipa = dev_get_drvdata(dev);
-	int ret;
-
-	ret = pm_runtime_force_resume(dev);
-
-	__clear_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags);
-
-	return ret;
+	return pm_runtime_force_resume(dev);
 }
 
 /* Return the current IPA core clock rate */
@@ -209,7 +196,7 @@ void ipa_power_suspend_handler(struct ipa *ipa, enum ipa_irq_id irq_id)
 	 * system suspend, trigger a system resume.
 	 */
 	if (!__test_and_set_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags))
-		if (test_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags))
+		if (ipa->pdev->dev.power.is_suspended)
 			pm_wakeup_dev_event(&ipa->pdev->dev, 0, true);
 
 	/* Acknowledge/clear the suspend interrupt on all endpoints */
