@@ -624,6 +624,8 @@ struct pm_subsys_data {
  * SMART_PREPARE: Take the driver ->prepare callback return value into account.
  * SMART_SUSPEND: Avoid resuming the device from runtime suspend.
  * MAY_SKIP_RESUME: Allow driver "noirq" and "early" callbacks to be skipped.
+ * PM_RUNTIME_EARLY: Re-enable runtime PM before the "early" callback and before
+ * IRQs are enabled.
  *
  * See Documentation/driver-api/pm/devices.rst for details.
  */
@@ -631,6 +633,7 @@ struct pm_subsys_data {
 #define DPM_FLAG_SMART_PREPARE		BIT(1)
 #define DPM_FLAG_SMART_SUSPEND		BIT(2)
 #define DPM_FLAG_MAY_SKIP_RESUME	BIT(3)
+#define DPM_FLAG_PM_RUNTIME_EARLY	BIT(4)
 
 struct dev_pm_info {
 	pm_message_t		power_state;

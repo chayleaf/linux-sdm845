@@ -653,6 +653,8 @@ Skip:
 	dev->power.is_noirq_suspended = false;
 
 Out:
+	if (dev_pm_test_driver_flags(dev, DPM_FLAG_PM_RUNTIME_EARLY))
+		pm_runtime_enable(dev);
 	complete_all(&dev->power.completion);
 	TRACE_RESUME(error);
 	return error;
@@ -809,7 +811,8 @@ Skip:
 Out:
 	TRACE_RESUME(error);
 
-	pm_runtime_enable(dev);
+	if (!dev_pm_test_driver_flags(dev, DPM_FLAG_PM_RUNTIME_EARLY))
+		pm_runtime_enable(dev);
 	complete_all(&dev->power.completion);
 	return error;
 }
