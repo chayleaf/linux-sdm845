@@ -209,8 +209,10 @@ u32 ipa_core_clock_rate(struct ipa *ipa)
  *
  * If an RX endpoint is suspended, and the IPA has a packet destined for
  * that endpoint, the IPA generates a SUSPEND interrupt to inform the AP
- * that it should resume the endpoint.  If we get one of these interrupts
- * we just wake up the system.
+ * that it should resume the endpoint.  If we get one of these interrupts,
+ * the system will have already been woken up by the IRQ core code, but
+ * we still need to manually specify that the IRQ which caused the wakeup
+ * was for the IPA device.
  */
 static void ipa_suspend_handler(struct ipa *ipa, enum ipa_irq_id irq_id)
 {

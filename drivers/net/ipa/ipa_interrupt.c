@@ -22,6 +22,8 @@
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_wakeirq.h>
+#include <linux/pm.h>
 
 #include "ipa.h"
 #include "ipa_reg.h"
@@ -262,6 +264,8 @@ struct ipa_interrupt *ipa_interrupt_config(struct ipa *ipa)
 	interrupt->ipa = ipa;
 	interrupt->irq = irq;
 
+	dev_pm_set_driver_flags(dev, DPM_FLAG_PM_RUNTIME_EARLY);
+
 	/* Start with all IPA interrupts disabled */
 	reg = ipa_reg(ipa, IPA_IRQ_EN);
 	iowrite32(0, ipa->reg_virt + ipa_reg_offset(reg));
@@ -273,9 +277,9 @@ struct ipa_interrupt *ipa_interrupt_config(struct ipa *ipa)
 		goto err_kfree;
 	}
 
-	ret = enable_irq_wake(irq);
+	ret = dev_pm_set_wake_irq(dev, irq);
 	if (ret) {
-		dev_err(dev, "error %d enabling wakeup for \"ipa\" IRQ\n", ret);
+		dev_err(dev, "error %d setting \"ipa\" as wake IRQ\n", ret);
 		goto err_free_irq;
 	}
 
@@ -292,12 +296,7 @@ err_kfree:
 /* Inverse of ipa_interrupt_config() */
 void ipa_interrupt_deconfig(struct ipa_interrupt *interrupt)
 {
-	struct device *dev = &interrupt->ipa->pdev->dev;
-	int ret;
-
-	ret = disable_irq_wake(interrupt->irq);
-	if (ret)
-		dev_err(dev, "error %d disabling \"ipa\" IRQ wakeup\n", ret);
+	dev_pm_clear_wake_irq(&interrupt->ipa->pdev->dev);
 	free_irq(interrupt->irq, interrupt);
 	kfree(interrupt);
 }
