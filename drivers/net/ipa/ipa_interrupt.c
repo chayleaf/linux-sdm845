@@ -94,6 +94,7 @@ static irqreturn_t ipa_isr_thread(int irq, void *dev_id)
 
 	dev = &ipa->pdev->dev;
 	ret = pm_runtime_get_sync(dev);
+	dev_info(dev, "%s: pm_runtime_get_sync returned %d\n", __func__, ret);
 	if (WARN_ON(ret < 0))
 		goto out_power_put;
 
