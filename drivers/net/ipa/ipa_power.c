@@ -424,8 +424,8 @@ void ipa_power_exit(struct ipa_power *power)
 }
 
 const struct dev_pm_ops ipa_pm_ops = {
-	.suspend		= ipa_suspend,
-	.resume			= ipa_resume,
+	.suspend_noirq		= ipa_suspend,
+	.resume_noirq		= ipa_resume,
 	.runtime_suspend	= ipa_runtime_suspend,
 	.runtime_resume		= ipa_runtime_resume,
 };
