@@ -145,6 +145,8 @@ static int ipa_runtime_suspend(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
 
+	dev_info(dev, "%s\n", __func__);
+
 	/* Endpoints aren't usable until setup is complete */
 	if (ipa->setup_complete) {
 		__clear_bit(IPA_POWER_FLAG_RESUMED, ipa->power->flags);
@@ -161,6 +163,8 @@ static int ipa_runtime_resume(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
 	int ret;
+
+	dev_info(dev, "%s\n", __func__);
 
 	ret = ipa_power_enable(ipa);
 	if (WARN_ON(ret < 0))
@@ -179,6 +183,8 @@ static int ipa_suspend(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
 
+	dev_info(dev, "%s\n", __func__);
+
 	__set_bit(IPA_POWER_FLAG_SYSTEM, ipa->power->flags);
 
 	return pm_runtime_force_suspend(dev);
@@ -188,6 +194,8 @@ static int ipa_resume(struct device *dev)
 {
 	struct ipa *ipa = dev_get_drvdata(dev);
 	int ret;
+
+	dev_info(dev, "%s\n", __func__);
 
 	ret = pm_runtime_force_resume(dev);
 
