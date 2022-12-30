@@ -15,6 +15,7 @@
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <linux/usb/role.h>
+#include <linux/clk.h>
 
 #define EUD_REG_INT1_EN_MASK	0x0024
 #define EUD_REG_INT_STATUS_1	0x0044
@@ -52,6 +53,7 @@ static int enable_eud(struct eud_chip *priv)
 	writel(EUD_INT_CHGR | EUD_INT_VBUS,
 			priv->base + EUD_REG_INT1_EN_MASK);
 	//writel(1, priv->mode_mgr + EUD_REG_EUD_EN2);
+	clk_prepare_enable(priv->cfg_ahb_clk);
 
 	return usb_role_switch_set_role(priv->role_sw, USB_ROLE_DEVICE);
 }
@@ -141,7 +143,7 @@ static irqreturn_t handle_eud_irq(int irq, void *data)
 	struct eud_chip *chip = data;
 	u32 reg;
 
-	reg = readl(chip->base + EUD_REG_INT_STATUS_1);
+	reg = readl(chip->base + EUD_REG_INT_STATUS_1) & 0xff;
 	dev_info(chip->dev, "EUD interrupt status: 0x%x\n", reg);
 	switch (reg) {
 	case EUD_INT_VBUS:
@@ -151,7 +153,7 @@ static irqreturn_t handle_eud_irq(int irq, void *data)
 		pet_eud(chip);
 		return IRQ_HANDLED;
 	default:
-		return IRQ_NONE;
+		return IRQ_HANDLED;
 	}
 }
 
@@ -193,7 +195,6 @@ static int eud_probe(struct platform_device *pdev)
 	chip->dev = &pdev->dev;
 
 	chip->cfg_ahb_clk = devm_clk_get(&pdev->dev, "cfg_ahb");
-	clk_prepare_enable(chip->cfg_ahb_clk);
 
 	dev_info(&pdev->dev, "EUD cfg_ahb_clk rate: %ld\n",
 			clk_get_rate(chip->cfg_ahb_clk));
