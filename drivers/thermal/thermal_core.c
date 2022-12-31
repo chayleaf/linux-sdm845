@@ -920,7 +920,7 @@ __thermal_cooling_device_register(struct device_node *np,
 	}
 	ret = device_register(&cdev->device);
 	if (ret)
-		goto out_kfree_type;
+		goto out_put_device;
 
 	/* Add 'this' new cdev to the global cdev list */
 	mutex_lock(&thermal_list_lock);
@@ -939,10 +939,11 @@ __thermal_cooling_device_register(struct device_node *np,
 
 	return cdev;
 
+out_put_device:
+	put_device(&cdev->device);
 out_kfree_type:
 	thermal_cooling_device_destroy_sysfs(cdev);
 	kfree(cdev->type);
-	put_device(&cdev->device);
 	cdev = NULL;
 out_ida_remove:
 	ida_free(&thermal_cdev_ida, id);
