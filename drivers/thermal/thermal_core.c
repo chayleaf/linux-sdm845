@@ -914,10 +914,9 @@ __thermal_cooling_device_register(struct device_node *np,
 
 	thermal_cooling_device_setup_sysfs(cdev);
 	ret = dev_set_name(&cdev->device, "cooling_device%d", cdev->id);
-	if (ret) {
-		thermal_cooling_device_destroy_sysfs(cdev);
-		goto out_kfree_type;
-	}
+	if (ret)
+		goto out_destroy_sysfs;
+
 	ret = device_register(&cdev->device);
 	if (ret)
 		goto out_put_device;
@@ -941,8 +940,9 @@ __thermal_cooling_device_register(struct device_node *np,
 
 out_put_device:
 	put_device(&cdev->device);
-out_kfree_type:
+out_destroy_sysfs:
 	thermal_cooling_device_destroy_sysfs(cdev);
+out_kfree_type:
 	kfree(cdev->type);
 	cdev = NULL;
 out_ida_remove:
