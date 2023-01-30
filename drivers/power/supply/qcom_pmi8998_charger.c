@@ -910,7 +910,7 @@ static int smb2_init_hw(struct smb2_chip *chip)
 }
 
 static int smb2_init_irq(struct smb2_chip *chip, int *irq, const char *name,
-			 irqreturn_t (*handler)(int irq, void *data))
+			 irqreturn_t (*handler)(int irq, void *data), unsigned long irqflags)
 {
 	int irqnum;
 	int rc;
@@ -921,7 +921,7 @@ static int smb2_init_irq(struct smb2_chip *chip, int *irq, const char *name,
 				     "Couldn't get irq %s byname\n", name);
 
 	rc = devm_request_threaded_irq(chip->dev, irqnum, NULL, handler,
-				       IRQF_ONESHOT, name, chip);
+				       irqflags, name, chip);
 	if (rc < 0)
 		return dev_err_probe(chip->dev, rc, "Couldn't request irq %s\n",
 				     name);
@@ -1002,20 +1002,20 @@ static int smb2_probe(struct platform_device *pdev)
 	if (rc < 0)
 		return dev_err_probe(chip->dev, rc, "Couldn't set vbat max\n");
 
-	rc = smb2_init_irq(chip, &irq, "bat-ov", smb2_handle_batt_overvoltage);
+	rc = smb2_init_irq(chip, &irq, "bat-ov", smb2_handle_batt_overvoltage, IRQF_ONESHOT);
 	if (rc < 0)
 		return rc;
 
 	rc = smb2_init_irq(chip, &chip->cable_irq, "usb-plugin",
-			   smb2_handle_usb_plugin);
+			   smb2_handle_usb_plugin, IRQF_ONESHOT | IRQF_SHARED);
 	if (rc < 0)
 		return rc;
 
 	rc = smb2_init_irq(chip, &irq, "usbin-icl-change",
-			   smb2_handle_usb_icl_change);
+			   smb2_handle_usb_icl_change, IRQF_ONESHOT);
 	if (rc < 0)
 		return rc;
-	rc = smb2_init_irq(chip, &irq, "wdog-bark", smb2_handle_wdog_bark);
+	rc = smb2_init_irq(chip, &irq, "wdog-bark", smb2_handle_wdog_bark, IRQF_ONESHOT);
 	if (rc < 0)
 		return rc;
 
