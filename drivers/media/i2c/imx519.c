@@ -876,75 +876,75 @@ static const struct imx519_reg mode_1280x720_regs[] = {
 
 /* Mode configs */
 static const struct imx519_mode supported_modes_10bit[] = {
-	{
-		.width = 4656,
-		.height = 3496,
-		.line_length_pix = 0x4200,
-		.crop = {
-			.left = IMX519_PIXEL_ARRAY_LEFT,
-			.top = IMX519_PIXEL_ARRAY_TOP,
-			.width = 4656,
-			.height = 3496,
-		},
-		.timeperframe_min = {
-			.numerator = 100,
-			.denominator = 1000
-		},
-		.timeperframe_default = {
-			.numerator = 100,
-			.denominator = 1000
-		},
-		.reg_list = {
-			.num_of_regs = ARRAY_SIZE(mode_4656x3496_regs),
-			.regs = mode_4656x3496_regs,
-		}
-	},
-	{
-		.width = 3840,
-		.height = 2160,
-		.line_length_pix = 0x3870,
-		.crop = {
-			.left = IMX519_PIXEL_ARRAY_LEFT + 408,
-			.top = IMX519_PIXEL_ARRAY_TOP + 672,
-			.width = 3840,
-			.height = 2160,
-		},
-		.timeperframe_min = {
-			.numerator = 100,
-			.denominator = 2100
-		},
-		.timeperframe_default = {
-			.numerator = 100,
-			.denominator = 2100
-		},
-		.reg_list = {
-			.num_of_regs = ARRAY_SIZE(mode_3840x2160_regs),
-			.regs = mode_3840x2160_regs,
-		}
-	},
-	{
-		.width = 2328,
-		.height = 1748,
-		.line_length_pix = 0x2412,
-		.crop = {
-			.left = IMX519_PIXEL_ARRAY_LEFT,
-			.top = IMX519_PIXEL_ARRAY_TOP,
-			.width = 4656,
-			.height = 3496,
-		},
-		.timeperframe_min = {
-			.numerator = 100,
-			.denominator = 3000
-		},
-		.timeperframe_default = {
-			.numerator = 100,
-			.denominator = 3000
-		},
-		.reg_list = {
-			.num_of_regs = ARRAY_SIZE(mode_2328x1748_regs),
-			.regs = mode_2328x1748_regs,
-		}
-	},
+	// {
+	// 	.width = 4656,
+	// 	.height = 3496,
+	// 	.line_length_pix = 0x4200,
+	// 	.crop = {
+	// 		.left = IMX519_PIXEL_ARRAY_LEFT,
+	// 		.top = IMX519_PIXEL_ARRAY_TOP,
+	// 		.width = 4656,
+	// 		.height = 3496,
+	// 	},
+	// 	.timeperframe_min = {
+	// 		.numerator = 100,
+	// 		.denominator = 1000
+	// 	},
+	// 	.timeperframe_default = {
+	// 		.numerator = 100,
+	// 		.denominator = 1000
+	// 	},
+	// 	.reg_list = {
+	// 		.num_of_regs = ARRAY_SIZE(mode_4656x3496_regs),
+	// 		.regs = mode_4656x3496_regs,
+	// 	}
+	// },
+	// {
+	// 	.width = 3840,
+	// 	.height = 2160,
+	// 	.line_length_pix = 0x3870,
+	// 	.crop = {
+	// 		.left = IMX519_PIXEL_ARRAY_LEFT + 408,
+	// 		.top = IMX519_PIXEL_ARRAY_TOP + 672,
+	// 		.width = 3840,
+	// 		.height = 2160,
+	// 	},
+	// 	.timeperframe_min = {
+	// 		.numerator = 100,
+	// 		.denominator = 2100
+	// 	},
+	// 	.timeperframe_default = {
+	// 		.numerator = 100,
+	// 		.denominator = 2100
+	// 	},
+	// 	.reg_list = {
+	// 		.num_of_regs = ARRAY_SIZE(mode_3840x2160_regs),
+	// 		.regs = mode_3840x2160_regs,
+	// 	}
+	// },
+	// {
+	// 	.width = 2328,
+	// 	.height = 1748,
+	// 	.line_length_pix = 0x2412,
+	// 	.crop = {
+	// 		.left = IMX519_PIXEL_ARRAY_LEFT,
+	// 		.top = IMX519_PIXEL_ARRAY_TOP,
+	// 		.width = 4656,
+	// 		.height = 3496,
+	// 	},
+	// 	.timeperframe_min = {
+	// 		.numerator = 100,
+	// 		.denominator = 3000
+	// 	},
+	// 	.timeperframe_default = {
+	// 		.numerator = 100,
+	// 		.denominator = 3000
+	// 	},
+	// 	.reg_list = {
+	// 		.num_of_regs = ARRAY_SIZE(mode_2328x1748_regs),
+	// 		.regs = mode_2328x1748_regs,
+	// 	}
+	// },
 	{
 		.width = 1920,
 		.height = 1080,
@@ -968,29 +968,29 @@ static const struct imx519_mode supported_modes_10bit[] = {
 			.regs = mode_1920x1080_regs,
 		}
 	},
-	{
-		.width = 1280,
-		.height = 720,
-		.line_length_pix = 0x1B3B,
-		.crop = {
-			.left = IMX519_PIXEL_ARRAY_LEFT + 1048,
-			.top = IMX519_PIXEL_ARRAY_TOP + 1042,
-			.width = 2560,
-			.height = 1440,
-		},
-		.timeperframe_min = {
-			.numerator = 100,
-			.denominator = 12000
-		},
-		.timeperframe_default = {
-			.numerator = 100,
-			.denominator = 12000
-		},
-		.reg_list = {
-			.num_of_regs = ARRAY_SIZE(mode_1280x720_regs),
-			.regs = mode_1280x720_regs,
-		}
-	}
+	// {
+	// 	.width = 1280,
+	// 	.height = 720,
+	// 	.line_length_pix = 0x1B3B,
+	// 	.crop = {
+	// 		.left = IMX519_PIXEL_ARRAY_LEFT + 1048,
+	// 		.top = IMX519_PIXEL_ARRAY_TOP + 1042,
+	// 		.width = 2560,
+	// 		.height = 1440,
+	// 	},
+	// 	.timeperframe_min = {
+	// 		.numerator = 100,
+	// 		.denominator = 12000
+	// 	},
+	// 	.timeperframe_default = {
+	// 		.numerator = 100,
+	// 		.denominator = 12000
+	// 	},
+	// 	.reg_list = {
+	// 		.num_of_regs = ARRAY_SIZE(mode_1280x720_regs),
+	// 		.regs = mode_1280x720_regs,
+	// 	}
+	// }
 };
 
 /*
