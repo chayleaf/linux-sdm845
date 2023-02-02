@@ -472,8 +472,11 @@ static int vfe_set_clock_rates(struct vfe_device *vfe)
 					tmp = pixel_clock[j] * bpp / 64;
 				}
 
-				if (min_rate < tmp)
+				if (min_rate < tmp) {
+					dev_info(dev, "clock: %s, freq: %u\n",
+					 clock->name, clock->freq[j]);
 					min_rate = tmp;
+				}
 			}
 
 			camss_add_clock_margin(&min_rate);
@@ -557,6 +560,8 @@ static int vfe_check_clock_rates(struct vfe_device *vfe)
 				if (min_rate < tmp)
 					min_rate = tmp;
 			}
+
+			dev_info(vfe->camss->dev, "min_rate: %llu\n", min_rate);
 
 			camss_add_clock_margin(&min_rate);
 
