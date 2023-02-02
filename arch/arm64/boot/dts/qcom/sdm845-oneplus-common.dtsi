@@ -476,10 +476,10 @@
 
 		power-domains = <&clock_camcc TITAN_TOP_GDSC>;
 
-		VDDL-supply = <&cam_vio_1p8>; // lvs1
+		vddl-supply = <&cam_vio_1p8>; // lvs1
 		ldo-supply = <&vreg_l21a_2p95>;
-		VANA-supply = <&cam0_2p8_en>;
-		VDIG-supply = <&cam0_1p05_en>;
+		vana-supply = <&cam0_2p8_en>;
+		vdig-supply = <&cam0_1p05_en>;
 
 		status = "okay";
 
