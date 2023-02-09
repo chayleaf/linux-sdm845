@@ -377,6 +377,7 @@ struct smb2_register {
  * @batt_info:		Battery data from DT
  * @status_change_work: Worker to handle plug/unplug events
  * @cable_irq:		USB plugin IRQ
+ * @batt_low_irq:	If the battery is low an IRQ will cause a wakeup
  * @wakeup_enabled:	If the cable IRQ will cause a wakeup
  * @usb_in_i_chan:	USB_IN current measurement channel
  * @usb_in_v_chan:	USB_IN voltage measurement channel
@@ -391,6 +392,7 @@ struct smb2_chip {
 
 	struct delayed_work status_change_work;
 	int cable_irq;
+	int batt_low_irq;
 	bool wakeup_enabled;
 
 	struct iio_channel *usb_in_i_chan;
@@ -779,6 +781,12 @@ static irqreturn_t smb2_handle_wdog_bark(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t smb2_handle_batt_low(int irq, void *data)
+{
+	dev_dbg("Battery low, triggered wake-up for gracefull shutdown\n");
+	return IRQ_HANDLED;
+}
+
 static const struct power_supply_desc smb2_psy_desc = {
 	.name = "pmi8998_charger",
 	.type = POWER_SUPPLY_TYPE_USB,
@@ -1018,10 +1026,16 @@ static int smb2_probe(struct platform_device *pdev)
 	rc = smb2_init_irq(chip, &irq, "wdog-bark", smb2_handle_wdog_bark);
 	if (rc < 0)
 		return rc;
+	rc = smb2_init_irq(chip, &chip->batt_low_irq, "vbatt-low", smb2_handle_batt_low);
+	if (rc < 0)
+		return rc;
 
 	rc = dev_pm_set_wake_irq(chip->dev, chip->cable_irq);
 	if (rc < 0)
-		return dev_err_probe(chip->dev, rc, "Couldn't set wake irq\n");
+		return dev_err_probe(chip->dev, rc, "Couldn't set wake irq for cable plugin\n");
+	rc = dev_pm_set_wake_irq(chip->dev, chip->batt_low_irq);
+	if (rc < 0)
+		return dev_err_probe(chip->dev, rc, "Couldn't set wake irq for battery low\n");
 
 	platform_set_drvdata(pdev, chip);
 
