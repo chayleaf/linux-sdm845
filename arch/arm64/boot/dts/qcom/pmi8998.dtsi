@@ -18,7 +18,7 @@
 				     <0x2 0x12 0x2 IRQ_TYPE_EDGE_BOTH>,
 				     <0x2 0x16 0x1 IRQ_TYPE_EDGE_RISING>,
 				     <0x2 0x13 0x6 IRQ_TYPE_EDGE_RISING>;
-			interrupt-names = "usb-plugin", "bat-ov", "wdog-bark", "usbin-icl-change";
+			interrupt-names = "usb-plugin", "bat-ov", "wdog-bark", "usbin-icl-change, vbatt_low";
 
 			io-channels = <&pmi8998_rradc 3>,
 				      <&pmi8998_rradc 4>;
