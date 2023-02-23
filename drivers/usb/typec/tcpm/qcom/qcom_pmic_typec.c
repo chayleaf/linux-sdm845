@@ -9,8 +9,10 @@
 #include <linux/kernel.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
+#include <linux/notifier.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/power_supply.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
@@ -35,6 +37,7 @@ struct pmic_typec_resources {
 	struct pmic_typec_irq_params	irq_params[PMIC_TYPEC_MAX_IRQS];
 	const struct qptc_regs 		*regs;
 	irq_handler_t			irq_handler;
+	enum qcom_pmic_subtype		subtype;
 };
 
 struct pmic_typec_irq_data {
@@ -59,9 +62,18 @@ struct pmic_typec {
 
 	spinlock_t			lock;	/* Register atomicity */
 
-	struct qptc_regs		*regs;
+	const struct qptc_regs		*regs;
 
 	enum qcom_pmic_subtype		subtype;
+
+	/* Used on PMI8998 to handle usb events. Basically just the USB
+	 * plugin IRQ. It should be possible to get rid of this and
+	 * share the IRQ instead, this seems to encapsulate behaviour
+	 * better though
+	 */
+	struct power_supply		*usb_psy;
+	bool				usb_online;
+	struct notifier_block		psy_nb;
 };
 
 static const char * const typec_cc_status_name[] = {
@@ -84,7 +96,7 @@ static const char *cc_to_name(enum typec_cc_status cc)
 }
 
 static const char * const rp_sel_name[] = {
-	[SRC_RP_SEL_80UA_VAL]		= "Rp-def-80uA",
+	[SRC_RP_SEL_80UA_VAL]	= "Rp-def-80uA",
 	[SRC_RP_SEL_180UA_VAL]	= "Rp-1.5-180uA",
 	[SRC_RP_SEL_330UA_VAL]	= "Rp-3.0-330uA",
 };
@@ -102,9 +114,11 @@ static bool qptc_reg_valid(struct pmic_typec *pmic_typec, enum qcom_pmic_typec_r
 	enum qcom_pmic_subtype subtype = pmic_typec->subtype;
 	bool valid;
 
+	//3dev_info(pmic_typec->dev, "%s: subtype: %d, n_regs: %d, red_id: %d\n", __func__, subtype, pmic_typec->regs->n_regs, reg_id);
+
 	if ((u32)reg_id >= pmic_typec->regs->n_regs)
 		return false;
-	
+
 	switch (reg_id) {
 	case VBUS_STATUS:
 		valid = subtype == PM8150B_SUBTYPE;
@@ -114,7 +128,9 @@ static bool qptc_reg_valid(struct pmic_typec *pmic_typec, enum qcom_pmic_typec_r
 		break;
 	}
 
-	return valid && pmic_typec->regs->regs[reg_id];
+	dev_info(pmic_typec->dev, "%s: valid: %d, reg_name: %s\n", __func__, valid, pmic_typec->regs->regs[reg_id] ? pmic_typec->regs->regs[reg_id]->name : "NULL");
+
+	return valid && !!(pmic_typec->regs->regs[reg_id]);
 }
 
 const struct qptc_reg *qptc_reg(struct pmic_typec *pmic_typec,
@@ -158,9 +174,9 @@ static void qptc_intr_cfg(struct pmic_typec *pmic_typec, u32 intr_mask,
 
 	for (i = 0; i < 2; i++) {
 		while (intr_field[i]) {
-			u8 intr_bit = __ffs(intr_field[i]);
-			intr_field[i] &= ~intr_bit;
-			intr_masks[i] |= intr_bit;
+			u32 intr_bit = __ffs(intr_field[i]);
+			intr_field[i] &= ~BIT(intr_bit);
+			intr_masks[i] |= BIT(intr_bit);
 		}
 	}
 }
@@ -178,7 +194,7 @@ static void qcom_pmic_typec_cc_debounce(struct work_struct *work)
 	pmic_typec->debouncing_cc = false;
 	spin_unlock_irqrestore(&pmic_typec->lock, flags);
 
-	dev_dbg(pmic_typec->dev, "Debounce cc complete\n");
+	dev_info(pmic_typec->dev, "Debounce cc complete\n");
 }
 
 static irqreturn_t pmic_typec_isr_pmi8998(int irq, void *dev_id)
@@ -189,28 +205,61 @@ static irqreturn_t pmic_typec_isr_pmi8998(int irq, void *dev_id)
 	bool cc_change = false;
 	unsigned long flags;
 
+	dev_info(pmic_typec->dev, "%s: irq: %d, virq: %d\n", __func__, irq, irq_data->virq);
+
 	spin_lock_irqsave(&pmic_typec->lock, flags);
 
 	switch (irq_data->virq) {
-	case PMIC_TYPEC_VBUS_IRQ:
-		/* Incoming vbus assert/de-assert detect */
-		vbus_change = true;
-		break;
 	case PMIC_TYPEC_CC_STATE_IRQ:
 		if (!pmic_typec->debouncing_cc)
 			cc_change = true;
+		break;
+	case PMIC_TYPEC_ATTACH_DETACH_IRQ:
+		cc_change = true;
+		break;
+	default:
+		dev_warn(pmic_typec->dev, "Unhandled interrupt %d\n",
+			 irq_data->virq);
 		break;
 	}
 
 	spin_unlock_irqrestore(&pmic_typec->lock, flags);
 
-	if (vbus_change)
-		tcpm_vbus_change(pmic_typec->tcpm_port);
+	// VBUS change handled by psy notifier call
+	// if (vbus_change)
+	// 	tcpm_vbus_change(pmic_typec->tcpm_port);
 
 	if (cc_change)
 		tcpm_cc_change(pmic_typec->tcpm_port);
 
 	return IRQ_HANDLED;
+}
+
+static int pmic_typec_psy_notifier_call(struct notifier_block *nb,
+					unsigned long event, void *data)
+{
+	struct pmic_typec *pmic_typec = container_of(nb, struct pmic_typec,
+						     psy_nb);
+	struct power_supply *psy = data;
+	union power_supply_propval propval;
+
+	if (event != PSY_EVENT_PROP_CHANGED)
+		return 0;
+
+	if (psy != pmic_typec->usb_psy)
+		return 0;
+
+	if (WARN_ONCE(power_supply_get_property(psy,
+				 POWER_SUPPLY_PROP_ONLINE,
+				 &propval), "Couldn't get charger online property\n"))
+		return NOTIFY_OK;
+
+	if (pmic_typec->usb_online != propval.intval) {
+		dev_info(pmic_typec->dev, "USB %s\n", propval.intval ? "online" : "offline");
+		tcpm_vbus_change(pmic_typec->tcpm_port);
+	}
+
+	return NOTIFY_OK;
 }
 
 static irqreturn_t pmic_typec_isr_pm8150b(int irq, void *dev_id)
@@ -268,7 +317,7 @@ int qcom_pmic_typec_get_vbus(struct pmic_typec *pmic_typec)
 
 	vbus_detect = qptc_reg_decode(reg, VBUS_DETECT, misc);
 
-	dev_dbg(dev, "get_vbus: 0x%08x detect %d\n", misc, vbus_detect);
+	dev_info(dev, "get_vbus: 0x%08x detect %d\n", misc, vbus_detect);
 
 	return vbus_detect;
 }
@@ -287,7 +336,7 @@ int qcom_pmic_typec_set_vbus(struct pmic_typec *pmic_typec, bool on)
 		ret = regulator_enable(pmic_typec->vdd_vbus);
 		if (ret)
 			return ret;
-	} else {
+	} else if (regulator_is_enabled(pmic_typec->vdd_vbus)) {
 		ret = regulator_disable(pmic_typec->vdd_vbus);
 		if (ret)
 			return ret;
@@ -399,7 +448,7 @@ int qcom_pmic_typec_get_cc(struct pmic_typec *pmic_typec,
 		*cc1 = val;
 
 done:
-	dev_dbg(dev, "get_cc: misc 0x%08x cc1 0x%08x %s cc2 0x%08x %s attached %d cc=%s\n",
+	dev_info(dev, "get_cc: misc 0x%08x cc1 0x%08x %s cc2 0x%08x %s attached %d cc=%s\n",
 		misc, *cc1, cc_to_name(*cc1), *cc2, cc_to_name(*cc2), attached,
 		orient_to_cc(orientation));
 
@@ -417,11 +466,11 @@ int qcom_pmic_typec_set_cc(struct pmic_typec *pmic_typec,
 				enum typec_cc_status cc)
 {
 	struct device *dev = pmic_typec->dev;
-	unsigned int mode, currsrc;
+	unsigned int mode, currsrc = 0;
 	const struct qptc_reg *reg;
 	unsigned int misc;
 	unsigned long flags;
-	bool orientation, attached;
+	bool orientation = false, attached = false;
 	u16 offset;
 	int ret;
 
@@ -486,7 +535,7 @@ int qcom_pmic_typec_set_cc(struct pmic_typec *pmic_typec,
 done:
 	spin_unlock_irqrestore(&pmic_typec->lock, flags);
 
-	dev_dbg(dev, "set_cc: currsrc=%x %s mode %s debounce %d attached %d cc=%s\n",
+	dev_info(dev, "set_cc: currsrc=%x %s mode %s debounce %d attached %d cc=%s\n",
 		currsrc, rp_sel_to_name(currsrc),
 		mode == EN_SRC_ONLY ? "EN_SRC_ONLY" : "EN_SNK_ONLY",
 		pmic_typec->debouncing_cc, attached,
@@ -525,7 +574,7 @@ int qcom_pmic_typec_set_vconn(struct pmic_typec *pmic_typec, bool on)
 		value = qptc_reg_mask_prepare(reg, BIT(VCONN_EN_VALUE) | BIT(VCONN_EN_SRC));
 		value |= qptc_reg_encode(reg, VCONN_EN_ORIENTATION, vconn_orient);
 	} else {
-		mask = qptc_reg_encode(reg, VCONN_EN_VALUE, 1);
+		mask = qptc_reg_mask_prepare(reg, BIT(VCONN_EN_VALUE));
 		value = 0;
 	}
 
@@ -535,7 +584,7 @@ int qcom_pmic_typec_set_vconn(struct pmic_typec *pmic_typec, bool on)
 done:
 	spin_unlock_irqrestore(&pmic_typec->lock, flags);
 
-	dev_dbg(dev, "set_vconn: orientation %d control 0x%08x state %s cc %s vconn %s\n",
+	dev_info(dev, "set_vconn: orientation %d control 0x%08x state %s cc %s vconn %s\n",
 		vconn_orient, value, on ? "on" : "off", orient_to_vconn(!vconn_orient), orient_to_cc(!vconn_orient));
 
 	return ret;
@@ -576,10 +625,10 @@ int qcom_pmic_typec_start_toggling(struct pmic_typec *pmic_typec,
 			  pmic_typec->base + offset, &misc);
 	if (ret)
 		goto done;
-	
+
 	attached = qptc_reg_decode(reg, CC_ATTACHED, misc);
 
-	dev_dbg(dev, "start_toggling: misc 0x%02x attached %d port_type %d current cc %d new %d\n",
+	dev_info(dev, "start_toggling: misc 0x%02x attached %d port_type %d current cc %d new %d\n",
 		(u8)misc, attached, port_type, pmic_typec->cc, cc);
 
 	qcom_pmic_set_cc_debounce(pmic_typec);
@@ -623,10 +672,12 @@ int qcom_pmic_typec_init(struct pmic_typec *pmic_typec,
 {
 	const struct qptc_reg *reg;
 	u16 offset;
-	int i;
-	int mask;
+	u32 mask;
 	int ret;
+	int i;
 	u8 intr_masks[2];
+
+	dev_info(pmic_typec->dev, "initializing typec\n");
 
 	qptc_intr_cfg(pmic_typec, TYPEC_INTR_EN_CFG_MASK, intr_masks);
 
@@ -654,7 +705,7 @@ int qcom_pmic_typec_init(struct pmic_typec *pmic_typec,
 		reg = qptc_reg(pmic_typec, MODE_2_CFG);
 		offset = qptc_reg_offset(reg);
 		ret = regmap_write(pmic_typec->regmap,
-				pmic_typec->base + offset, qptc_reg_encode(reg, EN_TRY_SNK, 0));
+				pmic_typec->base + offset, qptc_reg_encode(reg, EN_TRY_SNK, 1));
 		if (ret)
 			goto done;
 	} else {
@@ -691,6 +742,11 @@ int qcom_pmic_typec_init(struct pmic_typec *pmic_typec,
 	for (i = 0; i < pmic_typec->nr_irqs; i++)
 		enable_irq(pmic_typec->irq_data[i].irq);
 
+	pmic_typec->psy_nb.notifier_call = pmic_typec_psy_notifier_call;
+	ret = power_supply_reg_notifier(&pmic_typec->psy_nb);
+	if (ret < 0)
+		return dev_err_probe(pmic_typec->dev, ret, "Failed to register power supply notifier\n");
+
 done:
 	return ret;
 }
@@ -698,6 +754,35 @@ done:
 void qcom_pmic_typec_put(struct pmic_typec *pmic_typec)
 {
 	put_device(pmic_typec->dev);
+}
+
+static inline void dump_reg_fields(struct pmic_typec *pmic_typec, const struct qptc_reg *reg)
+{
+	int i;
+
+	for (i = 0; i < reg->n_fields; i++) {
+		u8 field = reg->fields[i];
+		if (!field)
+			continue;
+
+		dev_info(pmic_typec->dev, "\t0x%02d: 0x%02x\n", i, field);
+	}
+}
+
+static void dump_reg_info(struct pmic_typec *pmic_typec) {
+	const struct qptc_regs *regs = pmic_typec->regs;
+	int i;
+
+	for (i = 0; i < regs->n_regs; i++) {
+		const struct qptc_reg *reg = regs->regs[i];
+		if (!reg)
+			continue;
+
+		dev_info(pmic_typec->dev, "%2d: reg %16s: offset 0x%04x\n",
+			 i, reg->name, reg->offset);
+		
+		dump_reg_fields(pmic_typec, reg);
+	}
 }
 
 static int qcom_pmic_typec_probe(struct platform_device *pdev)
@@ -720,7 +805,10 @@ static int qcom_pmic_typec_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	if (!res->nr_irqs || res->nr_irqs > PMIC_TYPEC_MAX_IRQS)
-		return -EINVAL;
+		return dev_err_probe(dev, -EINVAL, "invalid number of IRQs");
+	
+	if (!res->regs)
+		return dev_err_probe(dev, -EINVAL, "missing register map");
 
 	pmic_typec = devm_kzalloc(dev, sizeof(*pmic_typec), GFP_KERNEL);
 	if (!pmic_typec)
@@ -739,6 +827,18 @@ static int qcom_pmic_typec_probe(struct platform_device *pdev)
 	pmic_typec->base = reg;
 	pmic_typec->nr_irqs = res->nr_irqs;
 	pmic_typec->irq_data = irq_data;
+	pmic_typec->regs = res->regs;
+	pmic_typec->subtype = res->subtype;
+
+	// IF pmic_typec->subtype == SUBTYPE_PMI8998
+	pmic_typec->usb_psy = power_supply_get_by_phandle(dev->of_node,
+							  "power-supplies");
+
+	if (IS_ERR(pmic_typec->usb_psy))
+		return dev_err_probe(dev, PTR_ERR(pmic_typec->usb_psy), "USB power supply not found\n");
+
+	dump_reg_info(pmic_typec);
+
 	spin_lock_init(&pmic_typec->lock);
 	INIT_DELAYED_WORK(&pmic_typec->cc_debounce_dwork,
 			  qcom_pmic_typec_cc_debounce);
@@ -770,7 +870,8 @@ static int qcom_pmic_typec_probe(struct platform_device *pdev)
 						res->irq_params[i].irq_name,
 						irq_data);
 		if (ret)
-			return ret;
+			return dev_err_probe(dev, ret,
+					     "Failed to request irq %s", res->irq_params[i].irq_name);
 	}
 
 	return 0;
@@ -814,6 +915,7 @@ static struct pmic_typec_resources pm8150b_typec_res = {
 	.nr_irqs = 7,
 	.regs = &qcom_pmic_typec_pm8150b_regs,
 	.irq_handler = pmic_typec_isr_pm8150b,
+	.subtype = PM8150B_SUBTYPE,
 };
 
 static struct pmic_typec_resources pmi8998_typec_res = {
@@ -840,14 +942,21 @@ static struct pmic_typec_resources pmi8998_typec_res = {
 		},
 		{
 			/* usb-plugin IRQ, shared with charger */
-			.irq_name = "attach-detach",
-			.virq = PMIC_TYPEC_VBUS_IRQ,
-			.irq_flags = IRQF_SHARED,
+			.irq_name = "usbin-lt-3p6v",
+			.virq = PMIC_TYPEC_ATTACH_DETACH_IRQ,
+			.irq_flags = 0,
 		},
+		// {
+		// 	/* usb-plugin IRQ, shared with charger */
+		// 	.irq_name = "usb-plugin",
+		// 	.virq = PMIC_TYPEC_VBUS_IRQ,
+		// 	.irq_flags = IRQF_SHARED,
+		// },
 	},
 	.nr_irqs = 2,
 	.regs = &qcom_pmic_typec_pmi8998_regs,
 	.irq_handler = pmic_typec_isr_pmi8998,
+	.subtype = PMI8998_SUBTYPE,
 };
 
 static const struct of_device_id qcom_pmic_typec_table[] = {

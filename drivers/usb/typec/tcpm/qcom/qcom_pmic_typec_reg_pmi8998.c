@@ -383,11 +383,12 @@ static const u8 qptc_reg_intr_2_cfg_fields[] = {
 
 QPTC_REG(INTR_2_CFG, intr_2_cfg, PMI8998_TYPE_C_CFG_3_REG);
 
-static const struct qptc_reg *pm8150b_regs[] = {
+static const struct qptc_reg *pmi8998_regs[] = {
 	[SNK_STATUS] = &qptc_reg_snk_status,
 	[SRC_STATUS] = &qptc_reg_src_status,
 	[MISC_STATUS] = &qptc_reg_misc_status,
 	[MODE_CFG] = &qptc_reg_mode_cfg,
+	[MODE_2_CFG] = &qptc_reg_mode_2_cfg,
 	[VCONN_CFG] = &qptc_reg_vconn_cfg,
 	[EXIT_STATE_CFG] = &qptc_reg_exit_state_cfg,
 	[CURRSRC_CFG] = &qptc_reg_currsrc_cfg,
@@ -398,6 +399,6 @@ static const struct qptc_reg *pm8150b_regs[] = {
 const struct qptc_regs qcom_pmic_typec_pmi8998_regs = {
 	.intr_1_fmask = INTR_1_CFG_FIELDS,
 	.intr_2_fmask = INTR_2_CFG_FIELDS,
-	.n_regs = ARRAY_SIZE(pm8150b_regs),
-	.regs = pm8150b_regs,
+	.n_regs = ARRAY_SIZE(pmi8998_regs),
+	.regs = pmi8998_regs,
 };

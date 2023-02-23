@@ -6130,7 +6130,7 @@ static int tcpm_fw_get_caps(struct tcpm_port *port,
 	u32 mw, frs_current;
 
 	if (!fwnode)
-		return -EINVAL;
+		return dev_err_probe(port->dev, -EINVAL, "missing fwnode");
 
 	/*
 	 * This fwnode has a "compatible" property, but is never populated as a
@@ -6520,8 +6520,10 @@ struct tcpm_port *tcpm_register_port(struct device *dev, struct tcpc_dev *tcpc)
 	if (!dev || !tcpc ||
 	    !tcpc->get_vbus || !tcpc->set_cc || !tcpc->get_cc ||
 	    !tcpc->set_polarity || !tcpc->set_vconn || !tcpc->set_vbus ||
-	    !tcpc->set_pd_rx || !tcpc->set_roles || !tcpc->pd_transmit)
+	    !tcpc->set_pd_rx || !tcpc->set_roles || !tcpc->pd_transmit) {
+		dev_err(dev, "Invalid TCPC device\n");
 		return ERR_PTR(-EINVAL);
+	}
 
 	port = devm_kzalloc(dev, sizeof(*port), GFP_KERNEL);
 	if (!port)
@@ -6560,8 +6562,10 @@ struct tcpm_port *tcpm_register_port(struct device *dev, struct tcpc_dev *tcpc)
 	tcpm_debugfs_init(port);
 
 	err = tcpm_fw_get_caps(port, tcpc->fwnode);
-	if (err < 0)
+	if (err < 0) {
+		dev_err(dev, "Failed to get TCPC capabilities\n");
 		goto out_destroy_wq;
+	}
 
 	port->try_role = port->typec_caps.prefer_role;
 
@@ -6578,23 +6582,29 @@ struct tcpm_port *tcpm_register_port(struct device *dev, struct tcpc_dev *tcpc)
 
 	port->role_sw = usb_role_switch_get(port->dev);
 	if (IS_ERR(port->role_sw)) {
+		dev_err(dev, "Failed usb_role_switch_get\n");
 		err = PTR_ERR(port->role_sw);
 		goto out_destroy_wq;
 	}
 
 	err = devm_tcpm_psy_register(port);
-	if (err)
+	if (err) {
+		dev_err(dev, "Failed devm_tcpm_psy_register\n");
 		goto out_role_sw_put;
+	}
 	power_supply_changed(port->psy);
 
 	err = tcpm_port_register_pd(port);
-	if (err)
+	if (err) {
+		dev_err(dev, "Failed tcpm_port_register_pd\n");
 		goto out_role_sw_put;
+	}
 
 	port->typec_caps.pd = port->pd;
 
 	port->typec_port = typec_register_port(port->dev, &port->typec_caps);
 	if (IS_ERR(port->typec_port)) {
+		dev_err(dev, "Failed typec_register_port\n");
 		err = PTR_ERR(port->typec_port);
 		goto out_unregister_pd;
 	}

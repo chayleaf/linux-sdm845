@@ -436,7 +436,8 @@ static int qcom_pmic_pdphy_disable(struct pmic_pdphy *pmic_pdphy)
 	ret = regmap_write(pmic_pdphy->regmap,
 			   pmic_pdphy->base + USB_PDPHY_EN_CONTROL_REG, 0);
 
-	regulator_disable(pmic_pdphy->vdd_pdphy);
+	if (regulator_is_enabled(pmic_pdphy->vdd_pdphy))
+		regulator_disable(pmic_pdphy->vdd_pdphy);
 
 	return ret;
 }

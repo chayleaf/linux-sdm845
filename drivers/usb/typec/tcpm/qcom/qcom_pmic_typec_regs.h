@@ -94,6 +94,9 @@ enum qcom_pmic_typec_exit_state_cfg_fields {
 	EXIT_SNK_BASED_ON_CC,
 };
 
+/* This is really a decimal value not
+ * a binary one, so it's a bit weird
+ */
 /* CURRSRC_CFG */
 enum qcom_pmic_typec_currsrc_cfg_fields {
 	SRC_RP_SEL_MASK,
@@ -161,7 +164,7 @@ struct qptc_regs {
 	u32 intr_2_fmask;
 	u32 n_regs;
 	const struct qptc_reg **regs;
-}; 
+};
 
 /* Field mask for a field or group of fields in a register */
 static inline u8 qptc_reg_fmask(const struct qptc_reg *reg, u32 field_id)
@@ -215,12 +218,14 @@ static inline u8 qptc_reg_mask_prepare(const struct qptc_reg *reg, u32 field_mas
 {
 	u32 field_bit;
 	u8 mask = 0;
+	int i = 0;
 
 	while (field_mask) {
 		field_bit = __ffs(field_mask);
-		field_mask &= ~field_bit;
+		field_mask &= ~BIT(field_bit);
 
 		mask |= qptc_reg_fmask(reg, field_bit);
+		i++;
 	}
 
 	return mask;

@@ -13,6 +13,7 @@
 #include <dt-bindings/sound/qcom,q6afe.h>
 #include <dt-bindings/sound/qcom,q6asm.h>
 #include <dt-bindings/sound/qcom,q6voice.h>
+#include <dt-bindings/usb/pd.h>
 #include "sdm845.dtsi"
 #include "sdm845-wcd9340.dtsi"
 #include "pm8998.dtsi"
@@ -568,6 +569,67 @@
 	monitored-battery = <&battery>;
 };
 
+&pmi8998_vbus {
+	status = "okay";
+
+	regulator-min-microamp = <500000>;
+	regulator-max-microamp = <1500000>;
+};
+
+&pmi8998_typec {
+	vdd-vbus-supply = <&pmi8998_vbus>;
+	status = "okay";
+};
+
+&pmi8998_pdphy {
+	status = "okay";
+	/* No idea if this is the right supply, probably not */
+	vdd-pdphy-supply = <&vreg_l24a_3p075>;
+};
+
+&pmi8998_tcpm {
+	status = "okay";
+
+	connector {
+		compatible = "usb-c-connector";
+
+		power-role = "dual";
+		data-role = "dual";
+		self-powered;
+
+		source-pdos = <PDO_FIXED(5000, 1500,
+					 PDO_FIXED_DUAL_ROLE |
+					 PDO_FIXED_USB_COMM |
+					 PDO_FIXED_DATA_SWAP)>;
+
+		sink-pdos = <PDO_FIXED(5000, 3000,
+					 PDO_FIXED_DUAL_ROLE |
+					 PDO_FIXED_USB_COMM |
+					 PDO_FIXED_DATA_SWAP)>;
+
+		op-sink-microwatt = <250000>;
+
+		ports {
+			port@0 {
+				tcpm_role: endpoint {
+					remote-endpoint = <&tcpm>;
+				};
+			};
+			port@2 {
+				usb3_role: endpoint {
+					remote-endpoint = <&dwc3_drd_switch>;
+				};
+			};
+		};
+	};
+
+	port {
+		tcpm: endpoint {
+			remote-endpoint = <&tcpm_role>;
+		};
+	};
+};
+
 &pmi8998_lpg {
 	status = "okay";
 
@@ -978,10 +1040,18 @@
 
 &usb_1 {
 	status = "okay";
+	usb-role-switch;
 };
 
 &usb_1_dwc3 {
-	dr_mode = "peripheral";
+	dr_mode = "otg";
+	usb-role-switch;
+
+	port {
+		dwc3_drd_switch: endpoint {
+			remote-endpoint = <&usb3_role>;
+		};
+	};
 };
 
 &usb_1_hsphy {

@@ -446,6 +446,9 @@ static int dwc3_usb_role_switch_set(struct usb_role_switch *sw,
 	struct dwc3 *dwc = usb_role_switch_get_drvdata(sw);
 	u32 mode;
 
+	dev_info(dwc->dev, "role switch to %s\n", role == USB_ROLE_HOST ?
+		 "host" : "device");
+
 	switch (role) {
 	case USB_ROLE_HOST:
 		mode = DWC3_GCTL_PRTCAP_HOST;
