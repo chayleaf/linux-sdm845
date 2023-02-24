@@ -67,7 +67,6 @@ enum qcom_pmic_typec_misc_status_fields {
 
 /* MODE_CFG / MODE_2_CFG */
 enum qcom_pmic_typec_mode_cfg_fields {
-	TRY_MODE_MASK, /* PM8150b */
 	EN_TRY_SNK,
 #define DRP_MODE_VAL 0
 	EN_TRY_SRC,
@@ -77,6 +76,7 @@ enum qcom_pmic_typec_mode_cfg_fields {
 	EN_SNK_ONLY,
 #define SNK_ONLY_MODE_VAL 2
 	DISABLE_CMD,
+	TRY_MODE_MASK, /* PM8150b */
 };
 
 /* VCONN_CFG */
@@ -88,10 +88,10 @@ enum qcom_pmic_typec_vconn_cfg_fields {
 
 /* EXIT_STATE_CFG */
 enum qcom_pmic_typec_exit_state_cfg_fields {
+	EXIT_SNK_BASED_ON_CC,
 	BYPASS_VSAFE0V_DURING_ROLE_SWAP,
 	SEL_SRC_UPPER_REF,
 	USE_TPD_FOR_EXITING_ATTACHSRC,
-	EXIT_SNK_BASED_ON_CC,
 };
 
 /* This is really a decimal value not
@@ -99,13 +99,14 @@ enum qcom_pmic_typec_exit_state_cfg_fields {
  */
 /* CURRSRC_CFG */
 enum qcom_pmic_typec_currsrc_cfg_fields {
-	SRC_RP_SEL_MASK,
-	SRC_RP_SEL_330UA,
-#define SRC_RP_SEL_330UA_VAL	BIT(1)
-	SRC_RP_SEL_180UA,
-#define SRC_RP_SEL_180UA_VAL	BIT(0)
+	CC_1P4_1P6, // Equivalent to PM8150b SEL_SRC_UPPER_REF
 	SRC_RP_SEL_80UA,
 #define SRC_RP_SEL_80UA_VAL	0
+	SRC_RP_SEL_180UA,
+#define SRC_RP_SEL_180UA_VAL	BIT(0)
+	SRC_RP_SEL_330UA,
+#define SRC_RP_SEL_330UA_VAL	BIT(1)
+	SRC_RP_SEL_MASK,
 };
 
 /*
@@ -169,10 +170,17 @@ struct qptc_regs {
 /* Field mask for a field or group of fields in a register */
 static inline u8 qptc_reg_fmask(const struct qptc_reg *reg, u32 field_id)
 {
+	u8 field;
 	if (!reg || WARN_ON(field_id >= reg->n_fields))
 		return 0;
 
-	return reg->fields[field_id];
+	field = reg->fields[field_id];
+
+	// Field values *should* never be 0?
+	WARN(!field, "Field %d is not defined in register %s\n",
+	     field_id, reg->name);
+
+	return field;
 }
 
 /* Single bit field (validation) */

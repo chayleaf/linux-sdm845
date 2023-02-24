@@ -26,6 +26,10 @@
 
 #define PMIC_TYPEC_MAX_IRQS		0x08
 
+// Some dodgy workaround for a HW bug "PBS_WA" in downstream
+#define PMI8998_TM_IO_DTEST4_SEL_REG			0x16E9
+#define PMI8998_TM_IO_DTEST4_SEL_CRUDE			0xA5
+
 struct pmic_typec_irq_params {
 	int				virq;
 	char				*irq_name;
@@ -204,6 +208,7 @@ static irqreturn_t pmic_typec_isr_pmi8998(int irq, void *dev_id)
 	bool vbus_change = false;
 	bool cc_change = false;
 	unsigned long flags;
+	u32 usbin_sts;
 
 	dev_info(pmic_typec->dev, "%s: irq: %d, virq: %d\n", __func__, irq, irq_data->virq);
 
@@ -224,6 +229,14 @@ static irqreturn_t pmic_typec_isr_pmi8998(int irq, void *dev_id)
 
 	spin_unlock_irqrestore(&pmic_typec->lock, flags);
 
+	// PMI8998_USBIN_INPUT_STATUS_REG
+	// Detect unplug and reset crude sensor workaround thing
+	regmap_read(pmic_typec->regmap, pmic_typec->base + 0x06, &usbin_sts);
+	dev_info(pmic_typec->dev, "%s: usbin_sts: 0x%x\n", __func__, usbin_sts);
+	if (!usbin_sts) {
+		regmap_write(pmic_typec->regmap, PMI8998_TM_IO_DTEST4_SEL_REG, PMI8998_TM_IO_DTEST4_SEL_CRUDE);
+	}
+
 	if (vbus_change)
 		tcpm_vbus_change(pmic_typec->tcpm_port);
 
@@ -233,6 +246,8 @@ static irqreturn_t pmic_typec_isr_pmi8998(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+// Meh this causes everything to cycle because PD negotiation causes
+// VBUS to disconnect briefly...
 static int pmic_typec_psy_notifier_call(struct notifier_block *nb,
 					unsigned long event, void *data)
 {
@@ -240,6 +255,8 @@ static int pmic_typec_psy_notifier_call(struct notifier_block *nb,
 						     psy_nb);
 	struct power_supply *psy = data;
 	union power_supply_propval propval;
+
+	return 0;
 
 	if (event != PSY_EVENT_PROP_CHANGED)
 		return 0;
@@ -254,7 +271,12 @@ static int pmic_typec_psy_notifier_call(struct notifier_block *nb,
 
 	if (pmic_typec->usb_online != propval.intval) {
 		dev_info(pmic_typec->dev, "USB %s\n", propval.intval ? "online" : "offline");
+		pmic_typec->usb_online = propval.intval;
 		tcpm_vbus_change(pmic_typec->tcpm_port);
+	}
+
+	if (!pmic_typec->usb_online) {
+		regmap_write(pmic_typec->regmap, PMI8998_TM_IO_DTEST4_SEL_REG, PMI8998_TM_IO_DTEST4_SEL_CRUDE);
 	}
 
 	return NOTIFY_OK;
@@ -356,9 +378,20 @@ int qcom_pmic_typec_set_vbus(struct pmic_typec *pmic_typec, bool on)
 	return ret;
 }
 
+int qcom_pmic_typec_set_current_limit(struct pmic_typec *pmic_typec,
+					   int ma)
+{
+	if (!ma)
+		return 0;
+
+	dev_info(pmic_typec->dev, "set_current_limit: %d\n", ma);
+	return regulator_set_current_limit(pmic_typec->vdd_vbus,
+					   ma * 1000, ma * 1000);
+}
+
 int qcom_pmic_typec_get_cc(struct pmic_typec *pmic_typec,
-			   enum typec_cc_status *cc1,
-			   enum typec_cc_status *cc2)
+				enum typec_cc_status *cc1,
+				enum typec_cc_status *cc2)
 {
 	struct device *dev = pmic_typec->dev;
 	const struct qptc_reg *reg;
@@ -499,8 +532,8 @@ int qcom_pmic_typec_set_cc(struct pmic_typec *pmic_typec,
 		currsrc = SRC_RP_SEL_180UA_VAL;
 		break;
 	case TYPEC_CC_RP_3_0:
-		// FIXME: is this right?? PMi8998 has no 330ua register
-		if (pmic_typec->subtype == PMI8998_SUBTYPE)
+		// TBD: PMI8998 doesn't support 3A?
+		if (WARN_ON(pmic_typec->subtype == PMI8998_SUBTYPE))
 			currsrc = SRC_RP_SEL_180UA_VAL;
 		else
 			currsrc = SRC_RP_SEL_330UA_VAL;
@@ -597,7 +630,7 @@ int qcom_pmic_typec_start_toggling(struct pmic_typec *pmic_typec,
 	const struct qptc_reg *reg;
 	u16 offset;
 	u8 mode = 0;
-	u8 val = 0;
+	u8 val = 0 , mask = 0;
 	bool attached;
 	unsigned long flags;
 	int ret;
@@ -644,12 +677,42 @@ int qcom_pmic_typec_start_toggling(struct pmic_typec *pmic_typec,
 			goto done;
 	}
 
+	mask = qptc_reg_mask_prepare(reg, BIT(POWER_ROLE_CMD_MASK));
 	val = qptc_reg_encode(reg, POWER_ROLE_CMD_MASK, mode);
+	dev_info(dev, "start_toggling: mask: 0x%02x, val: 0x%02x\n", mask, val);
 	ret = regmap_update_bits(pmic_typec->regmap,
 			   pmic_typec->base + offset,
-			   val, val);
+			   mask, val);
 done:
 	spin_unlock_irqrestore(&pmic_typec->lock, flags);
+
+	return ret;
+}
+
+static int qptc_configure_cc_threshold(struct pmic_typec *pmic_typec)
+{
+	const struct qptc_reg *reg;
+	u16 offset;
+	u32 mask;
+	int ret;
+
+	if (pmic_typec->subtype == PMI8998_SUBTYPE) {
+		/* Set CC threshold to 1.6 Volts | tPDdebounce = 10-20ms */
+		reg = qptc_reg(pmic_typec, CURRSRC_CFG);
+		offset = qptc_reg_offset(reg);
+		mask = qptc_reg_mask_prepare(reg, BIT(CC_1P4_1P6));
+		ret = regmap_update_bits(pmic_typec->regmap,
+					pmic_typec->base + offset,
+					mask, mask);
+	} else {
+		/* Set CC threshold to 1.6 Volts | tPDdebounce = 10-20ms */
+		reg = qptc_reg(pmic_typec, EXIT_STATE_CFG);
+		offset = qptc_reg_offset(reg);
+		mask = qptc_reg_mask_prepare(reg, BIT(SEL_SRC_UPPER_REF) | BIT(USE_TPD_FOR_EXITING_ATTACHSRC));
+		ret = regmap_update_bits(pmic_typec->regmap,
+					pmic_typec->base + offset,
+					mask, mask);
+	}
 
 	return ret;
 }
@@ -729,15 +792,7 @@ int qcom_pmic_typec_init(struct pmic_typec *pmic_typec,
 	if (ret)
 		goto done;
 
-	/* Set CC threshold to 1.6 Volts | tPDdebounce = 10-20ms */
-	reg = qptc_reg(pmic_typec, VCONN_CFG);
-	offset = qptc_reg_offset(reg);
-	mask = qptc_reg_mask_prepare(reg, BIT(SEL_SRC_UPPER_REF) | BIT(USE_TPD_FOR_EXITING_ATTACHSRC));
-	ret = regmap_update_bits(pmic_typec->regmap,
-				 pmic_typec->base + offset,
-				 mask, mask);
-	if (ret)
-		goto done;
+	ret = qptc_configure_cc_threshold(pmic_typec);
 
 	pmic_typec->tcpm_port = tcpm_port;
 

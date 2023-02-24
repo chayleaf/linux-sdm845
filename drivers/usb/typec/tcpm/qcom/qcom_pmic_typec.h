@@ -32,5 +32,8 @@ int qcom_pmic_typec_start_toggling(struct pmic_typec *pmic_typec,
 				   enum typec_cc_status cc);
 
 int qcom_pmic_typec_set_vbus(struct pmic_typec *pmic_typec, bool on);
+int qcom_pmic_typec_set_current_limit(struct pmic_typec *pmic_typec,
+					   int ma);
+
 
 #endif /* __QCOM_PMIC_TYPE_C_H__ */

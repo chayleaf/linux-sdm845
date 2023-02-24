@@ -280,6 +280,8 @@ enum {
 #define PMI8998_USBIN_CONT_AICL_THRESHOLD_CFG_REG	0x84
 #define PMI8998_USBIN_CONT_AICL_THRESHOLD_CFG_MASK	GENMASK(5, 0)
 
+
+
 /*
  * Undecided if macros should be used for the values,
  * or if it's best to just use the values directly
@@ -343,6 +345,8 @@ QPTC_REG(EXIT_STATE_CFG, exit_state_cfg, PMI8998_TYPE_C_INTRPT_ENB_SOFTWARE_CTRL
 
 static const u8 qptc_reg_currsrc_cfg_fields[] = {
 	[SRC_RP_SEL_180UA] = PMI8998_EN_80UA_180UA_CUR_SOURCE_BIT,
+	[CC_1P4_1P6] = PMI8998_DFP_CC_1P4V_OR_1P6V_BIT,
+	[SRC_RP_SEL_MASK] = PMI8998_EN_80UA_180UA_CUR_SOURCE_BIT,
 };
 
 QPTC_REG(CURRSRC_CFG, currsrc_cfg, PMI8998_TYPE_C_CFG_2_REG);

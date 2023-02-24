@@ -67,6 +67,16 @@ done:
 	return ret;
 }
 
+static int qcom_pmic_virt_tcpm_set_current_limit(struct tcpc_dev *tcpc,
+						 u32 ma, u32 mv)
+{
+	struct pmic_virt_tcpm *tcpm = tcpc_to_tcpm(tcpc);
+
+	//WARN(mv != 5000, "Unsupported voltage %d\n", mv);
+
+	return qcom_pmic_typec_set_current_limit(tcpm->pmic_typec, ma);
+}
+
 static int qcom_pmic_virt_tcpm_set_vconn(struct tcpc_dev *tcpc, bool on)
 {
 	struct pmic_virt_tcpm *tcpm = tcpc_to_tcpm(tcpc);
