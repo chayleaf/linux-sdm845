@@ -49,6 +49,7 @@ struct pmic_pdphy {
 	struct work_struct		reset_work;
 	struct work_struct		receive_work;
 	struct regulator		*vdd_pdphy;
+	bool				pdphy_enabled;
 	spinlock_t			lock;		/* Register atomicity */
 };
 
@@ -395,6 +396,9 @@ static int qcom_pmic_pdphy_enable(struct pmic_pdphy *pmic_pdphy)
 	struct device *dev = pmic_pdphy->dev;
 	int ret;
 
+	if (pmic_pdphy->pdphy_enabled)
+		return 0;
+
 	ret = regulator_enable(pmic_pdphy->vdd_pdphy);
 	if (ret)
 		return ret;
@@ -422,6 +426,8 @@ done:
 	if (ret) {
 		regulator_disable(pmic_pdphy->vdd_pdphy);
 		dev_err(dev, "pdphy_enable fail %d\n", ret);
+	} else {
+		pmic_pdphy->pdphy_enabled = true;
 	}
 
 	return ret;
@@ -436,8 +442,10 @@ static int qcom_pmic_pdphy_disable(struct pmic_pdphy *pmic_pdphy)
 	ret = regmap_write(pmic_pdphy->regmap,
 			   pmic_pdphy->base + USB_PDPHY_EN_CONTROL_REG, 0);
 
-	if (regulator_is_enabled(pmic_pdphy->vdd_pdphy))
+	if (pmic_pdphy->pdphy_enabled)
 		regulator_disable(pmic_pdphy->vdd_pdphy);
+
+	pmic_pdphy->pdphy_enabled = false;
 
 	return ret;
 }

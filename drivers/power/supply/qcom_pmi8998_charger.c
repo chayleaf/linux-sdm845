@@ -377,7 +377,6 @@ struct smb2_register {
  * @batt_info:		Battery data from DT
  * @status_change_work: Worker to handle plug/unplug events
  * @cable_irq:		USB plugin IRQ
- * @wakeup_enabled:	If the cable IRQ will cause a wakeup
  * @usb_in_i_chan:	USB_IN current measurement channel
  * @usb_in_v_chan:	USB_IN voltage measurement channel
  * @chg_psy:		Charger power supply instance
@@ -391,7 +390,6 @@ struct smb2_chip {
 
 	struct delayed_work status_change_work;
 	int cable_irq;
-	bool wakeup_enabled;
 
 	struct iio_channel *usb_in_i_chan;
 	struct iio_channel *usb_in_v_chan;
@@ -1007,9 +1005,13 @@ static int smb2_probe(struct platform_device *pdev)
 		return rc;
 
 	rc = smb2_init_irq(chip, &chip->cable_irq, "usb-plugin",
-			   smb2_handle_usb_plugin, IRQF_ONESHOT | IRQF_SHARED);
+			   smb2_handle_usb_plugin, IRQF_ONESHOT);
 	if (rc < 0)
 		return rc;
+
+	rc = dev_pm_set_wake_irq(chip->dev, irq);
+	if (rc < 0)
+		return dev_err_probe(chip->dev, rc, "Couldn't set wake irq\n");
 
 	rc = smb2_init_irq(chip, &irq, "usbin-icl-change",
 			   smb2_handle_usb_icl_change, IRQF_ONESHOT);
@@ -1018,10 +1020,6 @@ static int smb2_probe(struct platform_device *pdev)
 	rc = smb2_init_irq(chip, &irq, "wdog-bark", smb2_handle_wdog_bark, IRQF_ONESHOT);
 	if (rc < 0)
 		return rc;
-
-	rc = dev_pm_set_wake_irq(chip->dev, chip->cable_irq);
-	if (rc < 0)
-		return dev_err_probe(chip->dev, rc, "Couldn't set wake irq\n");
 
 	platform_set_drvdata(pdev, chip);
 

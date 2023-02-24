@@ -154,17 +154,17 @@ static void qptc_intr_cfg(struct pmic_typec *pmic_typec, u32 intr_mask,
 {
 	const struct qptc_regs *regs = pmic_typec->regs;
 	enum qcom_pmic_typec_intr_cfg_fields field;
-	const struct qptc_reg *reg1, *reg2;
+	const struct qptc_reg *intr_regs[2];
 	u32 intr_field[2] = {0, 0};
 	int i;
 
-	reg1 = qptc_reg(pmic_typec, INTR_1_CFG);
-	reg2 = qptc_reg(pmic_typec, INTR_2_CFG);
+	intr_regs[0] = qptc_reg(pmic_typec, INTR_1_CFG);
+	intr_regs[1] = qptc_reg(pmic_typec, INTR_2_CFG);
 
 	/* Figure out which fields are in which registers */
 	while (intr_mask) {
 		field = __ffs(intr_mask);
-		intr_mask &= ~((u32)field);
+		intr_mask &= ~BIT(field);
 
 		if (regs->intr_1_fmask & BIT(field))
 			intr_field[0] |= BIT(field);
@@ -176,7 +176,7 @@ static void qptc_intr_cfg(struct pmic_typec *pmic_typec, u32 intr_mask,
 		while (intr_field[i]) {
 			u32 intr_bit = __ffs(intr_field[i]);
 			intr_field[i] &= ~BIT(intr_bit);
-			intr_masks[i] |= BIT(intr_bit);
+			intr_masks[i] |= qptc_reg_bit(intr_regs[i], intr_bit);
 		}
 	}
 }
@@ -213,9 +213,8 @@ static irqreturn_t pmic_typec_isr_pmi8998(int irq, void *dev_id)
 	case PMIC_TYPEC_CC_STATE_IRQ:
 		if (!pmic_typec->debouncing_cc)
 			cc_change = true;
-		break;
-	case PMIC_TYPEC_ATTACH_DETACH_IRQ:
-		cc_change = true;
+		// PMI8998 doesn't seem to handle vbus
+		vbus_change = true;
 		break;
 	default:
 		dev_warn(pmic_typec->dev, "Unhandled interrupt %d\n",
@@ -225,9 +224,8 @@ static irqreturn_t pmic_typec_isr_pmi8998(int irq, void *dev_id)
 
 	spin_unlock_irqrestore(&pmic_typec->lock, flags);
 
-	// VBUS change handled by psy notifier call
-	// if (vbus_change)
-	// 	tcpm_vbus_change(pmic_typec->tcpm_port);
+	if (vbus_change)
+		tcpm_vbus_change(pmic_typec->tcpm_port);
 
 	if (cc_change)
 		tcpm_cc_change(pmic_typec->tcpm_port);
@@ -364,7 +362,7 @@ int qcom_pmic_typec_get_cc(struct pmic_typec *pmic_typec,
 {
 	struct device *dev = pmic_typec->dev;
 	const struct qptc_reg *reg;
-	unsigned int misc, val;
+	unsigned int misc, val, val_decode;
 	u16 offset;
 	bool attached;
 	bool orientation;
@@ -400,8 +398,8 @@ int qcom_pmic_typec_get_cc(struct pmic_typec *pmic_typec,
 				  &val);
 		if (ret)
 			goto done;
-		val = qptc_reg_decode(reg, SRC_TYPE_MASK, val);
-		switch (val) {
+		val_decode = qptc_reg_decode(reg, SRC_TYPE_MASK, val);
+		switch (val_decode) {
 		case SRC_RD_OPEN_VAL:
 			val = TYPEC_CC_RD;
 			break;
@@ -423,8 +421,8 @@ int qcom_pmic_typec_get_cc(struct pmic_typec *pmic_typec,
 				  &val);
 		if (ret)
 			goto done;
-		val = qptc_reg_decode(reg, SNK_TYPE_MASK, val);
-		switch (val) {
+		val_decode = qptc_reg_decode(reg, SNK_TYPE_MASK, val);
+		switch (val_decode) {
 		case SNK_RP_STD_VAL:
 			val = TYPEC_CC_RP_DEF;
 			break;
@@ -636,13 +634,15 @@ int qcom_pmic_typec_start_toggling(struct pmic_typec *pmic_typec,
 	reg = qptc_reg(pmic_typec, MODE_CFG);
 	offset = qptc_reg_offset(reg);
 
-	/* force it to toggle at least once */
-	val = qptc_reg_encode(reg, DISABLE_CMD, 1);
-	ret = regmap_update_bits(pmic_typec->regmap,
-			   pmic_typec->base + offset,
-			   val, val);
-	if (ret)
-		goto done;
+	if (pmic_typec->subtype != PMI8998_SUBTYPE) {
+		/* force it to toggle at least once */
+		val = qptc_reg_encode(reg, DISABLE_CMD, 1);
+		ret = regmap_update_bits(pmic_typec->regmap,
+				pmic_typec->base + offset,
+				val, val);
+		if (ret)
+			goto done;
+	}
 
 	val = qptc_reg_encode(reg, POWER_ROLE_CMD_MASK, mode);
 	ret = regmap_update_bits(pmic_typec->regmap,
@@ -677,7 +677,7 @@ int qcom_pmic_typec_init(struct pmic_typec *pmic_typec,
 	int i;
 	u8 intr_masks[2];
 
-	dev_info(pmic_typec->dev, "initializing typec\n");
+	dev_info(pmic_typec->dev, "%s: start, tcpm_port: %px\n", __func__, tcpm_port);
 
 	qptc_intr_cfg(pmic_typec, TYPEC_INTR_EN_CFG_MASK, intr_masks);
 
@@ -699,13 +699,15 @@ int qcom_pmic_typec_init(struct pmic_typec *pmic_typec,
 	if (ret)
 		goto done;
 
+	dev_info(pmic_typec->dev, "%s: configured interrupts\n", __func__);
+
 	/* start in TRY_SNK mode */
 	// FIXME: pmi8998 downstream explicitly says "disable try.sink", investigate
 	if (pmic_typec->subtype == PMI8998_SUBTYPE) {
 		reg = qptc_reg(pmic_typec, MODE_2_CFG);
 		offset = qptc_reg_offset(reg);
 		ret = regmap_write(pmic_typec->regmap,
-				pmic_typec->base + offset, qptc_reg_encode(reg, EN_TRY_SNK, 1));
+				pmic_typec->base + offset, qptc_reg_encode(reg, EN_TRY_SNK, 0));
 		if (ret)
 			goto done;
 	} else {
@@ -940,12 +942,12 @@ static struct pmic_typec_resources pmi8998_typec_res = {
 			.virq = PMIC_TYPEC_CC_STATE_IRQ,
 			.irq_flags = 0,
 		},
-		{
-			/* usb-plugin IRQ, shared with charger */
-			.irq_name = "usbin-lt-3p6v",
-			.virq = PMIC_TYPEC_ATTACH_DETACH_IRQ,
-			.irq_flags = 0,
-		},
+		// {
+		// 	/* usb-plugin IRQ, shared with charger */
+		// 	.irq_name = "usbin-lt-3p6v",
+		// 	.virq = PMIC_TYPEC_ATTACH_DETACH_IRQ,
+		// 	.irq_flags = 0,
+		// },
 		// {
 		// 	/* usb-plugin IRQ, shared with charger */
 		// 	.irq_name = "usb-plugin",
@@ -953,7 +955,7 @@ static struct pmic_typec_resources pmi8998_typec_res = {
 		// 	.irq_flags = IRQF_SHARED,
 		// },
 	},
-	.nr_irqs = 2,
+	.nr_irqs = 1,
 	.regs = &qcom_pmic_typec_pmi8998_regs,
 	.irq_handler = pmic_typec_isr_pmi8998,
 	.subtype = PMI8998_SUBTYPE,

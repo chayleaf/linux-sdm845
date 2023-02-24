@@ -181,6 +181,7 @@ static int qcom_pmic_virt_tcpm_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	tcpm->dev = dev;
+	//CHECKME: tcpm->tcpc.fwnode = dev_fwnode(dev);
 	tcpm->tcpc.init = qcom_pmic_virt_tcpm_init;
 	tcpm->tcpc.get_vbus = qcom_pmic_virt_tcpm_get_vbus;
 	tcpm->tcpc.set_vbus = qcom_pmic_virt_tcpm_set_vbus;

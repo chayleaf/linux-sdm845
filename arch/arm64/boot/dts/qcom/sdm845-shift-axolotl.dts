@@ -596,6 +596,7 @@
 		power-role = "dual";
 		data-role = "dual";
 		self-powered;
+		try-power-role = "sink";
 
 		source-pdos = <PDO_FIXED(5000, 1500,
 					 PDO_FIXED_DUAL_ROLE |
@@ -609,23 +610,19 @@
 
 		op-sink-microwatt = <250000>;
 
-		ports {
-			port@0 {
-				tcpm_role: endpoint {
-					remote-endpoint = <&tcpm>;
-				};
-			};
-			port@2 {
-				usb3_role: endpoint {
-					remote-endpoint = <&dwc3_drd_switch>;
-				};
+		port {
+			connector: endpoint {
+				remote-endpoint = <&tcpm_connector>;
 			};
 		};
 	};
 
 	port {
-		tcpm: endpoint {
-			remote-endpoint = <&tcpm_role>;
+		usb3_role: endpoint@0 {
+			remote-endpoint = <&dwc3_drd_switch>;
+		};
+		tcpm_connector: endpoint@1 {
+			remote-endpoint = <&connector>;
 		};
 	};
 };
