@@ -34,6 +34,8 @@
 #include <drm/drm_fbdev_generic.h>
 #include <drm/drm_framebuffer.h>
 #include <drm/rockchip_ebc_drm.h>
+#include <drm/drm_fbdev_generic.h>
+#include <drm/drm_framebuffer.h>
 
 #define EBC_DSP_START			0x0000
 #define EBC_DSP_START_DSP_OUT_LOW		BIT(31)
