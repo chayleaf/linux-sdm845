@@ -112,6 +112,41 @@
 		};
 	};
 
+	// TODO: Assign FPC ID GPIO 87
+	/*
+	 * This platform has a FPC1020 fingerprint sensor connected to BLSP2_SPI5.
+	 * This SPI controller is secured, and originally the sensor is driven
+	 * by a trusted app. However, the GPIOs it is connected to are not
+	 * secured, which makes it possible to use spi-gpio to communicate with
+	 * the sensor from the normal world.
+	 */
+	spi {
+		compatible = "spi-gpio";
+
+		miso-gpios = <&tlmm 81 0>;
+		mosi-gpios = <&tlmm 82 0>;
+		cs-gpios = <&tlmm 83 GPIO_ACTIVE_LOW>;
+		sck-gpios = <&tlmm 84 0>;
+		num-chipselects = <1>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		fpc1020: fingerprint@0 {
+			compatible = "fpc,fpc1020";
+			reg = <0>;
+
+			interrupt-parent = <&tlmm>;
+			interrupts = <121 IRQ_TYPE_EDGE_RISING>;
+
+			vcc-supply = <&vreg_s4a_1p8>;
+			vdda-supply = <&vreg_s4a_1p8>;
+			vddio-supply = <&vreg_s4a_1p8>;
+
+			reset-gpios = <&tlmm 37 GPIO_ACTIVE_LOW>;
+		};
+	};
+
 	battery: battery {
 		compatible = "simple-battery";
 
@@ -262,6 +297,12 @@
 &dsi0_phy {
 	status = "okay";
 	vdds-supply = <&vreg_l1a_0p875>;
+};
+
+&fpc1020 {
+	fpc,adc-shift = <11>;
+	fpc,adc-gain = <15>;
+	fpc,det-threshold = <20>;
 };
 
 &gcc {
