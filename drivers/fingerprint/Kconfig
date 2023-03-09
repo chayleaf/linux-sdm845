@@ -7,3 +7,18 @@ menuconfig FINGERPRINT
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called fingerprint.
+
+if FINGERPRINT
+
+config FINGERPRINT_FPC1020
+	tristate "Fingerprint Cards FPC1020 Fingerprint Sensor Driver"
+	depends on OF
+	depends on SPI
+	help
+	  Say Y here to enable support for Fingerprint Cards FPC1020
+	  fingerprint sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called fpc1020.
+
+endif
