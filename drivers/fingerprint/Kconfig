@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+menuconfig FINGERPRINT
+	tristate "Fingerprint sensor drivers"
+	help
+	  Say Y to enable Fingerprint sensor support. This allows scanning
+	  fingerprints using internal or external fingerprint sensors.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called fingerprint.
