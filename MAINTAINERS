@@ -8028,6 +8028,14 @@ L:	linux-input@vger.kernel.org
 S:	Maintained
 F:	drivers/input/joystick/fsia6b.c
 
+FOCALTECH FTS5452 TOUCHSCREEN DRIVER
+M:	Joel Selvaraj <joelselvaraj.oss@gmail.com>
+M:	Caleb Connolly <caleb@connolly.tech>
+L:	linux-input@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/input/touchscreen/focaltech,fts5452.yaml
+F:	drivers/input/touchscreen/focaltech_fts5452.c
+
 FOCUSRITE SCARLETT GEN 2/3 MIXER DRIVER
 M:	Geoffrey D. Bennett <g@b4.vu>
 L:	alsa-devel@alsa-project.org (moderated for non-subscribers)
