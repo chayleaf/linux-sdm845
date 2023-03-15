@@ -87,6 +87,8 @@ struct regmap {
 	unsigned int debugfs_reg_len;
 	unsigned int debugfs_val_len;
 	unsigned int debugfs_tot_len;
+	unsigned int debugfs_registers_start;
+	unsigned int debugfs_registers_end;
 
 	struct list_head debugfs_off_cache;
 	struct mutex cache_lock;
