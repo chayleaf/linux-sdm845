@@ -23,6 +23,7 @@
 	};
 
 	chosen {
+		bootargs = "clk_ignore_unused pd_ignore_unused";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -98,6 +99,16 @@
 		rmtfs_upper: memory@f2b01000 {
 			no-map;
 			reg = <0 0xf2b01000 0 0x1000>;
+		};
+
+		ramoops@ffc00000 {
+			compatible = "ramoops";
+			reg = <0x0 0xffc00000 0x0 0x100000>;
+			record-size = <0x1000>;
+			console-size = <0x40000>;
+			msg-size = <0x20000 0x20000>;
+			ecc-size = <16>;
+			no-map;
 		};
 	};
 };
@@ -588,6 +599,9 @@
 
 &usb_1_dwc3 {
 	dr_mode = "peripheral";
+
+	// phys = <&usb_1_hsphy>;
+	// phy-names = "usb2-phy";
 };
 
 &wifi {
