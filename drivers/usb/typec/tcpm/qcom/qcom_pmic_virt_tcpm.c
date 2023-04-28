@@ -195,6 +195,7 @@ static int qcom_pmic_virt_tcpm_probe(struct platform_device *pdev)
 	tcpm->tcpc.init = qcom_pmic_virt_tcpm_init;
 	tcpm->tcpc.get_vbus = qcom_pmic_virt_tcpm_get_vbus;
 	tcpm->tcpc.set_vbus = qcom_pmic_virt_tcpm_set_vbus;
+	tcpm->tcpc.set_current_limit = qcom_pmic_virt_tcpm_set_current_limit;
 	tcpm->tcpc.set_cc = qcom_pmic_virt_tcpm_set_cc;
 	tcpm->tcpc.get_cc = qcom_pmic_virt_tcpm_get_cc;
 	tcpm->tcpc.set_polarity = qcom_pmic_virt_tcpm_set_polarity;

@@ -132,7 +132,7 @@ static bool qptc_reg_valid(struct pmic_typec *pmic_typec, enum qcom_pmic_typec_r
 		break;
 	}
 
-	dev_info(pmic_typec->dev, "%s: valid: %d, reg_name: %s\n", __func__, valid, pmic_typec->regs->regs[reg_id] ? pmic_typec->regs->regs[reg_id]->name : "NULL");
+	//dev_info(pmic_typec->dev, "%s: valid: %d, reg_name: %s\n", __func__, valid, pmic_typec->regs->regs[reg_id] ? pmic_typec->regs->regs[reg_id]->name : "NULL");
 
 	return valid && !!(pmic_typec->regs->regs[reg_id]);
 }
@@ -533,7 +533,7 @@ int qcom_pmic_typec_set_cc(struct pmic_typec *pmic_typec,
 		break;
 	case TYPEC_CC_RP_3_0:
 		// TBD: PMI8998 doesn't support 3A?
-		if (WARN_ON(pmic_typec->subtype == PMI8998_SUBTYPE))
+		if (pmic_typec->subtype == PMI8998_SUBTYPE)
 			currsrc = SRC_RP_SEL_180UA_VAL;
 		else
 			currsrc = SRC_RP_SEL_330UA_VAL;

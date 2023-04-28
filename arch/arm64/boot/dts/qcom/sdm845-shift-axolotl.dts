@@ -77,6 +77,26 @@
 		};
 	};
 
+	usb-sbu-mux {
+		compatible = "gpio-sbu-mux";
+
+		enable-gpios = <&tlmm 43 GPIO_ACTIVE_LOW>;
+		select-gpios = <&tlmm 49 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb_sbu_default>;
+
+		mode-switch;
+		orientation-switch;
+		svid = /bits/ 16 <0xff01>;
+
+		port {
+			usb_sbu_mux: endpoint {
+				remote-endpoint = <&pmic_tcpm_sbu>;
+			};
+		};
+	};
+
 	battery: battery {
 		compatible = "simple-battery";
 
@@ -440,6 +460,18 @@
 	};
 };
 
+&cpu4_opp_table {
+	cpu4_opp33: opp-2841600000 {
+		opp-hz = /bits/ 64 <2841600000>;
+		opp-peak-kBps = <7216000 25497600>;
+	};
+
+	cpu4_opp34: opp-2956800000 {
+		opp-hz = /bits/ 64 <2956800000>;
+		opp-peak-kBps = <7216000 25497600>;
+	};
+};
+
 &dsi0_out {
 	remote-endpoint = <&panel_in_0>;
 	data-lanes = <0 1 2 3>;
@@ -526,6 +558,10 @@
 	status = "okay";
 };
 
+&mdss_dp {
+	status = "disabled";
+};
+
 &mss_pil {
 	status = "okay";
 	firmware-name = "qcom/sdm845/axolotl/mba.mbn", "qcom/sdm845/axolotl/modem.mbn";
@@ -587,6 +623,11 @@
 	vdd-pdphy-supply = <&vreg_l24a_3p075>;
 };
 
+// &dp_out {
+// 	data-lanes = <0 1>;
+// 	remote-endpoint = <&pmic_tcpm_ss>;
+// };
+
 &pmi8998_tcpm {
 	status = "okay";
 
@@ -603,28 +644,52 @@
 					 PDO_FIXED_USB_COMM |
 					 PDO_FIXED_DATA_SWAP)>;
 
-		sink-pdos = <PDO_FIXED(5000, 3000,
+		sink-pdos = <PDO_FIXED(5000, 1500,
 					 PDO_FIXED_DUAL_ROLE |
 					 PDO_FIXED_USB_COMM |
 					 PDO_FIXED_DATA_SWAP)>;
 
-		op-sink-microwatt = <250000>;
-
-		port {
-			connector: endpoint {
-				remote-endpoint = <&tcpm_connector>;
+		altmodes {
+			displayport {
+				svid = <0xff01>;
+				vdo = <0x001c0046>;
 			};
 		};
 	};
 
-	port {
-		usb3_role: endpoint@0 {
-			remote-endpoint = <&dwc3_drd_switch>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		// port@0 {
+		// 	reg = <0>;
+		// 	pmic_tcpm_ss: endpoint {
+		// 		remote-endpoint = <&dp_out>;
+		// 	};
+		// };
+
+		port@1 {
+			reg = <1>;
+			pmic_tcpm_ss_mux: endpoint {
+				remote-endpoint = <&qmp_ss_mux>;
+			};
 		};
-		tcpm_connector: endpoint@1 {
-			remote-endpoint = <&connector>;
+
+		port@2 {
+			reg = <2>;
+			pmic_tcpm_sbu: endpoint {
+				remote-endpoint = <&usb_sbu_mux>;
+			};
+		};
+
+		port@3 {
+			usb3_role: endpoint@0 {
+				remote-endpoint = <&dwc3_drd_switch>;
+			};
 		};
 	};
+
+	
 };
 
 &pmi8998_lpg {
@@ -991,6 +1056,23 @@
 		drive-strength = <2>;
 		bias-pull-down;
 	};
+
+	usb_sbu_default: usb0-sbu-state {
+		oe-n-pins {
+			pins = "gpio43";
+			function = "gpio";
+			bias-disable;
+			drive-strengh = <16>;
+			output-high;
+		};
+
+		sel-pins {
+			pins = "gpio49";
+			function = "gpio";
+			bias-disable;
+			drive-strength = <16>;
+		};
+	};
 };
 
 &uart6 {
@@ -1064,6 +1146,14 @@
 
 	vdda-phy-supply = <&vreg_l26a_1p2>;
 	vdda-pll-supply = <&vreg_l1a_0p875>;
+
+	orientation-switch;
+	port {
+		qmp_ss_mux: endpoint {
+			remote-endpoint = <&pmic_tcpm_ss_mux>;
+		};
+	};
+
 };
 
 &venus {

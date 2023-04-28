@@ -2,7 +2,7 @@
 #include <dt-bindings/input/qcom,spmi-haptics.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/spmi/spmi.h>
-#include <dt-bindings/usb/typec/tcpm/qcom,pmic-usb-pdphy.h>
+#include <dt-bindings/usb/typec/qcom,pmic-pdphy.h>
 
 &spmi_bus {
 	pmi8998_lsid0: pmic@2 {
@@ -39,10 +39,10 @@
 		};
 
 		pmi8998_tcpm: pmic-tcpm {
-			compatible = "qcom,pm8150b-tcpm";
+			compatible = "qcom,pmic-virt-tcpm";
 
-			qcom,pmic-tcpm-typec = <&pmi8998_typec>;
-			qcom,pmic-tcpm-pdphy = <&pmi8998_pdphy>;
+			qcom,pmic-typec = <&pmi8998_typec>;
+			qcom,pmic-pdphy = <&pmi8998_pdphy>;
 
 			status = "disabled";
 		};
