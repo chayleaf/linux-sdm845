@@ -12,51 +12,6 @@
 
 #define DRV_NAME	"q6voice-dai"
 
-static int q6voice_dai_startup(struct snd_pcm_substream *substream,
-			       struct snd_soc_dai *dai)
-{
-	struct q6voice *v = snd_soc_dai_get_drvdata(dai);
-	struct device *dev = dai->component->dev;
-	int ret;
-
-	switch (dai->driver->id) {
-	case CS_VOICE:
-		ret = q6voice_start(v, Q6VOICE_PATH_VOICE, substream->stream);
-		break;
-	case VOICEMMODE1:
-		ret = q6voice_start(v, Q6VOICE_PATH_VOICEMMODE1, substream->stream);
-		break;
-	default:
-		dev_err(dev, "Invalid dai id %x\n", dai->driver->id);
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-
-static void q6voice_dai_shutdown(struct snd_pcm_substream *substream,
-				 struct snd_soc_dai *dai)
-{
-	struct q6voice *v = snd_soc_dai_get_drvdata(dai);
-	struct device *dev = dai->component->dev;
-
-	switch (dai->driver->id) {
-	case CS_VOICE:
-		q6voice_stop(v, Q6VOICE_PATH_VOICE, substream->stream);
-		break;
-	case VOICEMMODE1:
-		q6voice_stop(v, Q6VOICE_PATH_VOICEMMODE1, substream->stream);
-		break;
-	default:
-		dev_err(dev, "Invalid dai id %x\n", dai->driver->id);
-	}
-}
-
-static struct snd_soc_dai_ops q6voice_dai_ops = {
-	.startup = q6voice_dai_startup,
-	.shutdown = q6voice_dai_shutdown,
-};
-
 static struct snd_soc_dai_driver q6voice_dais[] = {
 	{
 		.id = CS_VOICE,
@@ -80,7 +35,6 @@ static struct snd_soc_dai_driver q6voice_dais[] = {
 			.channels_min =	1,
 			.channels_max =	1,
 		},
-		.ops = &q6voice_dai_ops,
 	},
 	{
 		.id = VOICEMMODE1,
@@ -104,27 +58,8 @@ static struct snd_soc_dai_driver q6voice_dais[] = {
 			.channels_min = 1,
 			.channels_max = 1,
 		},
-		.ops = &q6voice_dai_ops,
 	},
 };
-
-/* FIXME: Use codec2codec instead */
-static struct snd_pcm_hardware q6voice_dai_hardware = {
-	.info =			SNDRV_PCM_INFO_INTERLEAVED,
-	.buffer_bytes_max =	4096 * 2,
-	.period_bytes_min =	2048,
-	.period_bytes_max =	4096,
-	.periods_min =		2,
-	.periods_max =		4,
-	.fifo_size =		0,
-};
-
-static int q6voice_dai_open(struct snd_soc_component *component,
-			    struct snd_pcm_substream *substream)
-{
-	substream->runtime->hw = q6voice_dai_hardware;
-	return 0;
-}
 
 static int q6voice_get_mixer(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
@@ -133,6 +68,8 @@ static int q6voice_get_mixer(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	struct q6voice *v = snd_soc_component_get_drvdata(c);
+
+	printk("q6voice_get_mixer: %d", mc->reg);
 
 	switch (mc->reg) {
 	case PRIMARY_MI2S_TX:
@@ -185,6 +122,8 @@ static int q6voice_put_mixer(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_
 	struct q6voice *v = snd_soc_component_get_drvdata(c);
 	struct snd_soc_dapm_update *update = NULL;
 
+	printk("q6voice_put_mixer: %d", mc->reg);
+
 	switch (mc->reg) {
 	case PRIMARY_MI2S_TX:
 	case SECONDARY_MI2S_TX:
@@ -198,6 +137,8 @@ static int q6voice_put_mixer(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_
 	case SLIMBUS_4_TX:
 	case SLIMBUS_5_TX:
 	case SLIMBUS_6_TX:
+		q6voice_stop(v, Q6VOICE_PATH_VOICEMMODE1, 1);
+		q6voice_start(v, Q6VOICE_PATH_VOICEMMODE1, 1);
 		q6voice_set_port(v, Q6VOICE_PORT_TX, mc->reg);
 		break;
 	case PRIMARY_MI2S_RX:
@@ -212,6 +153,8 @@ static int q6voice_put_mixer(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_
 	case SLIMBUS_4_RX:
 	case SLIMBUS_5_RX:
 	case SLIMBUS_6_RX:
+		q6voice_stop(v, Q6VOICE_PATH_VOICEMMODE1, 0);
+		q6voice_start(v, Q6VOICE_PATH_VOICEMMODE1, 0);
 		q6voice_set_port(v, Q6VOICE_PORT_RX, mc->reg);
 		break;
 	default:
@@ -482,30 +425,13 @@ static const struct snd_soc_dapm_route q6voice_dapm_routes[] = {
 	{ "SLIMBUS_6_RX",		NULL,		"SLIMBUS_6_RX Voice Mixer" },
 };
 
-static unsigned int q6voice_reg_read(struct snd_soc_component *component,
-				     unsigned int reg)
-{
-	/* default value */
-	return 0;
-}
-
-static int q6voice_reg_write(struct snd_soc_component *component,
-			     unsigned int reg, unsigned int val)
-{
-	/* dummy */
-	return 0;
-}
-
 static const struct snd_soc_component_driver q6voice_dai_component = {
 	.name = DRV_NAME,
-	.open = q6voice_dai_open,
 
 	.dapm_widgets = q6voice_dapm_widgets,
 	.num_dapm_widgets = ARRAY_SIZE(q6voice_dapm_widgets),
 	.dapm_routes = q6voice_dapm_routes,
 	.num_dapm_routes = ARRAY_SIZE(q6voice_dapm_routes),
-	.read = q6voice_reg_read,
-	.write = q6voice_reg_write,
 
 	/* Needs to probe after q6afe */
 	.probe_order = SND_SOC_COMP_ORDER_LATE,
