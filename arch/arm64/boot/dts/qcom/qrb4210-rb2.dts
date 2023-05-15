@@ -130,6 +130,9 @@
 		interrupts-extended = <&tlmm 46 IRQ_TYPE_EDGE_FALLING>;
 		reset-gpios = <&tlmm 41 GPIO_ACTIVE_HIGH>;
 
+		vdd-supply = <&vreg_hdmi_out_1p2>;
+		vcc-supply = <&lt9611_3v3>;
+
 		pinctrl-0 = <&lt9611_irq_pin &lt9611_rst_pin>;
 		pinctrl-names = "default";
 		#sound-dai-cells = <1>;
