@@ -494,6 +494,10 @@
 	};
 };
 
+&i2c10 {
+	/* SMB1355@0x0C */
+};
+
 &ipa {
 	qcom,gsi-loader = "self";
 	memory-region = <&ipa_fw_mem>;
@@ -520,6 +524,11 @@
 			qcom,drive-strength = <0>;
 		};
 	};
+};
+
+&pmi8998_charger {
+	status = "okay";
+	monitored-battery = <&battery>;
 };
 
 &pm8998_resin {
