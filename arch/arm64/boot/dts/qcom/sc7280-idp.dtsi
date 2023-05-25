@@ -432,6 +432,8 @@
 };
 
 &pmk8350_vadc {
+	status = "okay";
+
 	pmk8350-die-temp@3 {
 		reg = <PMK8350_ADC7_DIE_TEMP>;
 		label = "pmk8350_die_temp";

@@ -515,6 +515,8 @@
 };
 
 &pmk8350_vadc {
+	status = "okay";
+
 	adc-chan@644 {
 		reg = <PMK8350_ADC7_AMUX_THM1_100K_PU>;
 		qcom,ratiometric;
