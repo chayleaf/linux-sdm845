@@ -97,7 +97,7 @@ struct pmic_typec_pdphy *qcom_pmic_typec_pdphy_alloc(struct device *dev);
 
 int qcom_pmic_typec_pdphy_probe(struct platform_device *pdev,
 				struct pmic_typec_pdphy *pmic_typec_pdphy,
-				struct pmic_typec_pdphy_resources *res,
+				const struct pmic_typec_pdphy_resources *res,
 				struct regmap *regmap,
 				u32 base);
 

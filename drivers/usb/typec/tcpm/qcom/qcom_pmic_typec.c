@@ -246,7 +246,7 @@ static void qcom_pmic_typec_remove(struct platform_device *pdev)
 	fwnode_remove_software_node(tcpm->tcpc.fwnode);
 }
 
-static struct pmic_typec_pdphy_resources pm8150b_pdphy_res = {
+static const struct pmic_typec_pdphy_resources pm8150b_pdphy_res = {
 	.irq_params = {
 		{
 			.virq = PMIC_PDPHY_SIG_TX_IRQ,
@@ -280,7 +280,7 @@ static struct pmic_typec_pdphy_resources pm8150b_pdphy_res = {
 	.nr_irqs = 7,
 };
 
-static struct pmic_typec_port_resources pm8150b_port_res = {
+static const struct pmic_typec_port_resources pm8150b_port_res = {
 	.irq_params = {
 		{
 			.irq_name = "vpd-detect",
