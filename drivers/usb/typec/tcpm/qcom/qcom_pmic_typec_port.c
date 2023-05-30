@@ -95,19 +95,11 @@ static irqreturn_t pmic_typec_port_isr(int irq, void *dev_id)
 {
 	struct pmic_typec_port_irq_data *irq_data = dev_id;
 	struct pmic_typec_port *pmic_typec_port = irq_data->pmic_typec_port;
-	u32 misc_stat;
 	bool vbus_change = false;
 	bool cc_change = false;
 	unsigned long flags;
-	int ret;
 
 	spin_lock_irqsave(&pmic_typec_port->lock, flags);
-
-	ret = regmap_read(pmic_typec_port->regmap,
-			  pmic_typec_port->base + TYPEC_MISC_STATUS_REG,
-			  &misc_stat);
-	if (ret)
-		goto done;
 
 	switch (irq_data->virq) {
 	case PMIC_TYPEC_VBUS_IRQ:
@@ -120,7 +112,6 @@ static irqreturn_t pmic_typec_port_isr(int irq, void *dev_id)
 		break;
 	}
 
-done:
 	spin_unlock_irqrestore(&pmic_typec_port->lock, flags);
 
 	if (vbus_change)
