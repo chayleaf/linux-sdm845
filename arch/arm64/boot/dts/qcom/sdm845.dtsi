@@ -4022,6 +4022,10 @@
 				#clock-cells = <1>;
 				#phy-cells = <0>;
 			};
+
+			port {
+				usb_1_qmpphy_typec_mux_in: endpoint {};
+			};
 		};
 
 		usb_2_qmpphy: phy@88eb000 {
@@ -4103,6 +4107,10 @@
 				snps,dis_enblslpm_quirk;
 				phys = <&usb_1_hsphy>, <&usb_1_ssphy>;
 				phy-names = "usb2-phy", "usb3-phy";
+
+				port {
+					usb_1_dwc3_role_switch_in: endpoint {};
+				};
 			};
 		};
 
