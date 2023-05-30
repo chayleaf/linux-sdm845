@@ -155,6 +155,7 @@ struct pmic_typec_regmap_fields {
 	u8 irq_mask_cfg2;
 };
 
+extern struct pmic_typec_registers pmic_typec_fields_pmi8998;
 extern struct pmic_typec_registers pmic_typec_fields_pm8150b;
 
 /* API */

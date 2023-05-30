@@ -327,13 +327,57 @@ static struct pmic_typec_port_resources pm8150b_port_res = {
 	.reg_fields = &pmic_typec_fields_pm8150b,
 };
 
+static struct pmic_typec_port_resources pmi8998_port_res = {
+	.irq_params = {
+		{
+			/*
+			 * on pmi8998 this IRQ is used for most things
+			 * See TYPE_C_INTRPT_ENB_REG:
+			 * - TYPEC_CCOUT_DETACH_INT_EN_BIT
+			 * - TYPEC_CCOUT_ATTACH_INT_EN_BIT
+			 * - TYPEC_VBUS_ERROR_INT_EN_BIT
+			 * - TYPEC_UFP_AUDIOADAPT_INT_EN_BIT
+			 * - TYPEC_DEBOUNCE_DONE_INT_EN_BIT
+			 * - TYPEC_CCSTATE_CHANGE_INT_EN_BIT
+			 * - TYPEC_VBUS_DEASSERT_INT_EN_BIT
+			 * - TYPEC_VBUS_ASSERT_INT_EN_BIT
+			 *
+			 * This irq is probably also used for
+			 * PMIC_TYPEC_VBUS_IRQ
+			 */
+			.irq_name = "type-c-change",
+			.virq = PMIC_TYPEC_CC_STATE_IRQ,
+		},
+		// {
+		// 	/* usb-plugin IRQ, shared with charger */
+		// 	.irq_name = "usbin-lt-3p6v",
+		// 	.virq = PMIC_TYPEC_ATTACH_DETACH_IRQ,
+		// 	.irq_flags = 0,
+		// },
+		// {
+		// 	/* usb-plugin IRQ, shared with charger */
+		// 	.irq_name = "usb-plugin",
+		// 	.virq = PMIC_TYPEC_VBUS_IRQ,
+		// 	.irq_flags = IRQF_SHARED,
+		// },
+	},
+	.nr_irqs = 1,
+	.reg_fields = &pmic_typec_fields_pmi8998,
+};
+
 static struct pmic_typec_resources pm8150b_typec_res = {
 	.pdphy_res = &pm8150b_pdphy_res,
 	.port_res = &pm8150b_port_res,
 };
 
+struct pmic_typec_resources pmi8998_typec_res = {
+	.pdphy_res = &pm8150b_pdphy_res,
+	.port_res = &pmi8998_port_res,
+};
+
 static const struct of_device_id qcom_pmic_typec_table[] = {
 	{ .compatible = "qcom,pm8150b-typec", .data = &pm8150b_typec_res },
+	{ .compatible = "qcom,pmi8998-typec", .data = &pmi8998_typec_res },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, qcom_pmic_typec_table);
