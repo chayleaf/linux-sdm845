@@ -29,6 +29,7 @@ struct pmic_typec_port {
 	struct device			*dev;
 	struct tcpm_port		*tcpm_port;
 	struct regmap			*regmap;
+	struct pmic_typec_regmap_fields	fields;
 	u32				base;
 	unsigned int			nr_irqs;
 	struct pmic_typec_port_irq_data	*irq_data;
@@ -61,22 +62,22 @@ static const char *cc_to_name(enum typec_cc_status cc)
 	return typec_cc_status_name[cc];
 }
 
-static const char * const rp_sel_name[] = {
-	[TYPEC_SRC_RP_SEL_80UA]		= "Rp-def-80uA",
-	[TYPEC_SRC_RP_SEL_180UA]	= "Rp-1.5-180uA",
-	[TYPEC_SRC_RP_SEL_330UA]	= "Rp-3.0-330uA",
+static const char * const cc_curr_src_name[] = {
+	[CC_SRC_RP_SEL_80UA]		= "Rp-def-80uA",
+	[CC_SRC_RP_SEL_180UA]	= "Rp-1.5-180uA",
+	[CC_SRC_RP_SEL_330UA]	= "Rp-3.0-330uA",
 };
 
-static const char *rp_sel_to_name(int rp_sel)
+static const char *cc_curr_src_to_name(int rp_sel)
 {
-	if (rp_sel > TYPEC_SRC_RP_SEL_330UA)
+	if (rp_sel > CC_SRC_RP_SEL_330UA)
 		return rp_unknown;
 
-	return rp_sel_name[rp_sel];
+	return cc_curr_src_name[rp_sel];
 }
 
-#define misc_to_cc(msic) !!(misc & CC_ORIENTATION) ? "cc1" : "cc2"
-#define misc_to_vconn(msic) !!(misc & CC_ORIENTATION) ? "cc2" : "cc1"
+#define orientation_to_cc(o) (o) ? "cc1" : "cc2"
+#define orientation_to_vconn(o) orientation_to_cc(!(o))
 
 static void qcom_pmic_typec_port_cc_debounce(struct work_struct *work)
 {
@@ -123,21 +124,35 @@ static irqreturn_t pmic_typec_port_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+bool qcom_pmic_typec_port_is_vbus_vsafe0v(struct pmic_typec_port *pmic_typec_port)
+{
+	int ret, vsafe0v;
+
+	/*
+	 * The TCPM state machine defaults to true if the field is not present.
+	 * Do that here, too.
+	 */
+	if (!pmic_typec_port->fields.has_vbus_vsafe0v)
+		return true;
+
+	ret = regmap_field_read(pmic_typec_port->fields.vbus_vsafe, &vsafe0v);
+
+	return !ret && (vsafe0v & VBUS_STATUS_VSAFE0V);
+}
+
 int qcom_pmic_typec_port_get_vbus(struct pmic_typec_port *pmic_typec_port)
 {
 	struct device *dev = pmic_typec_port->dev;
-	unsigned int misc;
+	unsigned int vbus_detect;
 	int ret;
 
-	ret = regmap_read(pmic_typec_port->regmap,
-			  pmic_typec_port->base + TYPEC_MISC_STATUS_REG,
-			  &misc);
+	ret = regmap_field_read(pmic_typec_port->fields.vbus_detect, &vbus_detect);
 	if (ret)
-		misc = 0;
+		vbus_detect = 0;
 
-	dev_dbg(dev, "get_vbus: 0x%08x detect %d\n", misc, !!(misc & TYPEC_VBUS_DETECT));
+	dev_dbg(dev, "get_vbus: detect %d\n", vbus_detect);
 
-	return !!(misc & TYPEC_VBUS_DETECT);
+	return vbus_detect;
 }
 
 int qcom_pmic_typec_port_set_vbus(struct pmic_typec_port *pmic_typec_port, bool on)
@@ -151,22 +166,26 @@ int qcom_pmic_typec_port_set_vbus(struct pmic_typec_port *pmic_typec_port, bool 
 		if (ret)
 			return ret;
 
-		val = TYPEC_SM_VBUS_VSAFE5V;
+		val = VBUS_STATUS_VSAFE5V;
 	} else {
 		ret = regulator_disable(pmic_typec_port->vdd_vbus);
 		if (ret)
 			return ret;
 
-		val = TYPEC_SM_VBUS_VSAFE0V;
+		val = VBUS_STATUS_VSAFE0V;
 	}
 
-	/* Poll waiting for transition to required vSafe5V or vSafe0V */
-	ret = regmap_read_poll_timeout(pmic_typec_port->regmap,
-				       pmic_typec_port->base + TYPEC_SM_STATUS_REG,
-				       sm_stat, sm_stat & val,
-				       100, 250000);
-	if (ret)
-		dev_warn(pmic_typec_port->dev, "vbus vsafe%dv fail\n", on ? 5 : 0);
+	// FIXME: With vbus regulator patches it should be possible to remove
+	if (pmic_typec_port->fields.has_vbus_vsafe0v) {
+		/* Poll waiting for transition to required vSafe5V or vSafe0V */
+		ret = regmap_field_read_poll_timeout(pmic_typec_port->fields.vbus_vsafe,
+						     sm_stat, sm_stat == val,
+						     100, 250000);
+
+		if (ret)
+			dev_warn(pmic_typec_port->dev, "vbus vsafe%dv fail\n",
+				 on ? 5 : 0);
+	}
 
 	return 0;
 }
@@ -176,16 +195,23 @@ int qcom_pmic_typec_port_get_cc(struct pmic_typec_port *pmic_typec_port,
 				enum typec_cc_status *cc2)
 {
 	struct device *dev = pmic_typec_port->dev;
-	unsigned int misc, val;
-	bool attached;
+	unsigned int is_src_mode, val;
+	bool attached, orientation;
 	int ret = 0;
+	unsigned long flags;
 
-	ret = regmap_read(pmic_typec_port->regmap,
-			  pmic_typec_port->base + TYPEC_MISC_STATUS_REG, &misc);
+	// FIXME: Ask Bryan if this is needed
+	spin_lock_irqsave(&pmic_typec_port->lock, flags);
+
+	ret = regmap_field_read(pmic_typec_port->fields.cc_status, &val);
 	if (ret)
 		goto done;
 
-	attached = !!(misc & CC_ATTACHED);
+	orientation = !!(val & CC_ORIENTATION);
+	attached = !!(val & CC_ATTACHED);
+	
+	ret = regmap_field_read(pmic_typec_port->fields.snk_src_mode, &is_src_mode);
+
 
 	if (pmic_typec_port->debouncing_cc) {
 		ret = -EBUSY;
@@ -198,13 +224,11 @@ int qcom_pmic_typec_port_get_cc(struct pmic_typec_port *pmic_typec_port,
 	if (!attached)
 		goto done;
 
-	if (misc & SNK_SRC_MODE) {
-		ret = regmap_read(pmic_typec_port->regmap,
-				  pmic_typec_port->base + TYPEC_SRC_STATUS_REG,
-				  &val);
+	if (is_src_mode) {
+		ret = regmap_field_read(pmic_typec_port->fields.src_status, &val);
 		if (ret)
 			goto done;
-		switch (val & DETECTED_SRC_TYPE_MASK) {
+		switch (val) {
 		case SRC_RD_OPEN:
 			val = TYPEC_CC_RD;
 			break;
@@ -219,12 +243,10 @@ int qcom_pmic_typec_port_get_cc(struct pmic_typec_port *pmic_typec_port,
 			break;
 		}
 	} else {
-		ret = regmap_read(pmic_typec_port->regmap,
-				  pmic_typec_port->base + TYPEC_SNK_STATUS_REG,
-				  &val);
+		ret = regmap_field_read(pmic_typec_port->fields.snk_status, &val);
 		if (ret)
 			goto done;
-		switch (val & DETECTED_SNK_TYPE_MASK) {
+		switch (val) {
 		case SNK_RP_STD:
 			val = TYPEC_CC_RP_DEF;
 			break;
@@ -242,15 +264,17 @@ int qcom_pmic_typec_port_get_cc(struct pmic_typec_port *pmic_typec_port,
 		val = TYPEC_CC_RP_DEF;
 	}
 
-	if (misc & CC_ORIENTATION)
+	if (orientation)
 		*cc2 = val;
 	else
 		*cc1 = val;
 
 done:
-	dev_dbg(dev, "get_cc: misc 0x%08x cc1 0x%08x %s cc2 0x%08x %s attached %d cc=%s\n",
-		misc, *cc1, cc_to_name(*cc1), *cc2, cc_to_name(*cc2), attached,
-		misc_to_cc(misc));
+	spin_unlock_irqrestore(&pmic_typec_port->lock, flags);
+
+	dev_dbg(dev, "get_cc: cc1 0x%08x %s cc2 0x%08x %s attached %d cc=%s\n",
+		*cc1, cc_to_name(*cc1), *cc2, cc_to_name(*cc2), attached,
+		orientation_to_cc(orientation));
 
 	return ret;
 }
@@ -273,30 +297,28 @@ int qcom_pmic_typec_port_set_cc(struct pmic_typec_port *pmic_typec_port,
 
 	spin_lock_irqsave(&pmic_typec_port->lock, flags);
 
-	ret = regmap_read(pmic_typec_port->regmap,
-			  pmic_typec_port->base + TYPEC_MISC_STATUS_REG,
-			  &misc);
+	ret = regmap_field_read(pmic_typec_port->fields.misc_dbg, &misc);
 	if (ret)
 		goto done;
 
-	mode = EN_SRC_ONLY;
+	mode = POWER_ROLE_SRC_ONLY;
 
 	switch (cc) {
 	case TYPEC_CC_OPEN:
-		currsrc = TYPEC_SRC_RP_SEL_80UA;
+		currsrc = CC_SRC_RP_SEL_80UA;
 		break;
 	case TYPEC_CC_RP_DEF:
-		currsrc = TYPEC_SRC_RP_SEL_80UA;
+		currsrc = CC_SRC_RP_SEL_80UA;
 		break;
 	case TYPEC_CC_RP_1_5:
-		currsrc = TYPEC_SRC_RP_SEL_180UA;
+		currsrc = CC_SRC_RP_SEL_180UA;
 		break;
 	case TYPEC_CC_RP_3_0:
-		currsrc = TYPEC_SRC_RP_SEL_330UA;
+		currsrc = pmic_typec_port->fields.curr_src_max;
 		break;
 	case TYPEC_CC_RD:
-		currsrc = TYPEC_SRC_RP_SEL_80UA;
-		mode = EN_SNK_ONLY;
+		currsrc = CC_SRC_RP_SEL_80UA;
+		mode = POWER_ROLE_SNK_ONLY;
 		break;
 	default:
 		dev_warn(dev, "unexpected set_cc %d\n", cc);
@@ -304,10 +326,8 @@ int qcom_pmic_typec_port_set_cc(struct pmic_typec_port *pmic_typec_port,
 		goto done;
 	}
 
-	if (mode == EN_SRC_ONLY) {
-		ret = regmap_write(pmic_typec_port->regmap,
-				   pmic_typec_port->base + TYPEC_CURRSRC_CFG_REG,
-				   currsrc);
+	if (mode == POWER_ROLE_SRC_ONLY) {
+		ret = regmap_field_write(pmic_typec_port->fields.cc_curr_src, currsrc);
 		if (ret)
 			goto done;
 	}
@@ -320,10 +340,10 @@ done:
 	spin_unlock_irqrestore(&pmic_typec_port->lock, flags);
 
 	dev_dbg(dev, "set_cc: currsrc=%x %s mode %s debounce %d attached %d cc=%s\n",
-		currsrc, rp_sel_to_name(currsrc),
-		mode == EN_SRC_ONLY ? "EN_SRC_ONLY" : "EN_SNK_ONLY",
+		currsrc, cc_curr_src_to_name(currsrc),
+		mode == POWER_ROLE_SRC_ONLY ? "POWER_ROLE_SRC_ONLY" : "POWER_ROLE_SNK_ONLY",
 		pmic_typec_port->debouncing_cc, !!(misc & CC_ATTACHED),
-		misc_to_cc(misc));
+		orientation_to_cc(misc));
 
 	return ret;
 }
@@ -331,35 +351,30 @@ done:
 int qcom_pmic_typec_port_set_vconn(struct pmic_typec_port *pmic_typec_port, bool on)
 {
 	struct device *dev = pmic_typec_port->dev;
-	unsigned int orientation, misc, mask, value;
+	unsigned int orientation, value;
 	unsigned long flags;
 	int ret;
 
 	spin_lock_irqsave(&pmic_typec_port->lock, flags);
 
-	ret = regmap_read(pmic_typec_port->regmap,
-			  pmic_typec_port->base + TYPEC_MISC_STATUS_REG, &misc);
+	ret = regmap_field_read(pmic_typec_port->fields.cc_status, &value);
 	if (ret)
 		goto done;
 
 	/* Set VCONN on the inversion of the active CC channel */
-	orientation = (misc & CC_ORIENTATION) ? 0 : VCONN_EN_ORIENTATION;
+	orientation = !(value & CC_ORIENTATION);
 	if (on) {
-		mask = VCONN_EN_ORIENTATION | VCONN_EN_VALUE;
-		value = orientation | VCONN_EN_VALUE | VCONN_EN_SRC;
-	} else {
-		mask = VCONN_EN_VALUE;
-		value = 0;
+		ret = regmap_field_write(pmic_typec_port->fields.vconn_en_orientation, orientation);
+		if (ret)
+			goto done;
 	}
 
-	ret = regmap_update_bits(pmic_typec_port->regmap,
-				 pmic_typec_port->base + TYPEC_VCONN_CONTROL_REG,
-				 mask, value);
+	ret = regmap_field_write(pmic_typec_port->fields.vconn_en, on);
 done:
 	spin_unlock_irqrestore(&pmic_typec_port->lock, flags);
 
 	dev_dbg(dev, "set_vconn: orientation %d control 0x%08x state %s cc %s vconn %s\n",
-		orientation, value, on ? "on" : "off", misc_to_vconn(misc), misc_to_cc(misc));
+		orientation, value, on ? "on" : "off", orientation_to_vconn(!orientation), orientation_to_cc(!orientation));
 
 	return ret;
 }
@@ -376,20 +391,19 @@ int qcom_pmic_typec_port_start_toggling(struct pmic_typec_port *pmic_typec_port,
 
 	switch (port_type) {
 	case TYPEC_PORT_SRC:
-		mode = EN_SRC_ONLY;
+		mode = POWER_ROLE_SRC_ONLY;
 		break;
 	case TYPEC_PORT_SNK:
-		mode = EN_SNK_ONLY;
+		mode = POWER_ROLE_SNK_ONLY;
 		break;
 	case TYPEC_PORT_DRP:
-		mode = EN_TRY_SNK;
+		mode = POWER_ROLE_TRY_SINK;
 		break;
 	}
 
 	spin_lock_irqsave(&pmic_typec_port->lock, flags);
 
-	ret = regmap_read(pmic_typec_port->regmap,
-			  pmic_typec_port->base + TYPEC_MISC_STATUS_REG, &misc);
+	ret = regmap_field_read(pmic_typec_port->fields.misc_dbg, &misc);
 	if (ret)
 		goto done;
 
@@ -399,15 +413,15 @@ int qcom_pmic_typec_port_start_toggling(struct pmic_typec_port *pmic_typec_port,
 	qcom_pmic_set_cc_debounce(pmic_typec_port);
 
 	/* force it to toggle at least once */
-	ret = regmap_write(pmic_typec_port->regmap,
-			   pmic_typec_port->base + TYPEC_MODE_CFG_REG,
-			   TYPEC_DISABLE_CMD);
+	ret = regmap_field_write(pmic_typec_port->fields.power_role, POWER_ROLE_DISABLED);
 	if (ret)
 		goto done;
 
-	ret = regmap_write(pmic_typec_port->regmap,
-			   pmic_typec_port->base + TYPEC_MODE_CFG_REG,
-			   mode);
+	if (mode > POWER_ROLE_TRY_SINK)
+		ret = regmap_field_write(pmic_typec_port->fields.power_role, mode);
+	else
+		ret = regmap_field_write(pmic_typec_port->fields.en_try_snk, 1);
+
 done:
 	spin_unlock_irqrestore(&pmic_typec_port->lock, flags);
 
@@ -415,57 +429,57 @@ done:
 }
 
 #define TYPEC_INTR_EN_CFG_1_MASK		  \
-	(TYPEC_LEGACY_CABLE_INT_EN		| \
-	 TYPEC_NONCOMPLIANT_LEGACY_CABLE_INT_EN	| \
-	 TYPEC_TRYSOURCE_DETECT_INT_EN		| \
-	 TYPEC_TRYSINK_DETECT_INT_EN		| \
-	 TYPEC_CCOUT_DETACH_INT_EN		| \
-	 TYPEC_CCOUT_ATTACH_INT_EN		| \
-	 TYPEC_VBUS_DEASSERT_INT_EN		| \
-	 TYPEC_VBUS_ASSERT_INT_EN)
+	(BIT(IRQ_LEGACY_CABLE)			| \
+	 BIT(IRQ_NONCOMPLIANT_LEGACY_CABLE)	| \
+	 BIT(IRQ_TRYSOURCE_DETECT)		| \
+	 BIT(IRQ_TRYSINK_DETECT)		| \
+	 BIT(IRQ_CCOUT_DETACH)			| \
+	 BIT(IRQ_CCOUT_ATTACH)			| \
+	 BIT(IRQ_VBUS_DEASSERT)			| \
+	 BIT(IRQ_VBUS_ASSERT))
 
-#define TYPEC_INTR_EN_CFG_2_MASK \
-	(TYPEC_STATE_MACHINE_CHANGE_INT_EN | TYPEC_VBUS_ERROR_INT_EN | \
-	 TYPEC_DEBOUNCE_DONE_INT_EN)
+#define TYPEC_INTR_EN_CFG_2_MASK	  \
+	(BIT(IRQ_STATE_MACHINE_CHANGE)	| \
+	 BIT(IRQ_VBUS_ERROR)		| \
+	 BIT(IRQ_DEBOUNCE_DONE))
 
 int qcom_pmic_typec_port_start(struct pmic_typec_port *pmic_typec_port,
 			       struct tcpm_port *tcpm_port)
 {
 	int i;
-	int mask;
 	int ret;
 
 	/* Configure interrupt sources */
-	ret = regmap_write(pmic_typec_port->regmap,
-			   pmic_typec_port->base + TYPEC_INTERRUPT_EN_CFG_1_REG,
-			   TYPEC_INTR_EN_CFG_1_MASK);
+	ret = regmap_field_write(pmic_typec_port->fields.irq_en_cfg1,
+				 pmic_typec_port->fields.irq_mask_cfg1);
 	if (ret)
 		goto done;
 
-	ret = regmap_write(pmic_typec_port->regmap,
-			   pmic_typec_port->base + TYPEC_INTERRUPT_EN_CFG_2_REG,
-			   TYPEC_INTR_EN_CFG_2_MASK);
+	ret = regmap_field_write(pmic_typec_port->fields.irq_en_cfg2,
+				 pmic_typec_port->fields.irq_mask_cfg2);
 	if (ret)
 		goto done;
 
 	/* start in TRY_SNK mode */
-	ret = regmap_write(pmic_typec_port->regmap,
-			   pmic_typec_port->base + TYPEC_MODE_CFG_REG, EN_TRY_SNK);
+	ret = regmap_field_write(pmic_typec_port->fields.en_try_snk, 1);
 	if (ret)
 		goto done;
 
 	/* Configure VCONN for software control */
-	ret = regmap_update_bits(pmic_typec_port->regmap,
-				 pmic_typec_port->base + TYPEC_VCONN_CONTROL_REG,
-				 VCONN_EN_SRC | VCONN_EN_VALUE, VCONN_EN_SRC);
+	ret = regmap_field_write(pmic_typec_port->fields.vconn_en_src, 1);
+	if (ret)
+		goto done;
+	ret = regmap_field_write(pmic_typec_port->fields.vconn_en, 0);
 	if (ret)
 		goto done;
 
-	/* Set CC threshold to 1.6 Volts | tPDdebounce = 10-20ms */
-	mask = SEL_SRC_UPPER_REF | USE_TPD_FOR_EXITING_ATTACHSRC;
-	ret = regmap_update_bits(pmic_typec_port->regmap,
-				 pmic_typec_port->base + TYPEC_EXIT_STATE_CFG_REG,
-				 mask, mask);
+	/* Set CC threshold to 1.6 Volts */
+	ret = regmap_field_write(pmic_typec_port->fields.cc_src_threshold, 1);
+	if (ret)
+		goto done;
+
+	/* tPDdebounce = 10-20ms */
+	ret = regmap_field_write(pmic_typec_port->fields.cc_src_tpd_debounce, 1);
 	if (ret)
 		goto done;
 
@@ -493,7 +507,7 @@ struct pmic_typec_port *qcom_pmic_typec_port_alloc(struct device *dev)
 
 int qcom_pmic_typec_port_probe(struct platform_device *pdev,
 			       struct pmic_typec_port *pmic_typec_port,
-			       struct pmic_typec_port_resources *res,
+			       const struct pmic_typec_port_resources *res,
 			       struct regmap *regmap,
 			       u32 base)
 {
@@ -512,6 +526,28 @@ int qcom_pmic_typec_port_probe(struct platform_device *pdev,
 	pmic_typec_port->vdd_vbus = devm_regulator_get(dev, "vdd-vbus");
 	if (IS_ERR(pmic_typec_port->vdd_vbus))
 		return PTR_ERR(pmic_typec_port->vdd_vbus);
+
+	// FIXME: lol does this work???
+	ret = devm_regmap_field_bulk_alloc(dev, regmap,
+					   (struct regmap_field**)&pmic_typec_port->fields,
+					   (struct reg_field*)&res->reg_fields->fields,
+					   PMIC_TYPEC_NUM_FIELDS);
+	if (ret) {
+		dev_err_probe(dev, ret, "failed to allocate regmap fields\n");
+		return ret;
+	}
+
+	pmic_typec_port->fields.has_vbus_vsafe0v = res->reg_fields->has_vbus_vsafe0v;
+	pmic_typec_port->fields.curr_src_max = res->reg_fields->curr_src_max;
+	/* Populate IRQ masks */
+	for (i = 0; i < IRQ_NUM_IRQS; i++) {
+		if (BIT(i) & TYPEC_INTR_EN_CFG_1_MASK)
+			pmic_typec_port->fields.irq_mask_cfg1 |= res->reg_fields->irq_map_cfg1[i];
+		else if (BIT(i) & TYPEC_INTR_EN_CFG_2_MASK)
+			pmic_typec_port->fields.irq_mask_cfg2 |= res->reg_fields->irq_map_cfg2[i];
+	}
+	dev_info(dev, "irq_mask_cfg1: 0x%x\n", pmic_typec_port->fields.irq_mask_cfg1);
+	dev_info(dev, "irq_mask_cfg2: 0x%x\n", pmic_typec_port->fields.irq_mask_cfg2);
 
 	pmic_typec_port->dev = dev;
 	pmic_typec_port->base = base;

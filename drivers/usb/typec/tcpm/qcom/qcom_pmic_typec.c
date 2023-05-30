@@ -88,6 +88,13 @@ static int qcom_pmic_typec_get_cc(struct tcpc_dev *tcpc,
 	return qcom_pmic_typec_port_get_cc(tcpm->pmic_typec_port, cc1, cc2);
 }
 
+static bool qcom_pmic_typec_is_vbus_vsafe0v(struct tcpc_dev *tcpc)
+{
+	struct pmic_typec *tcpm = tcpc_to_tcpm(tcpc);
+
+	return qcom_pmic_typec_port_is_vbus_vsafe0v(tcpm->pmic_typec_port);
+}
+
 static int qcom_pmic_typec_set_cc(struct tcpc_dev *tcpc,
 				  enum typec_cc_status cc)
 {
@@ -176,6 +183,7 @@ static int qcom_pmic_typec_probe(struct platform_device *pdev)
 	tcpm->tcpc.set_pd_rx = qcom_pmic_typec_set_pd_rx;
 	tcpm->tcpc.set_roles = qcom_pmic_typec_set_roles;
 	tcpm->tcpc.pd_transmit = qcom_pmic_typec_pd_transmit;
+	tcpm->tcpc.is_vbus_vsafe0v = qcom_pmic_typec_is_vbus_vsafe0v;
 
 	regmap = dev_get_regmap(dev->parent, NULL);
 	if (!regmap) {
@@ -246,7 +254,7 @@ static void qcom_pmic_typec_remove(struct platform_device *pdev)
 	fwnode_remove_software_node(tcpm->tcpc.fwnode);
 }
 
-static const struct pmic_typec_pdphy_resources pm8150b_pdphy_res = {
+static struct pmic_typec_pdphy_resources pm8150b_pdphy_res = {
 	.irq_params = {
 		{
 			.virq = PMIC_PDPHY_SIG_TX_IRQ,
@@ -280,7 +288,7 @@ static const struct pmic_typec_pdphy_resources pm8150b_pdphy_res = {
 	.nr_irqs = 7,
 };
 
-static const struct pmic_typec_port_resources pm8150b_port_res = {
+static struct pmic_typec_port_resources pm8150b_port_res = {
 	.irq_params = {
 		{
 			.irq_name = "vpd-detect",
@@ -316,6 +324,7 @@ static const struct pmic_typec_port_resources pm8150b_port_res = {
 		},
 	},
 	.nr_irqs = 7,
+	.reg_fields = &pmic_typec_fields_pm8150b,
 };
 
 static struct pmic_typec_resources pm8150b_typec_res = {
