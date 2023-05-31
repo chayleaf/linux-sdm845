@@ -928,3 +928,8 @@
 		};
 	};
 };
+
+/* Dies in hantro_try_fmt */
+&vpu {
+	status = "disabled";
+};
