@@ -257,6 +257,7 @@ static const struct regulator_desc tps65185_vdrive_desc = {
 	.enable_val		= TPS65185_ENABLE_ACTIVE,
 	.disable_val		= TPS65185_ENABLE_STANDBY,
 	.poll_enabled_time	= 2500,
+	.off_on_delay		= 1000000
 };
 
 static const struct iio_event_spec tps65185_iio_temp_events[] = {
