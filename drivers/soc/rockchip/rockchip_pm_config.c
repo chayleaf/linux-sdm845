@@ -52,22 +52,6 @@ static const struct of_device_id pm_match_table[] = {
 	{ },
 };
 
-static void rockchip_pm_virt_pwroff_prepare(void)
-{
-	int error;
-
-	regulator_suspend_prepare(PM_SUSPEND_MEM);
-
-	error = suspend_disable_secondary_cpus();
-	if (error) {
-		pr_err("Disable nonboot cpus failed!\n");
-		return;
-	}
-
-	sip_smc_set_suspend_mode(VIRTUAL_POWEROFF, 0, 1);
-	sip_smc_virtual_poweroff();
-}
-
 static int parse_on_off_regulator(struct device_node *node, enum rk_pm_state state)
 {
 	char on_prop_name[MAX_ON_OFF_REG_PROP_NAME_LEN] = {0};
@@ -229,12 +213,6 @@ static int pm_config_probe(struct platform_device *pdev)
 		sip_smc_set_suspend_mode(APIOS_SUSPEND_CONFIG,
 					 apios_suspend,
 					 0);
-
-	if (!of_property_read_u32_array(node,
-					"rockchip,virtual-poweroff",
-					&virtual_poweroff_en, 1) &&
-	    virtual_poweroff_en)
-		pm_power_off_prepare = rockchip_pm_virt_pwroff_prepare;
 
 	for (i = RK_PM_MEM; i < RK_PM_STATE_MAX; i++)
 		parse_on_off_regulator(node, i);
