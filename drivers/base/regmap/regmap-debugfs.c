@@ -249,7 +249,7 @@ static ssize_t regmap_read_debugfs(struct regmap *map, unsigned int from,
 
 			/* Format the register */
 			snprintf(buf + buf_pos, count - buf_pos, "%.*x: ",
-				 map->debugfs_reg_len, i);
+				 map->debugfs_reg_len, i - from);
 			buf_pos += map->debugfs_reg_len + 2;
 
 			/* Format the value, write all X if we can't read */
@@ -286,8 +286,7 @@ static ssize_t regmap_map_read_file(struct file *file, char __user *user_buf,
 {
 	struct regmap *map = file->private_data;
 
-	return regmap_read_debugfs(map, map->debugfs_registers_start,
-				    map->debugfs_registers_end, user_buf,
+	return regmap_read_debugfs(map, 0, map->max_register, user_buf,
 				   count, ppos);
 }
 
@@ -426,52 +425,9 @@ out_buf:
 	return ret;
 }
 
-/*
- * Allow only reading a limited range of registers
- * Instead of the whole address space
- */
-static ssize_t regmap_reg_ranges_write_file(struct file *file,
-				     const char __user *user_buf,
-				     size_t count, loff_t *ppos)
-{
-	char buf[32];
-	size_t buf_size;
-	char *start = buf;
-	unsigned long start_addr, size;
-	struct regmap *map = file->private_data;
-
-	buf_size = min(count, (sizeof(buf)-1));
-	if (copy_from_user(buf, user_buf, buf_size))
-		return -EFAULT;
-	buf[buf_size] = 0;
-
-	while (*start == ' ')
-		start++;
-	start_addr = simple_strtoul(start, &start, 16);
-	while (*start == ' ')
-		start++;
-	if (kstrtoul(start, 16, &size))
-		return -EINVAL;
-
-	if (start_addr + size - 1 > map->max_register)
-		return -EINVAL;
-	
-	if (start_addr == 0 && size == 0) {
-		map->debugfs_registers_start = 0;
-		map->debugfs_registers_end = map->max_register;
-		return buf_size;
-	}
-
-	map->debugfs_registers_start = start_addr;
-	map->debugfs_registers_end = start_addr + size - 1;
-
-	return buf_size;
-}
-
 static const struct file_operations regmap_reg_ranges_fops = {
 	.open = simple_open,
 	.read = regmap_reg_ranges_read_file,
-	.write = regmap_reg_ranges_write_file,
 	.llseek = default_llseek,
 };
 
