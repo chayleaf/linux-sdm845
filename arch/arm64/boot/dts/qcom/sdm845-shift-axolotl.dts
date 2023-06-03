@@ -881,12 +881,12 @@
 		};
 	};
 
-	voicemmode1-dai-link {
-		link-name = "VoiceMMode1";
-		cpu {
-			sound-dai = <&q6voicedai VOICEMMODE1>;
-		};
-	};
+	// voicemmode1-dai-link {
+	// 	link-name = "VoiceMMode1";
+	// 	cpu {
+	// 		sound-dai = <&q6voicedai VOICEMMODE1>;
+	// 	};
+	// };
 };
 
 &tlmm {

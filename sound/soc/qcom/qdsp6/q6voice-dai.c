@@ -15,6 +15,8 @@ static int q6voice_dai_startup(struct snd_pcm_substream *substream,
 {
 	struct q6voice *v = snd_soc_dai_get_drvdata(dai);
 
+	printk("Q6VOICE STARTED");
+
 	return q6voice_start(v, Q6VOICE_PATH_VOICE, substream->stream);
 }
 
@@ -22,6 +24,8 @@ static void q6voice_dai_shutdown(struct snd_pcm_substream *substream,
 				 struct snd_soc_dai *dai)
 {
 	struct q6voice *v = snd_soc_dai_get_drvdata(dai);
+
+	printk("Q6VOICE STOPPED");
 
 	q6voice_stop(v, Q6VOICE_PATH_VOICE, substream->stream);
 }
@@ -83,8 +87,8 @@ static const struct snd_soc_dapm_widget q6voice_dapm_widgets[] = {
 
 static const struct snd_soc_dapm_route q6voice_dapm_routes[] = {
 	/* TODO: Make routing configurable */
-	{"CS-VOICE_UL1", NULL, "TERT_MI2S_TX"},
-	{"PRI_MI2S_RX", NULL, "CS-VOICE_DL1"},
+	{"CS-VOICE_UL1", NULL, "SLIMBUS_0_TX"},
+	{"QUAT_MI2S_RX", NULL, "CS-VOICE_DL1"},
 };
 
 static const struct snd_soc_component_driver q6voice_dai_component = {
