@@ -702,6 +702,7 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
 				area, DRM_RECT_ARG(&area->clip), DRM_RECT_ARG(&other->clip));
 			/* printk(KERN_INFO "    dropping\n"); */
 			return false;
+		}
 
 		/* They do overlap but are are not equal and both not started yet, so
 		 * they can potentially start together */
