@@ -344,7 +344,8 @@ int vfe_reserve_wm(struct vfe_device *vfe, enum vfe_line_id line_id)
 int vfe_release_wm(struct vfe_device *vfe, u8 wm)
 {
 	if (wm >= ARRAY_SIZE(vfe->wm_output_map))
-		return -EINVAL;
+		{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+		return -EINVAL; }
 
 	vfe->wm_output_map[wm] = VFE_LINE_NONE;
 
@@ -488,7 +489,8 @@ static int vfe_set_clock_rates(struct vfe_device *vfe)
 			if (j == clock->nfreqs) {
 				dev_err(dev,
 					"Pixel clock is too high for VFE");
-				return -EINVAL;
+				{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+				return -EINVAL; }
 			}
 
 			/* if sensor pixel clock is not available */
@@ -500,7 +502,8 @@ static int vfe_set_clock_rates(struct vfe_device *vfe)
 			if (rate < 0) {
 				dev_err(dev, "clk round rate failed: %ld\n",
 					rate);
-				return -EINVAL;
+				{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+				return -EINVAL; }
 			}
 
 			ret = clk_set_rate(clock->clk, rate);
@@ -981,7 +984,8 @@ static int vfe_enum_mbus_code(struct v4l2_subdev *sd,
 
 	if (code->pad == MSM_VFE_PAD_SINK) {
 		if (code->index >= line->nformats)
-			return -EINVAL;
+			{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+			return -EINVAL; }
 
 		code->code = line->formats[code->index].code;
 	} else {
@@ -993,7 +997,8 @@ static int vfe_enum_mbus_code(struct v4l2_subdev *sd,
 		code->code = vfe_src_pad_code(line, sink_fmt->code,
 					      code->index, 0);
 		if (!code->code)
-			return -EINVAL;
+			{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+			return -EINVAL; }
 	}
 
 	return 0;
@@ -1015,7 +1020,8 @@ static int vfe_enum_frame_size(struct v4l2_subdev *sd,
 	struct v4l2_mbus_framefmt format;
 
 	if (fse->index != 0)
-		return -EINVAL;
+		{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+		return -EINVAL; }
 
 	format.code = fse->code;
 	format.width = 1;
@@ -1025,7 +1031,8 @@ static int vfe_enum_frame_size(struct v4l2_subdev *sd,
 	fse->min_height = format.height;
 
 	if (format.code != fse->code)
-		return -EINVAL;
+		{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+		return -EINVAL; }
 
 	format.code = fse->code;
 	format.width = -1;
@@ -1054,7 +1061,8 @@ static int vfe_get_format(struct v4l2_subdev *sd,
 
 	format = __vfe_get_format(line, sd_state, fmt->pad, fmt->which);
 	if (format == NULL)
-		return -EINVAL;
+		{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+		return -EINVAL; }
 
 	fmt->format = *format;
 
@@ -1082,7 +1090,8 @@ static int vfe_set_format(struct v4l2_subdev *sd,
 
 	format = __vfe_get_format(line, sd_state, fmt->pad, fmt->which);
 	if (format == NULL)
-		return -EINVAL;
+		{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+		return -EINVAL; }
 
 	vfe_try_format(line, sd_state, fmt->pad, &fmt->format, fmt->which);
 	*format = fmt->format;
@@ -1134,7 +1143,8 @@ static int vfe_get_selection(struct v4l2_subdev *sd,
 	int ret;
 
 	if (line->id != VFE_LINE_PIX)
-		return -EINVAL;
+		{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+		return -EINVAL; }
 
 	if (sel->pad == MSM_VFE_PAD_SINK)
 		switch (sel->target) {
@@ -1153,19 +1163,22 @@ static int vfe_get_selection(struct v4l2_subdev *sd,
 		case V4L2_SEL_TGT_COMPOSE:
 			rect = __vfe_get_compose(line, sd_state, sel->which);
 			if (rect == NULL)
-				return -EINVAL;
+				{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+				return -EINVAL; }
 
 			sel->r = *rect;
 			break;
 		default:
-			return -EINVAL;
+			{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+			return -EINVAL; }
 		}
 	else if (sel->pad == MSM_VFE_PAD_SRC)
 		switch (sel->target) {
 		case V4L2_SEL_TGT_CROP_BOUNDS:
 			rect = __vfe_get_compose(line, sd_state, sel->which);
 			if (rect == NULL)
-				return -EINVAL;
+				{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+				return -EINVAL; }
 
 			sel->r.left = rect->left;
 			sel->r.top = rect->top;
@@ -1175,12 +1188,14 @@ static int vfe_get_selection(struct v4l2_subdev *sd,
 		case V4L2_SEL_TGT_CROP:
 			rect = __vfe_get_crop(line, sd_state, sel->which);
 			if (rect == NULL)
-				return -EINVAL;
+				{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+				return -EINVAL; }
 
 			sel->r = *rect;
 			break;
 		default:
-			return -EINVAL;
+			{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+			return -EINVAL; }
 		}
 
 	return 0;
@@ -1203,7 +1218,8 @@ static int vfe_set_selection(struct v4l2_subdev *sd,
 	int ret;
 
 	if (line->id != VFE_LINE_PIX)
-		return -EINVAL;
+		{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+		return -EINVAL; }
 
 	if (sel->target == V4L2_SEL_TGT_COMPOSE &&
 		sel->pad == MSM_VFE_PAD_SINK) {
@@ -1211,7 +1227,8 @@ static int vfe_set_selection(struct v4l2_subdev *sd,
 
 		rect = __vfe_get_compose(line, sd_state, sel->which);
 		if (rect == NULL)
-			return -EINVAL;
+			{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+			return -EINVAL; }
 
 		vfe_try_compose(line, sd_state, &sel->r, sel->which);
 		*rect = sel->r;
@@ -1228,7 +1245,8 @@ static int vfe_set_selection(struct v4l2_subdev *sd,
 
 		rect = __vfe_get_crop(line, sd_state, sel->which);
 		if (rect == NULL)
-			return -EINVAL;
+			{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+			return -EINVAL; }
 
 		vfe_try_crop(line, sd_state, &sel->r, sel->which);
 		*rect = sel->r;
@@ -1307,7 +1325,8 @@ int msm_vfe_subdev_init(struct camss *camss, struct vfe_device *vfe,
 		vfe->ops = &vfe_ops_480;
 		break;
 	default:
-		return -EINVAL;
+		{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+		return -EINVAL; }
 	}
 	vfe->ops->subdev_init(dev, vfe);
 
@@ -1418,7 +1437,8 @@ int msm_vfe_subdev_init(struct camss *camss, struct vfe_device *vfe,
 			l->formats = formats_rdi_845;
 			l->nformats = ARRAY_SIZE(formats_rdi_845);
 		} else {
-			return -EINVAL;
+			{ pr_info("camss-vfe: %s, %s EINVAL!!!\n", __func__, __LINE__);
+			return -EINVAL; }
 		}
 	}
 
