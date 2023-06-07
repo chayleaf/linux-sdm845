@@ -502,8 +502,10 @@ static int video_start_streaming(struct vb2_queue *q, unsigned int count)
 	}
 
 	ret = video_check_format(video);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(video->camss->dev, "Failed to check format: %d\n", ret);
 		goto error;
+	}
 
 	entity = &vdev->entity;
 	while (1) {
@@ -519,8 +521,10 @@ static int video_start_streaming(struct vb2_queue *q, unsigned int count)
 		subdev = media_entity_to_v4l2_subdev(entity);
 
 		ret = v4l2_subdev_call(subdev, video, s_stream, 1);
-		if (ret < 0 && ret != -ENOIOCTLCMD)
+		if (ret < 0 && ret != -ENOIOCTLCMD) {
+			dev_err(video->camss->dev, "Failed to start streaming: %d. subdev %s\n", ret, subdev->name);
 			goto error;
+		}
 	}
 
 	return 0;

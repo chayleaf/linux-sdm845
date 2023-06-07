@@ -545,6 +545,9 @@ static int vfe_check_clock_rates(struct vfe_device *vfe)
 			u64 min_rate = 0;
 			unsigned long rate;
 
+			// dev_info(vfe->camss->dev, "clock: %s, freq: %u, vfe->line_num: %u\n",
+			// 	 clock->name, clock->freq[0], vfe->line_num);
+
 			for (j = VFE_LINE_RDI0; j < vfe->line_num; j++) {
 				u32 tmp;
 				u8 bpp;
@@ -559,6 +562,9 @@ static int vfe_check_clock_rates(struct vfe_device *vfe)
 						l->fmt[MSM_VFE_PAD_SINK].code);
 					tmp = pixel_clock[j] * bpp / 64;
 				}
+
+				// dev_info(vfe->camss->dev, "line: %d, clock: %s, freq: %u\n",
+				// 	 j, clock->name, clock->freq[j]);
 
 				if (min_rate < tmp)
 					min_rate = tmp;
