@@ -1198,6 +1198,7 @@ static const struct qcom_icc_desc qcm2290_bimc = {
 	.num_nodes = ARRAY_SIZE(qcm2290_bimc_nodes),
 	.bus_clk_desc = &bimc_clk,
 	.regmap_cfg = &qcm2290_bimc_regmap_config,
+	.keep_alive = true,
 	/* M_REG_BASE() in vendor msm_bus_bimc_adhoc driver */
 	.qos_offset = 0x8000,
 };
@@ -1254,6 +1255,7 @@ static const struct qcom_icc_desc qcm2290_cnoc = {
 	.num_nodes = ARRAY_SIZE(qcm2290_cnoc_nodes),
 	.bus_clk_desc = &bus_1_clk,
 	.regmap_cfg = &qcm2290_cnoc_regmap_config,
+	.keep_alive = true,
 };
 
 static struct qcom_icc_node * const qcm2290_snoc_nodes[] = {
@@ -1296,6 +1298,7 @@ static const struct qcom_icc_desc qcm2290_snoc = {
 	.num_nodes = ARRAY_SIZE(qcm2290_snoc_nodes),
 	.bus_clk_desc = &bus_2_clk,
 	.regmap_cfg = &qcm2290_snoc_regmap_config,
+	.keep_alive = true,
 	/* Vendor DT node fab-sys_noc property 'qcom,base-offset' */
 	.qos_offset = 0x15000,
 };
@@ -1310,6 +1313,7 @@ static const struct qcom_icc_desc qcm2290_qup_virt = {
 	.nodes = qcm2290_qup_virt_nodes,
 	.num_nodes = ARRAY_SIZE(qcm2290_qup_virt_nodes),
 	.bus_clk_desc = &qup_clk,
+	.keep_alive = true,
 };
 
 static struct qcom_icc_node * const qcm2290_mmnrt_virt_nodes[] = {
@@ -1325,6 +1329,7 @@ static const struct qcom_icc_desc qcm2290_mmnrt_virt = {
 	.num_nodes = ARRAY_SIZE(qcm2290_mmnrt_virt_nodes),
 	.bus_clk_desc = &mmaxi_0_clk,
 	.regmap_cfg = &qcm2290_snoc_regmap_config,
+	.keep_alive = true,
 	.qos_offset = 0x15000,
 };
 
@@ -1340,6 +1345,7 @@ static const struct qcom_icc_desc qcm2290_mmrt_virt = {
 	.num_nodes = ARRAY_SIZE(qcm2290_mmrt_virt_nodes),
 	.bus_clk_desc = &mmaxi_1_clk,
 	.regmap_cfg = &qcm2290_snoc_regmap_config,
+	.keep_alive = true,
 	.qos_offset = 0x15000,
 };
 
