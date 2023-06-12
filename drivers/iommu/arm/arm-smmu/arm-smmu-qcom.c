@@ -315,6 +315,9 @@ static int qcom_smmu_cfg_probe(struct arm_smmu_device *smmu)
 		smr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_SMR(i));
 
 		if (FIELD_GET(ARM_SMMU_SMR_VALID, smr)) {
+			dev_info(smmu->dev, "\tStream %d: 0x%08x - 0x%08x\n",
+				 i, FIELD_GET(ARM_SMMU_SMR_MASK, smr),
+				 FIELD_GET(ARM_SMMU_SMR_ID, smr));
 			/* Ignore valid bit for SMR mask extraction. */
 			smr &= ~ARM_SMMU_SMR_VALID;
 			smmu->smrs[i].id = FIELD_GET(ARM_SMMU_SMR_ID, smr);
@@ -377,7 +380,7 @@ static int qcom_sdm845_smmu500_reset(struct arm_smmu_device *smmu)
 {
 	int ret;
 
-	arm_mmu500_reset(smmu);
+	//arm_mmu500_reset(smmu);
 
 	/*
 	 * To address performance degradation in non-real time clients,

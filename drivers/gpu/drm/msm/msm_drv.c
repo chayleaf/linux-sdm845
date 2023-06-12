@@ -373,13 +373,13 @@ static int msm_init_vram(struct drm_device *dev)
 		/* note that for no-kernel-mapping, the vaddr returned
 		 * is bogus, but non-null if allocation succeeded:
 		 */
-		p = dma_alloc_attrs(dev->dev, size,
-				&priv->vram.paddr, GFP_KERNEL, attrs);
-		if (!p) {
-			DRM_DEV_ERROR(dev->dev, "failed to allocate VRAM\n");
-			priv->vram.paddr = 0;
-			return -ENOMEM;
-		}
+		// p = dma_alloc_attrs(dev->dev, size,
+		// 		&priv->vram.paddr, GFP_KERNEL, attrs);
+		// if (!p) {
+		// 	DRM_DEV_ERROR(dev->dev, "failed to allocate VRAM\n");
+		// 	priv->vram.paddr = 0;
+		// 	return -ENOMEM;
+		// }
 
 		DRM_DEV_INFO(dev->dev, "VRAM: %08x->%08x\n",
 				(uint32_t)priv->vram.paddr,

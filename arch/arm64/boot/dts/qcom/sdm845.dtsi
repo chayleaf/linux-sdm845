@@ -888,8 +888,9 @@
 		};
 
 		cont_splash_mem: framebuffer@9d400000 {
-			reg = <0 0x9d400000 0 0x2400000>;
-			no-map;
+			reg = <0 0x9d400000 0 0x9a3f80>;
+			//no-map;
+			//iommu-addresses = <&mdss 0 0x9d400000 0 0x9a3f80>;
 		};
 
 		fastrpc_mem: fastrpc {
@@ -4517,6 +4518,8 @@
 					 <&dispcc DISP_CC_MDSS_MDP_CLK>,
 					 <&dispcc DISP_CC_MDSS_VSYNC_CLK>;
 				clock-names = "gcc-bus", "iface", "bus", "core", "vsync";
+
+				memory-region = <&cont_splash_mem>;
 
 				assigned-clocks = <&dispcc DISP_CC_MDSS_VSYNC_CLK>;
 				assigned-clock-rates = <19200000>;

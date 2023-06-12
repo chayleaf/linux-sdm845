@@ -74,6 +74,7 @@ static int samsung_s6e3fc2x01_on(struct samsung_s6e3fc2x01 *ctx)
 	}
 
 	mipi_dsi_dcs_write_seq(dsi, 0x9f, 0x5a, 0x5a);
+	/* MIC Setting */
 	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
 	mipi_dsi_dcs_write_seq(dsi, 0xeb, 0x17, 0x41, 0x92, 0x0e, 0x10, 0x82, 0x5a);
 	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
@@ -90,16 +91,19 @@ static int samsung_s6e3fc2x01_on(struct samsung_s6e3fc2x01 *ctx)
 		return ret;
 	}
 
+	/* TSP H_sync Setting */
 	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
 	mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x09);
 	mipi_dsi_dcs_write_seq(dsi, 0xe8, 0x10, 0x30);
 	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
+	/* Dimming Settting */
 	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
 	mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x07);
 	mipi_dsi_dcs_write_seq(dsi, 0xb7, 0x01);
 	mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x08);
 	mipi_dsi_dcs_write_seq(dsi, 0xb7, 0x12);
 	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
+	/* ESD Improvement Setting */
 	mipi_dsi_dcs_write_seq(dsi, 0xfc, 0x5a, 0x5a);
 	mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x01);
 	mipi_dsi_dcs_write_seq(dsi, 0xe3, 0x88);
@@ -115,16 +119,23 @@ static int samsung_s6e3fc2x01_on(struct samsung_s6e3fc2x01 *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0xb3, 0x00, 0xc1);
 	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
 
+	usleep_range(10000, 11000);
+
+	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
+
+	// Downstream does this AFTER the first frame ?!
+	mipi_dsi_dcs_write_seq(dsi, 0x9f, 0xa5, 0xa5);
 	ret = mipi_dsi_dcs_set_display_on(dsi);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set display on: %d\n", ret);
 		return ret;
 	}
-
-	usleep_range(10000, 11000);
-	mipi_dsi_dcs_write_seq(dsi, 0x9f, 0xa5, 0xa5);
-	mipi_dsi_dcs_write_seq(dsi, 0x29);
 	mipi_dsi_dcs_write_seq(dsi, 0x9f, 0x5a, 0x5a);
+
+	// usleep_range(10000, 11000);
+	// mipi_dsi_dcs_write_seq(dsi, 0x9f, 0xa5, 0xa5);
+	// mipi_dsi_dcs_write_seq(dsi, 0x29);
+	// mipi_dsi_dcs_write_seq(dsi, 0x9f, 0x5a, 0x5a);
 
 	return 0;
 }
