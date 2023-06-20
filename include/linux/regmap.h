@@ -1341,13 +1341,15 @@ struct reg_field {
 #define REG_FIELD(_reg, _lsb, _msb) {		\
 				.reg = _reg,	\
 				.lsb = _lsb,	\
-				.msb = _msb,	\
+				.msb = _msb +	\
+					GENMASK_INPUT_CHECK(_msb, _lsb), \
 				}
 
 #define REG_FIELD_ID(_reg, _lsb, _msb, _size, _offset) {	\
 				.reg = _reg,			\
 				.lsb = _lsb,			\
-				.msb = _msb,			\
+				.msb = _msb +			\
+					GENMASK_INPUT_CHECK(_msb, _lsb), \
 				.id_size = _size,		\
 				.id_offset = _offset,		\
 				}
@@ -1373,7 +1375,11 @@ void devm_regmap_field_bulk_free(struct device *dev,
 				 struct regmap_field *field);
 
 int regmap_field_read(struct regmap_field *field, unsigned int *val);
+int regmap_field_read_log(struct regmap_field *field, unsigned int *val);
 int regmap_field_update_bits_base(struct regmap_field *field,
+				  unsigned int mask, unsigned int val,
+				  bool *change, bool async, bool force);
+int regmap_field_update_bits_base_log(struct regmap_field *field,
 				  unsigned int mask, unsigned int val,
 				  bool *change, bool async, bool force);
 int regmap_fields_read(struct regmap_field *field, unsigned int id,
@@ -1387,6 +1393,13 @@ static inline int regmap_field_write(struct regmap_field *field,
 {
 	return regmap_field_update_bits_base(field, ~0, val,
 					     NULL, false, false);
+}
+
+static inline int regmap_field_write_log(struct regmap_field *field,
+					 unsigned int val)
+{
+	return regmap_field_update_bits_base_log(field, ~0, val,
+					     NULL, false, true);
 }
 
 static inline int regmap_field_force_write(struct regmap_field *field,
