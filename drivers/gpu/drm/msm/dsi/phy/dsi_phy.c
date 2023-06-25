@@ -331,8 +331,8 @@ int msm_dsi_dphy_timing_calc_v3(struct msm_dsi_dphy_timing *timing,
 	temp = 60 * coeff + 52 * ui - 43 * ui;
 	tmin = DIV_ROUND_UP(temp, ui_x8) - 1;
 	tmax = 63;
-	timing->shared_timings.clk_post =
-		linear_inter(tmax, tmin, pcnt2, 0, false);
+	timing->shared_timings.clk_post = 0x09;
+//		linear_inter(tmax, tmin, pcnt2, 0, false);
 
 	temp = 8 * ui + (timing->clk_prepare << 3) * ui;
 	temp += (((timing->clk_zero + 3) << 3) + 11) * ui;
@@ -349,6 +349,8 @@ int msm_dsi_dphy_timing_calc_v3(struct msm_dsi_dphy_timing *timing,
 			linear_inter(tmax, tmin, pcnt2, 0, false);
 		timing->shared_timings.clk_pre_inc_by_2 = 0;
 	}
+
+	timing->shared_timings.clk_pre = 0x1a;
 
 	timing->shared_timings.byte_intf_clk_div_2 = true;
 

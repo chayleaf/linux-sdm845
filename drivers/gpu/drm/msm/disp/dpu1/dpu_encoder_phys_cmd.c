@@ -252,9 +252,9 @@ static int dpu_encoder_phys_cmd_control_vblank_irq(
 		goto end;
 	}
 
-	DRM_DEBUG_KMS("id:%u pp:%d enable=%s/%d\n", DRMID(phys_enc->parent),
-		      phys_enc->hw_pp->idx - PINGPONG_0,
-		      enable ? "true" : "false", refcount);
+	// DRM_DEBUG_KMS("id:%u pp:%d enable=%s/%d\n", DRMID(phys_enc->parent),
+	// 	      phys_enc->hw_pp->idx - PINGPONG_0,
+	// 	      enable ? "true" : "false", refcount);
 
 	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
 		ret = dpu_core_irq_register_callback(phys_enc->dpu_kms,
@@ -550,9 +550,9 @@ static void dpu_encoder_phys_cmd_prepare_for_kickoff(
 		DPU_ERROR("invalid encoder\n");
 		return;
 	}
-	DRM_DEBUG_KMS("id:%u pp:%d pending_cnt:%d\n", DRMID(phys_enc->parent),
-		      phys_enc->hw_pp->idx - PINGPONG_0,
-		      atomic_read(&phys_enc->pending_kickoff_cnt));
+	// DRM_DEBUG_KMS("id:%u pp:%d pending_cnt:%d\n", DRMID(phys_enc->parent),
+	// 	      phys_enc->hw_pp->idx - PINGPONG_0,
+	// 	      atomic_read(&phys_enc->pending_kickoff_cnt));
 
 	/*
 	 * Mark kickoff request as outstanding. If there are more than one,
