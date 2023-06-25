@@ -45,7 +45,7 @@
 		vol-up {
 			label = "Volume Up";
 			linux,code = <KEY_VOLUMEUP>;
-			gpios = <&pm8998_gpio 6 GPIO_ACTIVE_LOW>;
+			gpios = <&pm8998_gpios 6 GPIO_ACTIVE_LOW>;
 			debounce-interval = <15>;
 		};
 	};
@@ -226,11 +226,6 @@
 			regulator-max-microvolt = <1800000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 			regulator-boot-on;
-			/*
-			 * We can't properly bring the panel back if it gets turned off
-			 * so keep it's regulators always on for now.
-			 */
-			regulator-always-on;
 		};
 
 		vreg_l17a_1p3: ldo17 {
@@ -289,11 +284,6 @@
 			regulator-max-microvolt = <3008000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 			regulator-boot-on;
-			/*
-			 * We can't properly bring the panel back if it gets turned off
-			 * so keep it's regulators always on for now.
-			 */
-			regulator-always-on;
 		};
 	};
 
@@ -453,7 +443,7 @@
 	status = "okay";
 };
 
-&pm8998_gpio {
+&pm8998_gpios {
 	volume_up_gpio: vol-up-active {
 		pins = "gpio6";
 		function = "normal";
