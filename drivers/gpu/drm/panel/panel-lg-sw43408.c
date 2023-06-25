@@ -14,11 +14,13 @@
 #include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
 
+#include <drm/drm_connector.h>
 #include <drm/drm_device.h>
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_panel.h>
 #include <drm/drm_print.h>
+#include <drm/drm_probe_helper.h>
 #include <drm/display/drm_dsc.h>
 #include <drm/display/drm_dsc_helper.h>
 
@@ -28,14 +30,6 @@ struct panel_cmd {
 	size_t len;
 	const char *data;
 };
-
-#define _INIT_CMD(...)                                                   \
-	{                                                                \
-		.len = sizeof((char[]){ __VA_ARGS__ }), .data = (char[]) \
-		{                                                        \
-			__VA_ARGS__                                      \
-		}                                                        \
-	}
 
 static const char *const regulator_names[] = {
 	"vddi",
@@ -65,32 +59,7 @@ struct sw43408_panel {
 
 	bool prepared;
 	bool enabled;
-};
-
-static const struct panel_cmd lg_sw43408_on_cmds_1[] = {
-	_INIT_CMD(0x00, 0x53, 0x0C, 0x30),
-	_INIT_CMD(0x00, 0x55, 0x00, 0x70, 0xDF, 0x00, 0x70, 0xDF),
-	_INIT_CMD(0x00, 0xF7, 0x01, 0x49, 0x0C),
-
-	{},
-};
-
-static const struct panel_cmd lg_sw43408_on_cmds_2[] = {
-	_INIT_CMD(0x00, 0xB0, 0xAC),
-	_INIT_CMD(0x00, 0xCD, 0x00, 0x00, 0x00, 0x19, 0x19, 0x19, 0x19, 0x19,
-		  0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x16, 0x16),
-	_INIT_CMD(0x00, 0xCB, 0x80, 0x5C, 0x07, 0x03, 0x28),
-	_INIT_CMD(0x00, 0xC0, 0x02, 0x02, 0x0F),
-	_INIT_CMD(0x00, 0xE5, 0x00, 0x3A, 0x00, 0x3A, 0x00, 0x0E, 0x10),
-	_INIT_CMD(0x00, 0xB5, 0x75, 0x60, 0x2D, 0x5D, 0x80, 0x00, 0x0A, 0x0B,
-		  0x00, 0x05, 0x0B, 0x00, 0x80, 0x0D, 0x0E, 0x40, 0x00, 0x0C,
-		  0x00, 0x16, 0x00, 0xB8, 0x00, 0x80, 0x0D, 0x0E, 0x40, 0x00,
-		  0x0C, 0x00, 0x16, 0x00, 0xB8, 0x00, 0x81, 0x00, 0x03, 0x03,
-		  0x03, 0x01, 0x01),
-	_INIT_CMD(0x00, 0x55, 0x04, 0x61, 0xDB, 0x04, 0x70, 0xDB),
-	_INIT_CMD(0x00, 0xB0, 0xCA),
-
-	{},
+	bool first_prepare;
 };
 
 static inline struct sw43408_panel *to_panel_info(struct drm_panel *panel)
@@ -102,69 +71,17 @@ static inline struct sw43408_panel *to_panel_info(struct drm_panel *panel)
  * Currently unable to bring up the panel after resetting, must be missing
  * some init commands somewhere.
  */
-static __always_unused int panel_reset(struct sw43408_panel *ctx)
+static int panel_reset(struct sw43408_panel *ctx)
 {
-	int ret = 0, i;
-
-	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++) {
-		ret = regulator_set_load(ctx->supplies[i].consumer,
-					 regulator_enable_loads[i]);
-		if (ret)
-			return ret;
-	}
-
-	ret = regulator_bulk_enable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
-	if (ret < 0)
-		return ret;
-
-	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++) {
-		ret = regulator_set_load(ctx->supplies[i].consumer,
-					 regulator_disable_loads[i]);
-		if (ret) {
-			DRM_DEV_ERROR(ctx->base.dev,
-				      "regulator_set_load failed %d\n", ret);
-			return ret;
-		}
-	}
-
-	ret = regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
-	if (ret < 0)
-		return ret;
+	/* qcom,mdss-dsi-init-delay-us */
+	usleep_range(5000, 6000);
 
 	gpiod_set_value(ctx->reset_gpio, 0);
 	usleep_range(9000, 10000);
 	gpiod_set_value(ctx->reset_gpio, 1);
-	usleep_range(1000, 2000);
+	usleep_range(9000, 10000);
 	gpiod_set_value(ctx->reset_gpio, 0);
 	usleep_range(9000, 10000);
-
-	return 0;
-}
-
-static int send_mipi_cmds(struct drm_panel *panel, const struct panel_cmd *cmds)
-{
-	struct sw43408_panel *ctx = to_panel_info(panel);
-	unsigned int i = 0;
-	int err;
-
-	if (!cmds)
-		return -EFAULT;
-
-	for (i = 0; cmds[i].len != 0; i++) {
-		const struct panel_cmd *cmd = &cmds[i];
-
-		if (cmd->len == 2)
-			err = mipi_dsi_dcs_write(ctx->link, cmd->data[1], NULL,
-						 0);
-		else
-			err = mipi_dsi_dcs_write(ctx->link, cmd->data[1],
-						 cmd->data + 2, cmd->len - 2);
-
-		if (err < 0)
-			return err;
-
-		usleep_range((cmd->data[0]) * 1000, (1 + cmd->data[0]) * 1000);
-	}
 
 	return 0;
 }
@@ -173,21 +90,28 @@ static int lg_panel_disable(struct drm_panel *panel)
 {
 	struct sw43408_panel *ctx = to_panel_info(panel);
 
+	dev_info(panel->dev, "%s\n", __func__);
+
+	ctx->link->mode_flags |= MIPI_DSI_MODE_LPM;
+
 	backlight_disable(ctx->backlight);
+
+	mipi_dsi_dcs_write_seq(ctx->link, MIPI_DCS_SET_DISPLAY_OFF);
+	mipi_dsi_dcs_write_seq(ctx->link, MIPI_DCS_ENTER_SLEEP_MODE);
+
+	msleep(64);
+
 	ctx->enabled = false;
 
 	return 0;
 }
 
-/*
- * We can't currently re-initialise the panel properly after powering off.
- * This function will be used when this is resolved.
- */
-static __always_unused int lg_panel_power_off(struct drm_panel *panel)
+static int lg_panel_unprepare(struct drm_panel *panel)
 {
 	struct sw43408_panel *ctx = to_panel_info(panel);
-	int i, ret = 0;
-	gpiod_set_value(ctx->reset_gpio, 1);
+	int ret, i;
+
+	dev_info(panel->dev, "%s\n", __func__);
 
 	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++) {
 		ret = regulator_set_load(ctx->supplies[i].consumer,
@@ -204,139 +128,135 @@ static __always_unused int lg_panel_power_off(struct drm_panel *panel)
 		DRM_DEV_ERROR(panel->dev, "regulator_bulk_disable failed %d\n",
 			      ret);
 	}
-	return ret;
-}
 
-static int lg_panel_unprepare(struct drm_panel *panel)
-{
-	struct sw43408_panel *ctx = to_panel_info(panel);
-	int ret, i;
-
-	if (!ctx->prepared)
-		return 0;
-
-	ret = mipi_dsi_dcs_set_display_off(ctx->link);
-	if (ret < 0) {
-		DRM_DEV_ERROR(panel->dev,
-			      "set_display_off cmd failed ret = %d\n", ret);
-	}
-
-	msleep(120);
-
-	ret = mipi_dsi_dcs_enter_sleep_mode(ctx->link);
-	if (ret < 0) {
-		DRM_DEV_ERROR(panel->dev, "enter_sleep cmd failed ret = %d\n",
-			      ret);
-	}
-
-	/*
-	msleep(100);
-	ret = lg_panel_power_off(panel);
-	if (ret < 0)
-		DRM_DEV_ERROR(panel->dev, "power_off failed ret = %d\n", ret);
-	*/
-
-	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++) {
-		ret = regulator_set_load(ctx->supplies[i].consumer,
-					 regulator_disable_loads[i]);
-		if (ret) {
-			DRM_DEV_ERROR(panel->dev,
-				      "regulator_set_load failed %d\n", ret);
-			return ret;
-		}
-	}
-
-	ctx->prepared = false;
-
-	return ret;
+	return 0;
 }
 
 static int lg_panel_prepare(struct drm_panel *panel)
 {
 	struct sw43408_panel *ctx = to_panel_info(panel);
-	int err, i;
+	struct drm_dsc_picture_parameter_set pps;
+	int ret, i;
+
+	dev_info(panel->dev, "%s\n", __func__);
 
 	if (ctx->prepared)
 		return 0;
 
-	/*
-	err = panel_reset(ctx);
-	if (err < 0) {
-		pr_err("sw43408 panel_reset failed: %d\n",
-		       err);
-		return err;
-	}
-	*/
-
 	for (i = 0; i < ARRAY_SIZE(ctx->supplies); i++) {
-		err = regulator_set_load(ctx->supplies[i].consumer,
+		ret = regulator_set_load(ctx->supplies[i].consumer,
 					 regulator_enable_loads[i]);
-		if (err)
-			return err;
+		if (ret)
+			return ret;
 	}
 
-	err = regulator_bulk_enable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
-	if (err < 0)
-		return err;
+	ret = regulator_bulk_enable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
+	if (ret < 0)
+		return ret;
 
-	usleep_range(9000, 10000);
+	usleep_range(1000, 2000);
 
-	err = mipi_dsi_dcs_write(ctx->link, MIPI_DCS_SET_GAMMA_CURVE,
+	ctx->link->mode_flags |= MIPI_DSI_MODE_LPM;
+
+	ret = panel_reset(ctx);
+	if (ret < 0) {
+		pr_err("sw43408 panel_reset failed: %d\n",
+		       ret);
+		return ret;
+	}
+
+	ret = mipi_dsi_dcs_write(ctx->link, MIPI_DCS_SET_GAMMA_CURVE,
 				 (u8[]){ 0x02 }, 1);
-	if (err < 0) {
+	if (ret < 0) {
 		DRM_DEV_ERROR(panel->dev, "failed to set gamma curve: %d\n",
-			      err);
+			      ret);
 		goto poweroff;
 	}
 
-	err = mipi_dsi_dcs_set_tear_on(ctx->link,
+	ret = mipi_dsi_dcs_set_tear_on(ctx->link,
 				       MIPI_DSI_DCS_TEAR_MODE_VBLANK);
-	if (err < 0) {
-		DRM_DEV_ERROR(panel->dev, "failed to set tear on: %d\n", err);
+	if (ret < 0) {
+		DRM_DEV_ERROR(panel->dev, "failed to set tear on: %d\n", ret);
 		goto poweroff;
 	}
 
-	err = send_mipi_cmds(panel, &lg_sw43408_on_cmds_1[0]);
+	mipi_dsi_dcs_write_seq(ctx->link, 0x53, 0x0C, 0x30);
+	mipi_dsi_dcs_write_seq(ctx->link, 0x55, 0x00, 0x70, 0xDF, 0x00, 0x70, 0xDF);
+	mipi_dsi_dcs_write_seq(ctx->link, 0xF7, 0x01, 0x49, 0x0C);
 
-	if (err < 0) {
-		DRM_DEV_ERROR(panel->dev,
-			      "failed to send DCS Init 1st Code: %d\n", err);
-		goto poweroff;
-	}
-
-	err = mipi_dsi_dcs_exit_sleep_mode(ctx->link);
-	if (err < 0) {
+	ret = mipi_dsi_dcs_exit_sleep_mode(ctx->link);
+	if (ret < 0) {
 		DRM_DEV_ERROR(panel->dev, "failed to exit sleep mode: %d\n",
-			      err);
+			      ret);
 		goto poweroff;
 	}
 
-	msleep(135);
+	msleep(85);
 
-	err = mipi_dsi_dcs_write(ctx->link, MIPI_DSI_COMPRESSION_MODE,
-				 (u8[]){ 0x11 }, 0);
-	if (err < 0) {
-		DRM_DEV_ERROR(panel->dev,
-			      "failed to set compression mode: %d\n", err);
+	/* Yep, we send this twice */
+	ret = mipi_dsi_dcs_exit_sleep_mode(ctx->link);
+	if (ret < 0) {
+		DRM_DEV_ERROR(panel->dev, "failed to exit sleep mode: %d\n",
+			      ret);
 		goto poweroff;
 	}
 
-	err = send_mipi_cmds(panel, &lg_sw43408_on_cmds_2[0]);
+	/* Where is this from? */
+	// ret = mipi_dsi_dcs_write(ctx->link, MIPI_DSI_COMPRESSION_MODE,
+	// 			 (u8[]){ 0x11 }, 0);
+	// if (ret < 0) {
+	// 	DRM_DEV_ERROR(panel->dev,
+	// 		      "failed to set compression mode: %d\n", ret);
+	// 	goto poweroff;
+	// }
 
-	if (err < 0) {
-		DRM_DEV_ERROR(panel->dev,
-			      "failed to send DCS Init 2nd Code: %d\n", err);
-		goto poweroff;
-	}
+	mipi_dsi_dcs_write_seq(ctx->link, 0xB0, 0xAC);
+	mipi_dsi_dcs_write_seq(ctx->link, 0xE5, 0x00, 0x3A, 0x00, 0x3A, 0x00, 0x0E, 0x10);
+	mipi_dsi_dcs_write_seq(ctx->link, 0xB5, 0x75, 0x60, 0x2D, 0x5D, 0x80, 0x00, 0x0A, 0x0B, 0x00, 0x05, 0x0B, 0x00, 0x80, 0x0D, 0x0E, 0x40, 0x00, 0x0C, 0x00, 0x16, 0x00, 0xB8, 0x00, 0x80, 0x0D, 0x0E, 0x40, 0x00, 0x0C, 0x00, 0x16, 0x00, 0xB8, 0x00, 0x81, 0x00, 0x03, 0x03, 0x03, 0x01, 0x01);
 
-	err = mipi_dsi_dcs_set_display_on(ctx->link);
-	if (err < 0) {
+	msleep(55);
+
+	mipi_dsi_dcs_write_seq(ctx->link, 0xCD, 0x00, 0x00, 0x00, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x16, 0x16);
+	mipi_dsi_dcs_write_seq(ctx->link, 0xCB, 0x80, 0x5C, 0x07, 0x03, 0x28);
+	mipi_dsi_dcs_write_seq(ctx->link, 0xC0, 0x02, 0x02, 0x0F);
+	mipi_dsi_dcs_write_seq(ctx->link, 0x55, 0x04, 0x61, 0xDB, 0x04, 0x70, 0xDB);
+	mipi_dsi_dcs_write_seq(ctx->link, 0xB0, 0xCA);
+
+	ret = mipi_dsi_dcs_set_display_on(ctx->link);
+	if (ret < 0) {
 		DRM_DEV_ERROR(panel->dev, "failed to Set Display ON: %d\n",
-			      err);
+			      ret);
 		goto poweroff;
 	}
 
-	msleep(120);
+	msleep(85);
+
+	if (ctx->link->dsc) {
+		drm_dsc_pps_payload_pack(&pps, ctx->link->dsc);
+
+		__builtin_dump_struct(ctx->link->dsc, _dev_info, panel->dev);
+
+		/* qcom,mdss-dsi-hs-pps */
+		ctx->link->mode_flags &= ~MIPI_DSI_MODE_LPM;
+
+		ret = mipi_dsi_picture_parameter_set(ctx->link, &pps);
+		if (ret < 0) {
+			dev_err(panel->dev, "failed to set PPS: %d\n", ret);
+			goto poweroff;
+		}
+
+		ctx->link->mode_flags |= MIPI_DSI_MODE_LPM;
+
+		/* Compression mode is enabled by one of the previous mipi_dsi_dcs_write_seq? */
+		// err = mipi_dsi_compression_mode(ctx->link, true);
+		// if (err < 0) {
+		// 	dev_err(panel->dev, "failed to set compression mode: %d\n", err);
+		// 	goto poweroff;
+		// }
+	}
+
+	// mipi_dsi_dcs_write_seq(ctx->link, 0x51, 0x03, 0x87);
+	// mipi_dsi_dcs_write_seq(ctx->link, 0x12);
 
 	ctx->prepared = true;
 
@@ -345,7 +265,8 @@ static int lg_panel_prepare(struct drm_panel *panel)
 poweroff:
 	gpiod_set_value(ctx->reset_gpio, 1);
 	regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
-	return err;
+
+	return ret;
 }
 
 static int lg_panel_enable(struct drm_panel *panel)
@@ -357,6 +278,17 @@ static int lg_panel_enable(struct drm_panel *panel)
 	if (ctx->enabled)
 		return 0;
 
+	dev_info(panel->dev, "%s\n", __func__);
+
+	mipi_dsi_dcs_write_seq(ctx->link, 0x22);
+	mipi_dsi_dcs_write_seq(ctx->link, 0xB0, 0xAC);
+	mipi_dsi_dcs_write_seq(ctx->link, 0xB4, 0x2A, 0x02, 0x25, 0x22, 0x41, 0x41, 0x41, 0x0A, 0x10, 0x50, 0x11, 0x00);
+	mipi_dsi_dcs_write_seq(ctx->link, 0xCB, 0x80, 0x5C, 0x07, 0x03, 0x28);
+	mipi_dsi_dcs_write_seq(ctx->link, 0x51, 0x00, 0x00);
+	mipi_dsi_dcs_write_seq(ctx->link, 0x13);
+
+	msleep(60);
+
 	ret = backlight_enable(ctx->backlight);
 	if (ret) {
 		DRM_DEV_ERROR(panel->dev, "Failed to enable backlight %d\n",
@@ -364,12 +296,19 @@ static int lg_panel_enable(struct drm_panel *panel)
 		return ret;
 	}
 
-	if (!panel->dsc) {
-		DRM_DEV_ERROR(panel->dev, "Can't find DSC\n");
-		return -ENODEV;
-	}
+	// ret = mipi_dsi_dcs_exit_sleep_mode(ctx->link);
+	// if (ret < 0) {
+	// 	DRM_DEV_ERROR(panel->dev, "enter_sleep cmd failed ret = %d\n",
+	// 		      ret);
+	// }
 
-	drm_dsc_pps_payload_pack(&pps, panel->dsc);
+	// ret = mipi_dsi_dcs_set_display_on(ctx->link);
+	// if (ret < 0) {
+	// 	DRM_DEV_ERROR(panel->dev,
+	// 		      "set_display_off cmd failed ret = %d\n", ret);
+	// }
+
+	// msleep(64);
 
 	ctx->enabled = true;
 
@@ -405,29 +344,13 @@ static int lg_panel_backlight_update_status(struct backlight_device *bl)
 	uint16_t brightness;
 
 	brightness = (uint16_t)backlight_get_brightness(bl);
-	/* Brightness is sent in big-endian */
-	brightness = cpu_to_be16(brightness);
 
-	ret = mipi_dsi_dcs_set_display_brightness(dsi, brightness);
+	ret = mipi_dsi_dcs_set_display_brightness_large(dsi, brightness);
 	return ret;
-}
-
-static int lg_panel_backlight_get_brightness(struct backlight_device *bl)
-{
-	struct mipi_dsi_device *dsi = bl_get_data(bl);
-	int ret = 0;
-	u16 brightness = 0;
-
-	ret = mipi_dsi_dcs_get_display_brightness(dsi, &brightness);
-	if (ret < 0)
-		return ret;
-
-	return brightness & 0xff;
 }
 
 const struct backlight_ops lg_panel_backlight_ops = {
 	.update_status = lg_panel_backlight_update_status,
-	.get_brightness = lg_panel_backlight_get_brightness,
 };
 
 static int lg_panel_backlight_init(struct sw43408_panel *ctx)
@@ -453,8 +376,8 @@ static int lg_panel_backlight_init(struct sw43408_panel *ctx)
 
 static const struct drm_panel_funcs panel_funcs = {
 	.disable = lg_panel_disable,
-	.unprepare = lg_panel_unprepare,
 	.prepare = lg_panel_prepare,
+	.unprepare = lg_panel_unprepare,
 	.enable = lg_panel_enable,
 	.get_modes = lg_panel_get_modes,
 };
@@ -519,7 +442,6 @@ static int panel_add(struct sw43408_panel *ctx)
 static int panel_probe(struct mipi_dsi_device *dsi)
 {
 	struct sw43408_panel *ctx;
-	struct drm_dsc_config *dsc;
 	int err;
 
 	ctx = devm_kzalloc(&dsi->dev, sizeof(*ctx), GFP_KERNEL);
@@ -539,34 +461,29 @@ static int panel_probe(struct mipi_dsi_device *dsi)
 		return err;
 
 	/* The panel is DSC panel only, set the dsc params */
-	dsc = devm_kzalloc(&dsi->dev, sizeof(*dsc), GFP_KERNEL);
-	if (!dsc)
+	ctx->link->dsc = devm_kzalloc(&dsi->dev, sizeof(*ctx->link->dsc), GFP_KERNEL);
+	if (!ctx->link->dsc)
 		return -ENOMEM;
 
-	dsc->dsc_version_major = 0x1;
-	dsc->dsc_version_minor = 0x1;
+	ctx->link->dsc->dsc_version_major = 0x1;
+	ctx->link->dsc->dsc_version_minor = 0x1;
 
-	dsc->slice_height = 16;
-	dsc->slice_width = 540;
-	dsc->slice_count = 1;
-	dsc->bits_per_component = 8;
-	dsc->bits_per_pixel = 8;
-	dsc->block_pred_enable = true;
+	ctx->link->dsc->slice_height = 16;
+	ctx->link->dsc->slice_width = 540;
+	ctx->link->dsc->slice_count = 1;
+	ctx->link->dsc->bits_per_component = 8;
+	ctx->link->dsc->bits_per_pixel = 8 << 4;
+	ctx->link->dsc->block_pred_enable = true;
 
-	ctx->base.dsc = dsc;
+	ctx->first_prepare = true;
 
 	return mipi_dsi_attach(dsi);
 }
 
-static int panel_remove(struct mipi_dsi_device *dsi)
+static void panel_remove(struct mipi_dsi_device *dsi)
 {
 	struct sw43408_panel *ctx = mipi_dsi_get_drvdata(dsi);
 	int err;
-
-	err = lg_panel_unprepare(&ctx->base);
-	if (err < 0)
-		DRM_DEV_ERROR(&dsi->dev, "failed to unprepare panel: %d\n",
-			      err);
 
 	err = lg_panel_disable(&ctx->base);
 	if (err < 0)
@@ -579,8 +496,6 @@ static int panel_remove(struct mipi_dsi_device *dsi)
 
 	if (ctx->base.dev)
 		drm_panel_remove(&ctx->base);
-
-	return 0;
 }
 
 static struct mipi_dsi_driver panel_driver = {
