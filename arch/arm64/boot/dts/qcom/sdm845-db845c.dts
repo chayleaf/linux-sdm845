@@ -10,6 +10,7 @@
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/sound/qcom,q6afe.h>
 #include <dt-bindings/sound/qcom,q6asm.h>
+#include <dt-bindings/usb/pd.h>
 #include "sdm845.dtsi"
 #include "sdm845-wcd9340.dtsi"
 #include "pm8998.dtsi"
@@ -260,6 +261,28 @@
 		regulator-name = "vph_pwr";
 
 		vin-supply = <&vbat_som>;
+	};
+
+	usb-sbu-mux {
+		compatible = "gpio-sbu-mux";
+
+		enable-gpios = <&tlmm 121 GPIO_ACTIVE_LOW>;
+		select-gpios = <&tlmm 125 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb_sbu_default>;
+
+		mode-switch;
+		orientation-switch;
+		svid = /bits/ 16 <0xff01>;
+
+		//status = "okay";
+
+		port {
+			usb_sbu_mux: endpoint {
+				remote-endpoint = <&pmic_tcpm_sbu>;
+			};
+		};
 	};
 };
 
@@ -685,6 +708,65 @@
 	};
 };
 
+&pmi8998_vbus {
+	regulator-min-microamp = <500000>;
+	regulator-max-microamp = <1500000>;
+	status = "okay";
+};
+
+&pmi8998_typec {
+	vdd-pdphy-supply = <&vreg_l24a_3p075>;
+	vdd-vbus-supply = <&pmi8998_vbus>;
+
+	status = "okay";
+
+	connector {
+		compatible = "usb-c-connector";
+
+		power-role = "dual";
+		data-role = "dual";
+		self-powered;
+		try-power-role = "sink";
+		op-sink-microwatt = <5000000>;
+
+		source-pdos = <PDO_FIXED(5000, 1500,
+					 PDO_FIXED_DUAL_ROLE |
+					 PDO_FIXED_USB_COMM |
+					 PDO_FIXED_DATA_SWAP)>;
+
+		sink-pdos = <PDO_FIXED(5000, 3000,
+					 PDO_FIXED_DUAL_ROLE |
+					 PDO_FIXED_USB_COMM |
+					 PDO_FIXED_DATA_SWAP)>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				pmi8998_role_switch_out: endpoint {
+					remote-endpoint = <&usb_1_dwc3_role_switch_in>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				pmi8998_typec_mux_out: endpoint {
+					remote-endpoint = <&usb_1_qmpphy_typec_mux_in>;
+				};
+			};
+
+			port@2 {
+				reg = <2>;
+				pmic_tcpm_sbu: endpoint {
+					remote-endpoint = <&usb_sbu_mux>;
+				};
+			};
+		};
+	};
+};
+
 /* QUAT I2S Uses 4 I2S SD Lines for audio on LT9611 HDMI Bridge */
 &q6afedai {
 	dai@22 {
@@ -1002,6 +1084,23 @@
 		function = "gpio";
 		bias-pull-up;
 	};
+
+	usb_sbu_default: usb0-sbu-state {
+		oe-n-pins {
+			pins = "gpio121";
+			function = "gpio";
+			bias-disable;
+			drive-strengh = <16>;
+			output-high;
+		};
+
+		sel-pins {
+			pins = "gpio125";
+			function = "gpio";
+			bias-disable;
+			drive-strength = <16>;
+		};
+	};
 };
 
 &uart3 {
@@ -1037,7 +1136,13 @@
 };
 
 &usb_1_dwc3 {
-	dr_mode = "peripheral";
+	dr_mode = "otg";
+	usb-role-switch;
+	role-switch-default-mode = "otg";
+};
+
+&usb_1_dwc3_role_switch_in {
+	remote-endpoint = <&pmi8998_role_switch_out>;
 };
 
 &usb_1_hsphy {
@@ -1058,6 +1163,11 @@
 
 	vdda-phy-supply = <&vreg_l26a_1p2>;
 	vdda-pll-supply = <&vreg_l1a_0p875>;
+	orientation-switch;
+};
+
+&usb_1_qmpphy_typec_mux_in {
+	remote-endpoint = <&pmi8998_typec_mux_out>;
 };
 
 &usb_2 {
