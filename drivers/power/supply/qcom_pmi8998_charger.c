@@ -798,19 +798,19 @@ static const struct smb2_register smb2_init_seq[] = {
 	 * By default configure us as an upstream facing port
 	 * FIXME: This will be handled by the type-c driver
 	 */
-	{ .addr = TYPE_C_INTRPT_ENB_SOFTWARE_CTRL,
-	  .mask = TYPEC_POWER_ROLE_CMD_MASK | VCONN_EN_SRC_BIT |
-		  VCONN_EN_VALUE_BIT,
-	  .val = VCONN_EN_SRC_BIT },
+	// { .addr = TYPE_C_INTRPT_ENB_SOFTWARE_CTRL,
+	//   .mask = TYPEC_POWER_ROLE_CMD_MASK | VCONN_EN_SRC_BIT |
+	// 	  VCONN_EN_VALUE_BIT,
+	//   .val = VCONN_EN_SRC_BIT },
 	/*
 	 * Disable Type-C factory mode and stay in Attached.SRC state when VCONN
 	 * over-current happens
 	 */
-	{ .addr = TYPE_C_CFG,
-	  .mask = FACTORY_MODE_DETECTION_EN_BIT | VCONN_OC_CFG_BIT,
-	  .val = 0 },
+	// { .addr = TYPE_C_CFG,
+	//   .mask = FACTORY_MODE_DETECTION_EN_BIT | VCONN_OC_CFG_BIT,
+	//   .val = 0 },
 	/* Configure VBUS for software control */
-	{ .addr = OTG_CFG, .mask = OTG_EN_SRC_CFG_BIT, .val = 0 },
+	//{ .addr = OTG_CFG, .mask = OTG_EN_SRC_CFG_BIT, .val = 0 },
 	/*
 	 * Use VBAT to determine the recharge threshold when battery is full
 	 * rather than the state of charge.
