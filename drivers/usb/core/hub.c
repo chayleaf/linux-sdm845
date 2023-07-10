@@ -10,6 +10,8 @@
  * Released under the GPLv2 only.
  */
 
+#define DEBUG 1
+
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/module.h>

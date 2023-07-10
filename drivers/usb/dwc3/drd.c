@@ -446,6 +446,9 @@ static int dwc3_usb_role_switch_set(struct usb_role_switch *sw,
 	struct dwc3 *dwc = usb_role_switch_get_drvdata(sw);
 	u32 mode;
 
+	dev_info(dwc->dev, "switching to %s mode\n",
+		 role == USB_ROLE_HOST ? "host" : "peripheral");
+
 	switch (role) {
 	case USB_ROLE_HOST:
 		mode = DWC3_GCTL_PRTCAP_HOST;
@@ -510,6 +513,7 @@ static int dwc3_setup_role_switch(struct dwc3 *dwc)
 	dwc3_role_switch.set = dwc3_usb_role_switch_set;
 	dwc3_role_switch.get = dwc3_usb_role_switch_get;
 	dwc3_role_switch.driver_data = dwc;
+	dwc3_role_switch.allow_userspace_control = true;
 	dwc->role_sw = usb_role_switch_register(dwc->dev, &dwc3_role_switch);
 	if (IS_ERR(dwc->role_sw))
 		return PTR_ERR(dwc->role_sw);

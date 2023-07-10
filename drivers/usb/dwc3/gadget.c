@@ -2923,6 +2923,8 @@ static int __dwc3_gadget_start(struct dwc3 *dwc)
 
 	dwc3_gadget_enable_irq(dwc);
 
+	dev_info(dwc->dev, "started gadget\n");
+
 	return 0;
 
 err1:
@@ -2939,6 +2941,8 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	unsigned long		flags;
 	int			ret;
 	int			irq;
+
+	dev_info(dwc->dev, "starting gadget: %s\n", driver->function);
 
 	irq = dwc->irq_gadget;
 	ret = request_threaded_irq(irq, dwc3_interrupt, dwc3_thread_interrupt,
@@ -2967,6 +2971,8 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
 	unsigned long		flags;
+
+	dev_info(dwc->dev, "stopping gadget\n");
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc->gadget_driver	= NULL;
@@ -3022,6 +3028,8 @@ static void dwc3_gadget_set_speed(struct usb_gadget *g,
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
 	unsigned long		flags;
+
+	dev_info(dwc->dev, "set speed %d\n", speed);
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc->gadget_max_speed = speed;

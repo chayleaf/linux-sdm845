@@ -9,6 +9,8 @@
  * (C) Copyright David Brownell 2000-2002
  */
 
+#define DEBUG 1
+
 #include <linux/bcd.h>
 #include <linux/module.h>
 #include <linux/version.h>
