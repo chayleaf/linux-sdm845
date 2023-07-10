@@ -66,6 +66,7 @@ static struct regulator_desc qcom_usb_vbus_rdesc = {
 	.ops = &qcom_usb_vbus_reg_ops,
 	.owner = THIS_MODULE,
 	.type = REGULATOR_VOLTAGE,
+	.fixed_uV = 5000000,
 	.curr_table = curr_table_pmi8998, // FIXME: make dynamic
 	.n_current_limits = ARRAY_SIZE(curr_table_pmi8998),
 };
@@ -121,7 +122,7 @@ static int qcom_usb_vbus_regulator_probe(struct platform_device *pdev)
 	qcom_usb_vbus_rdesc.csel_reg = base + OTG_CURRENT_LIMIT_CFG;
 	qcom_usb_vbus_rdesc.csel_mask = OTG_CURRENT_LIMIT_MASK;
 	if (has_status_reg) {
-		qcom_usb_vbus_rdesc.enable_time = 250000; // 2.5ms
+		qcom_usb_vbus_rdesc.enable_time = 500000; // 5ms
 		qcom_usb_vbus_rdesc.poll_enabled_time = 100; // 0.1ms
 	}
 	config.dev = dev;
