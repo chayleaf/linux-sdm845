@@ -29,6 +29,10 @@
 #define SRC_RD_OPEN			BIT(3)
 #define SRC_RD_RA_VCONN			BIT(2)
 
+/* is_legacy_cable */
+#define LEGACY_CABLE			BIT(1)
+#define LEGACY_CABLE_NONCOMPLIANT	BIT(0)
+
 /* snk_status */
 #define SNK_RP_STD			BIT(2)
 #define SNK_RP_1P5			BIT(1)
@@ -111,6 +115,9 @@ enum qcom_pmic_typec_intr_cfg_fields {
 	type en_try_snk; \
 	type en_try_src; \
 	type power_role; \
+	type is_legacy_cable; \
+	/* LEGACY_CABLE (PMI8998 only) */ \
+	type legacy_cable_det; \
 	/* VCONN_CFG */ \
 	type vconn_en_orientation; \
 	type vconn_en; \

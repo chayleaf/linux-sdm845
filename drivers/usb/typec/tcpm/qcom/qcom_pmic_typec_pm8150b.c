@@ -154,6 +154,8 @@ struct pmic_typec_registers pmic_typec_fields_pm8150b =  {
 		.debounce_done		= REG_FIELD(0x150b, 3, 3),
 		.cc_status		= REG_FIELD(0x150b, 0, 1),
 
+		.is_legacy_cable	= REG_FIELD(0x150d, 0, 1),
+
 		/* TYPEC_MODE_CFG_REG */
 		.en_try_snk		= REG_FIELD(0x1544, 4, 4),
 		.en_try_src		= REG_FIELD(0x1544, 3, 3),
@@ -176,6 +178,7 @@ struct pmic_typec_registers pmic_typec_fields_pm8150b =  {
 	},
 
 	.has_vbus_vsafe0v = true,
+	.needs_legacy_cable_en = false,
 	.curr_src_max = CC_SRC_RP_SEL_330UA,
 
 	.irq_map_cfg1 = {

@@ -190,6 +190,33 @@ int qcom_pmic_typec_port_set_vbus(struct pmic_typec_port *pmic_typec_port, bool 
 	return 0;
 }
 
+bool qcom_pmic_typec_port_is_legacy_cable(struct pmic_typec_port *pmic_typec_port)
+{
+	int ret;
+	unsigned int legacy_cable, snk_src_mode;
+
+	ret = regmap_field_read_log(pmic_typec_port->fields.snk_src_mode, &snk_src_mode);
+	if (ret) {
+		dev_err(pmic_typec_port->dev, "Failed to read snk_src_mode: %d\n", ret);
+		return false;
+	}
+
+	ret = regmap_field_read(pmic_typec_port->fields.is_legacy_cable, &legacy_cable);
+	if (ret) {
+		dev_err(pmic_typec_port->dev, "Failed to read legacy cable: %d\n", ret);
+		return false;
+	}
+
+	if (legacy_cable & LEGACY_CABLE_NONCOMPLIANT)
+		dev_dbg(pmic_typec_port->dev, "non-compliant legacy_cable\n");
+
+	dev_info(pmic_typec_port->dev, "legacy_cable: %d, snk_src_mode: %d\n",
+		 legacy_cable, snk_src_mode);
+
+	/* Legacy cable detected and in SNK mode (UFP) */
+	return !!legacy_cable && !snk_src_mode;
+}
+
 int qcom_pmic_typec_port_get_cc(struct pmic_typec_port *pmic_typec_port,
 				enum typec_cc_status *cc1,
 				enum typec_cc_status *cc2)
@@ -389,6 +416,14 @@ int qcom_pmic_typec_port_start_toggling(struct pmic_typec_port *pmic_typec_port,
 	unsigned long flags;
 	int ret;
 
+	/* Get the state machine into the write state if we're booting up with
+	 * a legacy cable attached
+	 */
+	// if (pmic_typec_port->vbus_present && qcom_pmic_typec_port_is_legacy_cable(pmic_typec_port)) {
+	// 	tcpm_vbus_change(pmic_typec_port->tcpm_port);
+	// 	return 0;
+	// }
+
 	switch (port_type) {
 	case TYPEC_PORT_SRC:
 		mode = POWER_ROLE_SRC_ONLY;
@@ -429,8 +464,8 @@ done:
 }
 
 #define TYPEC_INTR_EN_CFG_1_MASK		  \
-	(BIT(IRQ_LEGACY_CABLE)			| \
-	 BIT(IRQ_NONCOMPLIANT_LEGACY_CABLE)	| \
+	(/*BIT(IRQ_LEGACY_CABLE)		| */ \
+	/* BIT(IRQ_NONCOMPLIANT_LEGACY_CABLE)	| */ \
 	 BIT(IRQ_TRYSOURCE_DETECT)		| \
 	 BIT(IRQ_TRYSINK_DETECT)		| \
 	 BIT(IRQ_CCOUT_DETACH)			| \
@@ -461,9 +496,17 @@ int qcom_pmic_typec_port_start(struct pmic_typec_port *pmic_typec_port,
 		goto done;
 
 	/* start in TRY_SNK mode */
-	ret = regmap_field_write(pmic_typec_port->fields.en_try_snk, 1);
+	// FIXME: pmi8998 downstream explicitly disables this, maybe enabling it disables legacy cable detection?
+	en_try_sink = pmic_typec_port->fields.needs_legacy_cable_en;
+	ret = regmap_field_write_log(pmic_typec_port->fields.en_try_snk, en_try_sink);
 	if (ret)
 		goto done;
+
+	if (pmic_typec_port->fields.needs_legacy_cable_en) {
+		ret = regmap_field_write_log(pmic_typec_port->fields.legacy_cable_det, 1);
+		if (ret)
+			goto done;
+	}
 
 	/* Configure VCONN for software control */
 	ret = regmap_field_write(pmic_typec_port->fields.vconn_en_src, 1);
@@ -538,6 +581,7 @@ int qcom_pmic_typec_port_probe(struct platform_device *pdev,
 	}
 
 	pmic_typec_port->fields.has_vbus_vsafe0v = res->reg_fields->has_vbus_vsafe0v;
+	pmic_typec_port->fields.needs_legacy_cable_en = res->reg_fields->needs_legacy_cable_en;
 	pmic_typec_port->fields.curr_src_max = res->reg_fields->curr_src_max;
 	/* Populate IRQ masks */
 	for (i = 0; i < IRQ_NUM_IRQS; i++) {

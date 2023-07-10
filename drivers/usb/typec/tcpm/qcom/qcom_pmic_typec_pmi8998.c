@@ -299,8 +299,12 @@ struct pmic_typec_registers pmic_typec_fields_pmi8998 =  {
 		.debounce_done		= REG_FIELD(0x130e, 4, 4),
 		.cc_status		= REG_FIELD(0x130e, 0, 1),
 
+		/* TYPE_C_STATUS_5_REG */
+		.is_legacy_cable	= REG_FIELD(0x130f, 2, 3),
+
 		/* TYPE_C_CFG_3_REG */
 		.en_try_snk		= REG_FIELD(0x135A, 2, 2),
+		.legacy_cable_det	= REG_FIELD(0x135A, 1, 1),
 
 		/* TYPE_C_CFG_2_REG */
 		.en_try_src		= REG_FIELD(0x1359, 3, 3),
@@ -322,6 +326,8 @@ struct pmic_typec_registers pmic_typec_fields_pmi8998 =  {
 
 	/* PMI8998 relies on the VBUS regulator enable timing */
 	.has_vbus_vsafe0v = false,
+	/* PMI8998 needs legacy cable detection to be enabled */
+	.needs_legacy_cable_en = true,
 	/* PMI8998 can only do 1.5A */
 	.curr_src_max = CC_SRC_RP_SEL_180UA,
 
