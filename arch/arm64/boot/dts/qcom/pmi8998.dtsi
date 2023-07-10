@@ -51,8 +51,7 @@
 				     <0x2 0x17 0x03 IRQ_TYPE_EDGE_RISING>,
 				     <0x2 0x17 0x04 IRQ_TYPE_EDGE_RISING>,
 				     <0x2 0x17 0x05 IRQ_TYPE_EDGE_RISING>,
-				     <0x2 0x17 0x06 IRQ_TYPE_EDGE_RISING>,
-				     <0x2 0x17 0x07 IRQ_TYPE_EDGE_RISING>;
+				     <0x2 0x17 0x06 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "type-c-change",
 					  "sig-tx",
 					  "sig-rx",
@@ -60,8 +59,7 @@
 					  "msg-rx",
 					  "msg-tx-failed",
 					  "msg-tx-discarded",
-					  "msg-rx-discarded",
-					  "fr-swap";
+					  "msg-rx-discarded";
 		};
 
 		pmi8998_gpios: gpio@c000 {
