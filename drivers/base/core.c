@@ -8,6 +8,8 @@
  * Copyright (c) 2006 Novell, Inc.
  */
 
+#define DEBUG
+
 #include <linux/acpi.h>
 #include <linux/cpufreq.h>
 #include <linux/device.h>
