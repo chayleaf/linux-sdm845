@@ -6599,8 +6599,10 @@ struct tcpm_port *tcpm_register_port(struct device *dev, struct tcpc_dev *tcpc)
 	tcpm_debugfs_init(port);
 
 	err = tcpm_fw_get_caps(port, tcpc->fwnode);
-	if (err < 0)
+	if (err < 0) {
+		dev_err_probe(port->dev, err, "failed to get capabilities\n");
 		goto out_destroy_wq;
+	}
 
 	port->try_role = port->typec_caps.prefer_role;
 
@@ -6619,24 +6621,30 @@ struct tcpm_port *tcpm_register_port(struct device *dev, struct tcpc_dev *tcpc)
 	if (!port->role_sw)
 		port->role_sw = fwnode_usb_role_switch_get(tcpc->fwnode);
 	if (IS_ERR(port->role_sw)) {
+		dev_err_probe(port->dev, err, "failed to find role_sw dev\n");
 		err = PTR_ERR(port->role_sw);
 		goto out_destroy_wq;
 	}
 
 	err = devm_tcpm_psy_register(port);
-	if (err)
+	if (err) {
+		dev_err_probe(port->dev, err, "failed to register psy\n");
 		goto out_role_sw_put;
+	}
 	power_supply_changed(port->psy);
 
 	err = tcpm_port_register_pd(port);
-	if (err)
+	if (err) {
+		dev_err_probe(port->dev, err, "failed to register pd\n");
 		goto out_role_sw_put;
+	}
 
 	port->typec_caps.pd = port->pd;
 
 	port->typec_port = typec_register_port(port->dev, &port->typec_caps);
 	if (IS_ERR(port->typec_port)) {
 		err = PTR_ERR(port->typec_port);
+		dev_err_probe(port->dev, err, "failed to register typec port\n");
 		goto out_unregister_pd;
 	}
 

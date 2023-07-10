@@ -66,10 +66,26 @@ static int qcom_pmic_typec_set_vbus(struct tcpc_dev *tcpc, bool on, bool sink)
 	tcpm_vbus_change(tcpm->tcpm_port);
 
 done:
-	dev_dbg(tcpm->dev, "set_vbus set: %d result %d\n", on, ret);
+	dev_info(tcpm->dev, "set_vbus set: %d result %d\n", on, ret);
 	mutex_unlock(&tcpm->lock);
 
 	return ret;
+}
+
+static int qcom_pmic_typec_set_current_limit(struct tcpc_dev *tcpc, u32 ma, u32 mv)
+{
+	struct pmic_typec *tcpm = tcpc_to_tcpm(tcpc);
+	if (!mv)
+		return 0;
+
+	if (mv > 0 && mv != 5000) {
+		dev_info(tcpm->dev, "set_current_limit: unsupported voltage %d\n",
+			 mv);
+	}
+
+	dev_info(tcpm->dev, "set_current_limit: %d mA\n", ma);
+
+	return qcom_pmic_typec_port_set_vbus_current_limit(tcpm->pmic_typec_port, ma);
 }
 
 static int qcom_pmic_typec_set_vconn(struct tcpc_dev *tcpc, bool on)
@@ -134,6 +150,13 @@ static int qcom_pmic_typec_set_pd_rx(struct tcpc_dev *tcpc, bool on)
 {
 	struct pmic_typec *tcpm = tcpc_to_tcpm(tcpc);
 
+	/* If we're in a SNK with a legacy cable connected then we will never receive
+	 * anything from PD. Avoid the whole song and dance and return an error
+	 * in that case so that the state machine will jump straight to SNK_READY
+	 */
+	if (qcom_pmic_typec_port_is_legacy_cable(tcpm->pmic_typec_port))
+		return -EINVAL;
+
 	return qcom_pmic_typec_pdphy_set_pd_rx(tcpm->pmic_typec_pdphy, on);
 }
 
@@ -184,6 +207,7 @@ static int qcom_pmic_typec_probe(struct platform_device *pdev)
 	tcpm->tcpc.set_roles = qcom_pmic_typec_set_roles;
 	tcpm->tcpc.pd_transmit = qcom_pmic_typec_pd_transmit;
 	tcpm->tcpc.is_vbus_vsafe0v = qcom_pmic_typec_is_vbus_vsafe0v;
+	tcpm->tcpc.set_current_limit = qcom_pmic_typec_set_current_limit;
 
 	regmap = dev_get_regmap(dev->parent, NULL);
 	if (!regmap) {
@@ -206,12 +230,12 @@ static int qcom_pmic_typec_probe(struct platform_device *pdev)
 	ret = qcom_pmic_typec_port_probe(pdev, tcpm->pmic_typec_port,
 					 res->port_res, regmap, base[0]);
 	if (ret)
-		return ret;
+		return dev_err_probe(dev, ret, "Failed to probe port\n");
 
 	ret = qcom_pmic_typec_pdphy_probe(pdev, tcpm->pmic_typec_pdphy,
 					  res->pdphy_res, regmap, base[1]);
 	if (ret)
-		return ret;
+		return dev_err_probe(dev, ret, "Failed to probe pdphy\n");
 
 	mutex_init(&tcpm->lock);
 	platform_set_drvdata(pdev, tcpm);
@@ -222,7 +246,7 @@ static int qcom_pmic_typec_probe(struct platform_device *pdev)
 
 	tcpm->tcpm_port = tcpm_register_port(tcpm->dev, &tcpm->tcpc);
 	if (IS_ERR(tcpm->tcpm_port)) {
-		ret = PTR_ERR(tcpm->tcpm_port);
+		ret = dev_err_probe(dev, PTR_ERR(tcpm->tcpm_port), "Failed to register TCPM port\n");
 		goto fwnode_remove;
 	}
 

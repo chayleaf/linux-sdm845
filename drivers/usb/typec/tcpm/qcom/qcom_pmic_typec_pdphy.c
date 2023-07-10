@@ -252,7 +252,7 @@ int qcom_pmic_typec_pdphy_pd_transmit(struct pmic_typec_pdphy *pmic_typec_pdphy,
 	}
 
 	if (ret)
-		dev_dbg(dev, "pd_transmit: type %x result %d\n", type, ret);
+		dev_info(dev, "pd_transmit: type %x result %d\n", type, ret);
 
 	return ret;
 }
@@ -274,7 +274,7 @@ static void qcom_pmic_typec_pdphy_pd_receive(struct pmic_typec_pdphy *pmic_typec
 
 	/* Hardware requires +1 of the real read value to be passed */
 	if (size < 1 || size > sizeof(msg.payload) + 1) {
-		dev_dbg(dev, "pd_receive: invalid size %d\n", size);
+		dev_info(dev, "pd_receive: invalid size %d\n", size);
 		goto done;
 	}
 
@@ -350,7 +350,7 @@ int qcom_pmic_typec_pdphy_set_pd_rx(struct pmic_typec_pdphy *pmic_typec_pdphy, b
 
 	spin_unlock_irqrestore(&pmic_typec_pdphy->lock, flags);
 
-	dev_dbg(pmic_typec_pdphy->dev, "set_pd_rx: %s\n", on ? "on" : "off");
+	dev_info(pmic_typec_pdphy->dev, "set_pd_rx: %s\n", on ? "on" : "off");
 
 	return ret;
 }
@@ -372,7 +372,7 @@ int qcom_pmic_typec_pdphy_set_roles(struct pmic_typec_pdphy *pmic_typec_pdphy,
 
 	spin_unlock_irqrestore(&pmic_typec_pdphy->lock, flags);
 
-	dev_dbg(dev, "pdphy_set_roles: data_role_host=%d power_role_src=%d\n",
+	dev_info(dev, "pdphy_set_roles: data_role_host=%d power_role_src=%d\n",
 		data_role_host, power_role_src);
 
 	return ret;

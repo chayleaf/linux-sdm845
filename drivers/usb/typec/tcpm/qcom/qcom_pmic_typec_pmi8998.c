@@ -317,7 +317,7 @@ struct pmic_typec_registers pmic_typec_fields_pmi8998 =  {
 
 		/* TYPE_C_CFG_2_REG */
 		.cc_src_threshold	= REG_FIELD(0x1359, 6, 6),
-		.cc_src_tpd_debounce	= REG_FIELD(0x1359, 7, 7),
+		.cc_src_tpd_debounce	= { },
 		.cc_curr_src		= REG_FIELD(0x1359, 0, 0),
 
 		.irq_en_cfg1		= REG_FIELD(0x1367, 0, 7),

@@ -10,6 +10,8 @@
 #include <linux/usb/tcpm.h>
 #include <linux/regmap.h>
 
+#define DEBUG 1
+
 /* Transposed register bits */
 
 /* cc_curr_src */
@@ -140,6 +142,9 @@ struct pmic_typec_registers {
 	} fields;
 
 	bool has_vbus_vsafe0v;
+	/* This PMIC needs legacy cable detection to be enabled */
+	bool needs_legacy_cable_en;
+	/* Some PMICs can't do the full 3A */
 	u8 curr_src_max;
 
 	/* IRQ_EN maps */
@@ -155,7 +160,7 @@ struct pmic_typec_regmap_fields {
 	DEFINE_FIELDS(struct regmap_field *);
 
 	bool has_vbus_vsafe0v;
-	/* Some PMICs can't do the full 3A */
+	bool needs_legacy_cable_en;
 	u8 curr_src_max;
 
 	u8 irq_mask_cfg1;
@@ -181,6 +186,8 @@ int qcom_pmic_typec_port_start(struct pmic_typec_port *pmic_typec_port,
 
 void qcom_pmic_typec_port_stop(struct pmic_typec_port *pmic_typec_port);
 
+bool qcom_pmic_typec_port_is_legacy_cable(struct pmic_typec_port *pmic_typec_port);
+
 int qcom_pmic_typec_port_get_cc(struct pmic_typec_port *pmic_typec_port,
 				enum typec_cc_status *cc1,
 				enum typec_cc_status *cc2);
@@ -191,6 +198,9 @@ int qcom_pmic_typec_port_set_cc(struct pmic_typec_port *pmic_typec_port,
 bool qcom_pmic_typec_port_is_vbus_vsafe0v(struct pmic_typec_port *pmic_typec_port);
 
 int qcom_pmic_typec_port_get_vbus(struct pmic_typec_port *pmic_typec_port);
+
+int qcom_pmic_typec_port_set_vbus_current_limit(struct pmic_typec_port *pmic_typec_port,
+						u32 ma);
 
 int qcom_pmic_typec_port_set_vconn(struct pmic_typec_port *pmic_typec_port, bool on);
 
