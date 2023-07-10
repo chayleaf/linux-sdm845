@@ -2764,6 +2764,8 @@ static int qmp_combo_usb_set_mode(struct phy *phy, enum phy_mode mode, int submo
 {
 	struct qmp_combo *qmp = phy_get_drvdata(phy);
 
+	dev_info(qmp->dev, "set_mode: mode=%d, submode=%d\n", mode, submode);
+
 	qmp->mode = mode;
 
 	return 0;
@@ -3229,6 +3231,9 @@ static int qmp_combo_typec_switch_set(struct typec_switch_dev *sw,
 {
 	struct qmp_combo *qmp = typec_switch_get_drvdata(sw);
 	const struct qmp_phy_cfg *cfg = qmp->cfg;
+
+	dev_info(qmp->dev, "Toggling orientation current %d requested %d\n",
+		qmp->orientation, orientation);
 
 	if (orientation == qmp->orientation || orientation == TYPEC_ORIENTATION_NONE)
 		return 0;

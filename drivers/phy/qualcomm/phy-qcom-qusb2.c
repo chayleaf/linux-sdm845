@@ -3,6 +3,9 @@
  * Copyright (c) 2017, 2019, The Linux Foundation. All rights reserved.
  */
 
+#define DEBUG 1
+#define VERBOSE_DEBUG 1
+
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/err.h>
@@ -599,6 +602,8 @@ static int qusb2_phy_set_mode(struct phy *phy,
 			      enum phy_mode mode, int submode)
 {
 	struct qusb2_phy *qphy = phy_get_drvdata(phy);
+
+	dev_info(&qphy->phy->dev, "Setting QUSB2 Phy mode to %d\n", mode);
 
 	qphy->mode = mode;
 
