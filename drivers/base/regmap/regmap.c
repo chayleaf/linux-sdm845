@@ -2344,6 +2344,37 @@ int regmap_field_update_bits_base(struct regmap_field *field,
 EXPORT_SYMBOL_GPL(regmap_field_update_bits_base);
 
 /**
+ * regmap_field_update_bits_base_log() - Perform a read/modify/write cycle a
+ *                                   register field.
+ *
+ * @field: Register field to write to
+ * @mask: Bitmask to change
+ * @val: Value to be written
+ * @change: Boolean indicating if a write was done
+ * @async: Boolean indicating asynchronously
+ * @force: Boolean indicating use force update
+ *
+ * Perform a read/modify/write cycle on the register field with change,
+ * async, force option.
+ *
+ * A value of zero will be returned on success, a negative errno will
+ * be returned in error cases.
+ */
+int regmap_field_update_bits_base_log(struct regmap_field *field,
+				  unsigned int mask, unsigned int val,
+				  bool *change, bool async, bool force)
+{
+	mask = (mask << field->shift) & field->mask;
+
+	pr_info("regmap: field_update_bits: reg: %#04x, val: %#04x, mask: %#04x\n",
+		field->reg, val, mask);
+	return regmap_update_bits_base(field->regmap, field->reg,
+				       mask, val << field->shift,
+				       change, async, force);
+}
+EXPORT_SYMBOL_GPL(regmap_field_update_bits_base_log);
+
+/**
  * regmap_field_test_bits() - Check if all specified bits are set in a
  *                            register field.
  *
@@ -3117,6 +3148,32 @@ out_unlock:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(regmap_noinc_read);
+
+/**
+ * regmap_field_read_log(): Read a value to a single register field
+ *
+ * @field: Register field to read from
+ * @val: Pointer to store read value
+ *
+ * A value of zero will be returned on success, a negative errno will
+ * be returned in error cases.
+ */
+int regmap_field_read_log(struct regmap_field *field, unsigned int *val)
+{
+	int ret;
+	unsigned int reg_val = 0;
+	ret = regmap_read(field->regmap, field->reg, &reg_val);
+	pr_info("regmap: field_read_log: %#08x: %#08x\n", field->reg, reg_val);
+	if (ret != 0)
+		return ret;
+
+	reg_val &= field->mask;
+	reg_val >>= field->shift;
+	*val = reg_val;
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(regmap_field_read_log);
 
 /**
  * regmap_field_read(): Read a value to a single register field
