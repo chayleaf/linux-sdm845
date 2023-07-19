@@ -164,10 +164,10 @@ static irqreturn_t pmic_typec_port_isr(int irq, void *dev_id)
 
 	spin_unlock_irqrestore(&pmic_typec_port->lock, flags);
 
-	dev_info(pmic_typec_port->dev, "irq %d, vbus_change %d, cc_change: %d\n", irq_data->virq,
-		vbus_change, cc_change);
+	// dev_info(pmic_typec_port->dev, "irq %d, vbus_change %d, cc_change: %d\n", irq_data->virq,
+	// 	vbus_change, cc_change);
 	
-	__builtin_dump_struct(&pmic_typec_port->typec_status, _dev_info, pmic_typec_port->dev);
+	//__builtin_dump_struct(&pmic_typec_port->typec_status, _dev_info, pmic_typec_port->dev);
 
 	if (vbus_change) {
 		tcpm_vbus_change(pmic_typec_port->tcpm_port);
@@ -279,8 +279,8 @@ bool qcom_pmic_typec_port_is_legacy_cable(struct pmic_typec_port *pmic_typec_por
 	if (legacy_cable & LEGACY_CABLE_NONCOMPLIANT)
 		dev_dbg(pmic_typec_port->dev, "non-compliant legacy_cable\n");
 
-	dev_info(pmic_typec_port->dev, "legacy_cable: %d, snk_src_mode: %d\n",
-		 legacy_cable, snk_src_mode);
+	// dev_info(pmic_typec_port->dev, "legacy_cable: %d, snk_src_mode: %d\n",
+	// 	 legacy_cable, snk_src_mode);
 
 	/* Legacy cable detected and in SNK mode (UFP) */
 	return !!legacy_cable && !snk_src_mode;
@@ -291,7 +291,7 @@ int qcom_pmic_typec_port_get_cc(struct pmic_typec_port *pmic_typec_port,
 				enum typec_cc_status *cc2)
 {
 	struct device *dev = pmic_typec_port->dev;
-	unsigned int is_src_mode = false, val, misc;
+	unsigned int is_src_mode = false, val = 0, misc;
 	bool attached = false, orientation = false;
 	int ret = 0;
 	unsigned long flags;
@@ -363,7 +363,8 @@ int qcom_pmic_typec_port_get_cc(struct pmic_typec_port *pmic_typec_port,
 			*cc1 = TYPEC_CC_RP_DEF;
 			break;
 		}
-		dev_info(dev, "FIXME: snk_status %d, overriding with CC_RP_DEF\n", val);
+		// XXX: FIXME overriding with CC_RP_DEF
+		//dev_info(dev, "FIXME: snk_status %d, overriding with CC_RP_DEF\n", val);
 		*cc1 = TYPEC_CC_RP_DEF;
 	}
 
@@ -377,8 +378,8 @@ int qcom_pmic_typec_port_get_cc(struct pmic_typec_port *pmic_typec_port,
 done:
 	spin_unlock_irqrestore(&pmic_typec_port->lock, flags);
 
-	dev_info(dev, "get_cc %d: cc1 %#04x %s cc2 %#04x %s %s src=%d status %#02x\n",
-		ret, *cc1, cc_to_name(*cc1), *cc2, cc_to_name(*cc2), misc_str(misc), is_src_mode, val);
+	// dev_info(dev, "get_cc %d: cc1 %#04x %s cc2 %#04x %s %s src=%d status %#02x\n",
+	// 	ret, *cc1, cc_to_name(*cc1), *cc2, cc_to_name(*cc2), misc_str(misc), is_src_mode, val);
 
 	return ret;
 }
@@ -442,10 +443,10 @@ int qcom_pmic_typec_port_set_cc(struct pmic_typec_port *pmic_typec_port,
 done:
 	spin_unlock_irqrestore(&pmic_typec_port->lock, flags);
 
-	dev_info(dev, "set_cc: currsrc=%x %s mode %s debounce %d %s\n",
-		currsrc, cc_curr_src_to_name(currsrc),
-		mode == POWER_ROLE_SRC_ONLY ? "POWER_ROLE_SRC_ONLY" : "POWER_ROLE_SNK_ONLY",
-		pmic_typec_port->debouncing_cc, misc_str(misc));
+	// dev_info(dev, "set_cc: currsrc=%x %s mode %s debounce %d %s\n",
+	// 	currsrc, cc_curr_src_to_name(currsrc),
+	// 	mode == POWER_ROLE_SRC_ONLY ? "POWER_ROLE_SRC_ONLY" : "POWER_ROLE_SNK_ONLY",
+	// 	pmic_typec_port->debouncing_cc, misc_str(misc));
 
 	return ret;
 }
@@ -517,8 +518,8 @@ int qcom_pmic_typec_port_start_toggling(struct pmic_typec_port *pmic_typec_port,
 	if (ret)
 		goto done;
 
-	dev_info(dev, "start_toggling: misc %#04x %s port_type %d current cc %d new %d\n",
-		misc, misc_str(misc), port_type, pmic_typec_port->cc, cc);
+	// dev_info(dev, "start_toggling: misc %#04x %s port_type %d current cc %d new %d\n",
+	// 	misc, misc_str(misc), port_type, pmic_typec_port->cc, cc);
 
 	qcom_pmic_set_cc_debounce(pmic_typec_port);
 
@@ -664,7 +665,7 @@ int qcom_pmic_typec_port_probe(struct platform_device *pdev,
 
 	for (i = 0; i < PMIC_TYPEC_NUM_FIELDS; i++) {
 		struct reg_field *field = &(&res->reg_fields->fields.snk_status)[i];
-		dev_dbg(dev, "%d: %#04x, %d, %d\n", i, field->reg, field->msb, field->lsb);
+		//dev_dbg(dev, "%d: %#04x, %d, %d\n", i, field->reg, field->msb, field->lsb);
 	}
 
 	pmic_typec_port->fields.has_vbus_vsafe0v = res->reg_fields->has_vbus_vsafe0v;
@@ -679,8 +680,8 @@ int qcom_pmic_typec_port_probe(struct platform_device *pdev,
 				res->reg_fields->irq_map_cfg2[i];
 		}
 	}
-	dev_dbg(dev, "irq_mask_cfg1: 0x%x\n", pmic_typec_port->fields.irq_mask_cfg1);
-	dev_dbg(dev, "irq_mask_cfg2: 0x%x\n", pmic_typec_port->fields.irq_mask_cfg2);
+	// dev_dbg(dev, "irq_mask_cfg1: 0x%x\n", pmic_typec_port->fields.irq_mask_cfg1);
+	// dev_dbg(dev, "irq_mask_cfg2: 0x%x\n", pmic_typec_port->fields.irq_mask_cfg2);
 
 	pmic_typec_port->dev = dev;
 	pmic_typec_port->base = base;
