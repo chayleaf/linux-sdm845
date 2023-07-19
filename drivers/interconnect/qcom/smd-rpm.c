@@ -45,9 +45,8 @@ int qcom_icc_rpm_smd_send(int ctx, int rsc_type, int id, u32 val)
 }
 EXPORT_SYMBOL_GPL(qcom_icc_rpm_smd_send);
 
-int qcom_icc_rpm_set_bus_rate(const struct rpm_clk_resource *clk, u32 rate, bool set_active)
+int qcom_icc_rpm_set_bus_rate(const struct rpm_clk_resource *clk, int ctx, u32 rate)
 {
-	int state = set_active ? QCOM_SMD_RPM_ACTIVE_STATE : QCOM_SMD_RPM_SLEEP_STATE;
 	struct clk_smd_rpm_req req = {
 		.key = cpu_to_le32(QCOM_RPM_SMD_KEY_RATE),
 		.nbytes = cpu_to_le32(sizeof(u32)),
@@ -59,7 +58,7 @@ int qcom_icc_rpm_set_bus_rate(const struct rpm_clk_resource *clk, u32 rate, bool
 
 	req.value = cpu_to_le32(rate);
 	return qcom_rpm_smd_write(icc_smd_rpm,
-				  state,
+				  ctx,
 				  clk->resource_type,
 				  clk->clock_id,
 				  &req, sizeof(req));

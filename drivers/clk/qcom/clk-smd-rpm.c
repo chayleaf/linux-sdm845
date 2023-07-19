@@ -173,14 +173,14 @@ struct rpm_smd_clk_desc {
 	 * only kickstarts them so that they don't get gated between
 	 * clk_smd_rpm_enable_scaling() and interconnect driver initialization.
 	 */
-	struct clk_smd_rpm **icc_clks;
+	const struct clk_smd_rpm ** const icc_clks;
 	size_t num_icc_clks;
 	bool scaling_before_handover;
 };
 
 static DEFINE_MUTEX(rpm_smd_clk_lock);
 
-static int clk_smd_rpm_handoff(struct clk_smd_rpm *r)
+static int clk_smd_rpm_handoff(const struct clk_smd_rpm *r)
 {
 	int ret;
 	struct clk_smd_rpm_req req = {
@@ -506,25 +506,25 @@ DEFINE_CLK_SMD_RPM_XO_BUFFER(div_clk1, 11, 19200000);
 DEFINE_CLK_SMD_RPM_XO_BUFFER(div_clk2, 12, 19200000);
 DEFINE_CLK_SMD_RPM_XO_BUFFER(div_clk3, 13, 19200000);
 
-static struct clk_smd_rpm *bimc_pcnoc_icc_clks[] = {
+static const struct clk_smd_rpm *bimc_pcnoc_icc_clks[] = {
 	&clk_smd_rpm_bimc_clk,
 	&clk_smd_rpm_bus_0_pcnoc_clk,
 };
 
-static struct clk_smd_rpm *bimc_pcnoc_snoc_icc_clks[] = {
+static const struct clk_smd_rpm *bimc_pcnoc_snoc_icc_clks[] = {
 	&clk_smd_rpm_bimc_clk,
 	&clk_smd_rpm_bus_0_pcnoc_clk,
 	&clk_smd_rpm_bus_1_snoc_clk,
 };
 
-static struct clk_smd_rpm *bimc_pcnoc_snoc_smmnoc_icc_clks[] = {
+static const struct clk_smd_rpm *bimc_pcnoc_snoc_smmnoc_icc_clks[] = {
 	&clk_smd_rpm_bimc_clk,
 	&clk_smd_rpm_bus_0_pcnoc_clk,
 	&clk_smd_rpm_bus_1_snoc_clk,
 	&clk_smd_rpm_bus_2_sysmmnoc_clk,
 };
 
-static struct clk_smd_rpm *bimc_pcnoc_snoc_cnoc_ocmem_icc_clks[] = {
+static const struct clk_smd_rpm *bimc_pcnoc_snoc_cnoc_ocmem_icc_clks[] = {
 	&clk_smd_rpm_bimc_clk,
 	&clk_smd_rpm_bus_0_pcnoc_clk,
 	&clk_smd_rpm_bus_1_snoc_clk,
@@ -532,7 +532,7 @@ static struct clk_smd_rpm *bimc_pcnoc_snoc_cnoc_ocmem_icc_clks[] = {
 	&clk_smd_rpm_ocmemgx_clk,
 };
 
-static struct clk_smd_rpm *msm8996_icc_clks[] = {
+static const struct clk_smd_rpm *msm8996_icc_clks[] = {
 	&clk_smd_rpm_bimc_clk,
 	&clk_smd_rpm_branch_aggre1_noc_clk,
 	&clk_smd_rpm_branch_aggre2_noc_clk,
@@ -542,7 +542,7 @@ static struct clk_smd_rpm *msm8996_icc_clks[] = {
 	&clk_smd_rpm_mmssnoc_axi_rpm_clk,
 };
 
-static struct clk_smd_rpm *msm8998_icc_clks[] = {
+static const struct clk_smd_rpm *msm8998_icc_clks[] = {
 	&clk_smd_rpm_aggre1_noc_clk,
 	&clk_smd_rpm_aggre2_noc_clk,
 	&clk_smd_rpm_bimc_clk,
@@ -551,7 +551,7 @@ static struct clk_smd_rpm *msm8998_icc_clks[] = {
 	&clk_smd_rpm_mmssnoc_axi_rpm_clk,
 };
 
-static struct clk_smd_rpm *sdm660_icc_clks[] = {
+static const struct clk_smd_rpm *sdm660_icc_clks[] = {
 	&clk_smd_rpm_aggre2_noc_clk,
 	&clk_smd_rpm_bimc_clk,
 	&clk_smd_rpm_bus_1_snoc_clk,
@@ -559,7 +559,7 @@ static struct clk_smd_rpm *sdm660_icc_clks[] = {
 	&clk_smd_rpm_mmssnoc_axi_rpm_clk,
 };
 
-static struct clk_smd_rpm *sm_qnoc_icc_clks[] = {
+static const struct clk_smd_rpm *sm_qnoc_icc_clks[] = {
 	&clk_smd_rpm_bimc_clk,
 	&clk_smd_rpm_bus_1_cnoc_clk,
 	&clk_smd_rpm_mmnrt_clk,

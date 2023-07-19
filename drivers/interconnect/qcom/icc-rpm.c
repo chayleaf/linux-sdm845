@@ -3,7 +3,6 @@
  * Copyright (C) 2020 Linaro Ltd
  */
 
-#include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/interconnect-provider.h>
 #include <linux/io.h>
@@ -373,11 +372,12 @@ static int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
 	}
 
 	/* RPM only accepts <=INT_MAX rates */
-	active_rate = min_t(u32, active_rate, INT_MAX);
-	sleep_rate = min_t(u32, sleep_rate, INT_MAX);
+	active_rate = min_t(u64, active_rate, INT_MAX);
+	sleep_rate = min_t(u64, sleep_rate, INT_MAX);
 
 	if (active_rate != qp->bus_clk_rate[QCOM_SMD_RPM_ACTIVE_STATE]) {
-		ret = qcom_icc_rpm_set_bus_rate(qp->bus_clk_desc, active_rate, true);
+		ret = qcom_icc_rpm_set_bus_rate(qp->bus_clk_desc, QCOM_SMD_RPM_ACTIVE_STATE,
+						active_rate);
 		if (ret)
 			return ret;
 
@@ -386,7 +386,8 @@ static int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
 	}
 
 	if (sleep_rate != qp->bus_clk_rate[QCOM_SMD_RPM_SLEEP_STATE]) {
-		ret = qcom_icc_rpm_set_bus_rate(qp->bus_clk_desc, sleep_rate, false);
+		ret = qcom_icc_rpm_set_bus_rate(qp->bus_clk_desc, QCOM_SMD_RPM_SLEEP_STATE,
+						sleep_rate);
 		if (ret)
 			return ret;
 
