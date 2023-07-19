@@ -446,8 +446,8 @@ static int dwc3_usb_role_switch_set(struct usb_role_switch *sw,
 	struct dwc3 *dwc = usb_role_switch_get_drvdata(sw);
 	u32 mode;
 
-	dev_info(dwc->dev, "switching to %s mode\n",
-		 role == USB_ROLE_HOST ? "host" : "peripheral");
+	dev_info(dwc->dev, "switching to %s mode (%d)\n",
+		 role == USB_ROLE_HOST ? "host" : "device", role);
 
 	switch (role) {
 	case USB_ROLE_HOST:

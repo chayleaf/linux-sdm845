@@ -131,6 +131,14 @@ static void __dwc3_set_mode(struct work_struct *work)
 
 	pm_runtime_get_sync(dwc->dev);
 
+	dev_info(dwc->dev, "Set mode (%s) (current mode %s)\n",
+		 desired_dr_role == DWC3_GCTL_PRTCAP_HOST ? "host" :
+		 desired_dr_role == DWC3_GCTL_PRTCAP_DEVICE ? "peripheral" :
+		 "otg",
+		 dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST ? "host" :
+		 dwc->current_dr_role == DWC3_GCTL_PRTCAP_DEVICE ? "peripheral" :
+		 "otg");
+
 	if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_OTG)
 		dwc3_otg_update(dwc, 0);
 
