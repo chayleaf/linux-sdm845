@@ -264,7 +264,7 @@
 		vdd_s3-supply = <&vph_pwr>;
 		vdd_s4-supply = <&vph_pwr>;
 		vdd_l1_l2_l3_l5_l6_l7_l8_l9_l10_l11_l12-supply = <&pm2250_s3>;
-		vdd_l4_l17_l18_l19_l20_l21_l22 = <&vph_pwr>;
+		vdd_l4_l17_l18_l19_l20_l21_l22-supply = <&vph_pwr>;
 		vdd_l13_l14_l15_l16-supply = <&pm2250_s4>;
 
 		/*
