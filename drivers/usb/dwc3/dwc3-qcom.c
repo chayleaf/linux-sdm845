@@ -8,6 +8,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/clk.h>
+#include <linux/debugfs.h>
 #include <linux/irq.h>
 #include <linux/of_clk.h>
 #include <linux/module.h>
@@ -735,6 +736,58 @@ out:
 	return ret;
 }
 
+static int dwc3_qcom_debugfs_vbus_override_show(struct seq_file *s, void *unused)
+{
+	struct dwc3_qcom *qcom = s->private;
+	u32 override_hs, override_ss;
+
+	override_hs = readl(qcom->qscratch_base + QSCRATCH_HS_PHY_CTRL);
+	override_ss = readl(qcom->qscratch_base + QSCRATCH_SS_PHY_CTRL);
+
+	seq_printf(s, "QSCRATCH_HS_PHY_CTRL\n"
+				    "  UTMI_OTG_VBUS_VALID: %d\n"
+				    "  SW_SESSVLD_SEL: %d\n"
+				    "QSCRATCH_SS_PHY_CTRL\n"
+				    "  LANE0_PWR_PRESENT: %d\n",
+				    !!(override_hs & UTMI_OTG_VBUS_VALID),
+				    !!(override_hs & SW_SESSVLD_SEL),
+				    !!(override_ss & LANE0_PWR_PRESENT));
+
+	return 0;
+}
+
+static ssize_t dwc3_qcom_debugfs_vbus_override_set(struct file *file, const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file		*s = file->private_data;
+	struct dwc3_qcom *qcom = s->private;
+	char buf[32] = {0};
+	if (count < 1)
+		return -EINVAL;
+	
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (buf[0] == '1' || buf[0] == 'y' || buf[0] == 'Y')
+		dwc3_qcom_vbus_override_enable(qcom, true);
+	else
+		dwc3_qcom_vbus_override_enable(qcom, false);
+	
+	return count;
+}
+
+static int dwc3_qcom_debugfs_vbus_override_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, dwc3_qcom_debugfs_vbus_override_show, inode->i_private);
+}
+
+static struct file_operations dwc3_qcom_debugfs_vbus_override_fops = {
+	.owner = THIS_MODULE,
+	.open = dwc3_qcom_debugfs_vbus_override_open,
+	.read = seq_read,
+	.write = dwc3_qcom_debugfs_vbus_override_set,
+};
+
+
 static int dwc3_qcom_of_register_core(struct platform_device *pdev)
 {
 	struct dwc3_qcom	*qcom = platform_get_drvdata(pdev);
@@ -759,6 +812,9 @@ static int dwc3_qcom_of_register_core(struct platform_device *pdev)
 		ret = -ENODEV;
 		dev_err(dev, "failed to get dwc3 platform device\n");
 	}
+
+	debugfs_create_file("dwc3_vbus_override", 0600, NULL,
+			    qcom, &dwc3_qcom_debugfs_vbus_override_fops);
 
 node_put:
 	of_node_put(dwc3_np);
