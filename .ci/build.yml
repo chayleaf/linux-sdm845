@@ -1,0 +1,31 @@
+build:
+  stage: build
+  variables:
+    PACKAGE: device/community/linux-postmarketos-qcom-sdm845
+  before_script:
+    # Add pmbootstrap repo for cross compiler toolchain
+    - echo "http://mirror.postmarketos.org/postmarketos/master" >> /etc/apk/repositories
+    - apk add --allow-untrusted bash bison findutils flex installkernel openssl-dev perl zstd gcc gcc-aarch64 wget make git musl-dev sudo
+    - sh .ci/prepare_ci.sh
+    - wget "https://gitlab.com/postmarketOS/ci-common/-/raw/master/install_pmbootstrap.sh"
+    - sh ./install_pmbootstrap.sh
+  script:
+    # Ref to build might be an artifact from a previous job
+    - CHECKOUT_REF=$(cat latest_stable_tag)
+    - if [ -n "$CHECKOUT_REF" ]; then git checkout $CHECKOUT_REF; else CHECKOUT_REF=$(git rev-parse --verify HEAD) fi
+    - echo "Building $PACKAGE from $CHECKOUT_REF"
+    - make CROSS_COMPILE=aarch64-alpine-linux-musl- ARCH=arm64 defconfig sdm845.config
+    - cp .config /home/pmos/.local/var/pmbootstrap/cache_git/pmaports/$PACKAGE/config-$(basename $PACKAGE).aarch64
+    - KVER=$(make kernelversion)
+    - sed -i /home/pmos/.local/var/pmbootstrap/cache_git/pmaports/$PACKAGE/APKBUILD -e "s/^pkgver=.*/pkgver=$KVER/"
+    - sed -i /home/pmos/.local/var/pmbootstrap/cache_git/pmaports/$PACKAGE/APKBUILD -e "s/^pkgrel=.*/pkgrel=0/"
+    - sed -i /home/pmos/.local/var/pmbootstrap/cache_git/pmaports/$PACKAGE/APKBUILD -e "s/^_tag=.*/_tag=$CHECKOUT_REF/"
+    - su pmos -c pmbootstrap checksum $(basename $PACKAGE)
+    - su pmos -c pmbootstrap build --force $(basename $PACKAGE)
+  after_script:
+    - cp -r /home/pmos/.local/var/pmbootstrap/packages/ packages/ || true
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - packages/
+  timeout: 10 h

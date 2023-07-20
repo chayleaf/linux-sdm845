@@ -1,0 +1,52 @@
+image: alpine:latest
+variables:
+  PACKAGE: device/community/linux-postmarketos-qcom-sdm845
+after_script:
+  - /bin/sh .ci/move_logs.sh $CI_PROJECT_DIR
+stages:
+  - merge
+  - build
+#  - open_pmaports_mr
+
+merge_stable:
+  stage: merge
+  rules:
+    # Only merge stable on release branches
+    - if: $CI_COMMIT_BRANCH =~ /^sdm845\/.+-release$/ && $CI_COMMIT_AUTHOR != "SDM845 CI <sdm845-ci@blah.com>"
+  before_script:
+    - apk add git make curl jq xz patch openssh sudo
+    - sh .ci/prepare_ci.sh
+  script:
+    # Run as non-root because we'll be messing with the git repo
+    # but preserve environment variables
+    - sudo -E -u pmos /bin/sh $PWD/.ci/merge_stable.sh
+  artifacts:
+    paths: [latest_stable_tag]
+
+.build:
+  stage: build
+  trigger:
+    include: .ci/build.yml
+    strategy: depend
+
+# Plain old build
+build-dev:
+  extends: .build
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^sdm845\/.+-dev$/
+
+# Get the latest stable tag from the merge_stable job
+# and build that
+build-release:
+  extends: .build
+  needs:
+    - job: merge_stable
+      artifacts: true
+# open_pmaports_mr:
+#   stage: open_pmaports_mr
+#   rules:
+#     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+#       when: never
+#   script:
+#     - .ci/lib/open_pmaports_mr.sh $CI_PROJECT_DIR
+#   timeout: 10 h
