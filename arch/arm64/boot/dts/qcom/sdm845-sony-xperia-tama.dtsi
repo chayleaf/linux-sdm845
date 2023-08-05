@@ -58,6 +58,24 @@
 		};
 	};
 
+	// bu520x1nvx lid sensor
+	gpio-hall-sensor {
+		compatible = "gpio-keys";
+		label = "Hall effect sensor";
+
+		pinctrl-0 = <&hall_sensor_default>;
+		pinctrl-names = "default";
+
+		event-hall-sensor {
+			gpios = <&tlmm 124 GPIO_ACTIVE_LOW>;
+			label = "Hall Effect Sensor";
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_LID>;
+			linux,can-disable;
+			wakeup-source;
+		};
+	};
+
 	vph_pwr: vph-pwr-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "vph_pwr";
@@ -78,7 +96,20 @@
 		vin-supply = <&vph_pwr>;
 	};
 
+	battery: battery {
+		compatible = "simple-battery";
+		charge-full-design-microamp-hours = <3325000>;
+		voltage-min-design-microvolt = <3400000>;
+		voltage-max-design-microvolt = <4380000>;
+	};
+
 	reserved-memory {
+		debug_mem@ffb00000{
+			compatible = "qcom,debug_memory";
+			reg = <0x0 0xffb00000 0x0 0x100000>;
+			no-map;
+		};
+
 		ramoops@ffc00000 {
 			compatible = "ramoops";
 			reg = <0x0 0xffc00000 0x0 0x100000>;
@@ -95,6 +126,11 @@
 &adsp_pas {
 	firmware-name = "qcom/sdm845/Sony/tama/adsp.mbn";
 	status = "okay";
+};
+
+&adsp_pas {
+	status = "okay";
+	firmware-name = "qcom/sdm845/Sony/tama/adsp.mbn";
 };
 
 &apps_rsc {
@@ -286,8 +322,8 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l23a_3p0: ldo23 {
-			regulator-min-microvolt = <3000000>;
+		vreg_l23a_3p3: ldo23 {
+			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3312000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
@@ -298,8 +334,8 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l25a_3p0: ldo25 {
-			regulator-min-microvolt = <3000000>;
+		vreg_l25a_3p3: ldo25 {
+			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3312000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
@@ -360,6 +396,20 @@
 &cdsp_pas {
 	firmware-name = "qcom/sdm845/Sony/tama/cdsp.mbn";
 	status = "okay";
+};
+
+&cdsp_pas {
+	status = "okay";
+	firmware-name = "qcom/sdm845/Sony/tama/cdsp.mbn";
+};
+
+&gpu {
+	status = "okay";
+
+	zap-shader {
+		memory-region = <&gpu_mem>;
+		firmware-name = "qcom/sdm845/Sony/tama/a630_zap.mbn";
+	};
 };
 
 &gcc {
@@ -443,7 +493,7 @@
 	status = "okay";
 	clock-frequency = <400000>;
 
-	/* SONY ToF sensor @ 52 */
+	/* STMicroelectonics VL53L0 ToF sensor @ 52 */
 	/* AMS TCS3490 RGB+IR color sensor @ 72 */
 };
 
@@ -543,6 +593,12 @@
 	};
 };
 
+&pmi8998_haptics {
+	status = "okay";
+
+	qcom,wave-play-rate-us = <8621>;
+};
+
 &pmi8998_wled {
 	default-brightness = <800>;
 	qcom,switching-freq = <800>;
@@ -551,6 +607,41 @@
 	qcom,current-limit-microamp = <20000>;
 	qcom,enabled-strings = <0 1 2 3>;
 	status = "okay";
+};
+
+&pmi8998_fg {
+	status = "okay";
+
+	power-supplies = <&pmi8998_charger>;
+	monitored-battery = <&battery>;
+};
+
+&pmi8998_charger {
+	status = "okay";
+	monitored-battery = <&battery>;
+};
+
+
+&ipa {
+	status = "okay";
+
+	memory-region = <&ipa_fw_mem>;
+	firmware-name = "qcom/sdm845/Sony/tama/ipa_fws.mbn";
+};
+
+&slpi_pas {
+	status = "okay";
+	firmware-name = "qcom/sdm845/Sony/tama/slpi.mbn";
+};
+
+&mdss {
+	status = "okay";
+};
+
+/* Modem/wifi */
+&mss_pil {
+	status = "okay";
+	firmware-name = "qcom/sdm845/Sony/tama/mba.mbn", "qcom/sdm845/Sony/tama/modem.mbn";
 };
 
 &qupv3_id_0 {
@@ -649,10 +740,83 @@
 			bias-pull-down;
 		};
 	};
+
+	sim_detect: sim-detect-state {
+		sim1-detect-pins {
+			pins = "gpio112";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+
+	water_detection: water-detection-state {
+		enable-pins {
+			pins = "gpio28";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+
+		wrt-det-and-pins {
+			pins = "gpio29";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+
+		wrt-det-or-pins {
+			pins = "gpio30";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+
+	hwid: hwid-state {
+		hwid0-pins {
+			pins = "gpio75";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		hwid1-pins {
+			pins = "gpio76";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
+	hall_sensor_default: hall-sensor-default-state {
+		pins = "gpio124";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+	};
 };
 
 &uart6 {
 	status = "okay";
+
+	pinctrl-0 = <&qup_uart6_4pin>;
+
+	bluetooth {
+		compatible = "qcom,wcn3990-bt";
+
+		/*
+		 * This path is relative to the qca/
+		 * subdir under lib/firmware.
+		 */
+		firmware-name = "crnv21.bin";
+
+		vddio-supply = <&vreg_s4a_1p8>;
+		vddxo-supply = <&vreg_l7a_1p8>;
+		vddrf-supply = <&vreg_l17a_1p3>;
+		vddch0-supply = <&vreg_l25a_3p3>;
+		max-speed = <3200000>;
+	};
 };
 
 &uart9 {
@@ -688,4 +852,15 @@
 &venus {
 	firmware-name = "qcom/sdm845/Sony/tama/venus.mbn";
 	status = "okay";
+};
+
+&wifi {
+	status = "okay";
+	vdd-0.8-cx-mx-supply = <&vreg_l5a_0p8>;
+	vdd-1.8-xo-supply = <&vreg_l7a_1p8>;
+	vdd-1.3-rfa-supply = <&vreg_l17a_1p3>;
+	vdd-3.3-ch0-supply = <&vreg_l25a_3p3>;
+	vdd-3.3-ch1-supply = <&vreg_l23a_3p3>;
+
+	qcom,snoc-host-cap-8bit-quirk;
 };
