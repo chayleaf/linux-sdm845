@@ -78,6 +78,13 @@
 		vin-supply = <&vph_pwr>;
 	};
 
+	battery: battery {
+		compatible = "simple-battery";
+		charge-full-design-microamp-hours = <3325000>;
+		voltage-min-design-microvolt = <3400000>;
+		voltage-max-design-microvolt = <4380000>;
+	};
+
 	reserved-memory {
 		ramoops@ffc00000 {
 			compatible = "ramoops";
