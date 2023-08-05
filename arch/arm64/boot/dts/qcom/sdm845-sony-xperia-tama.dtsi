@@ -104,6 +104,11 @@
 	status = "okay";
 };
 
+&adsp_pas {
+	status = "okay";
+	firmware-name = "qcom/sdm845/Sony/tama/adsp.mbn";
+};
+
 &apps_rsc {
 	regulators-0 {
 		compatible = "qcom,pm8998-rpmh-regulators";
@@ -406,6 +411,20 @@
 	status = "okay";
 };
 
+&cdsp_pas {
+	status = "okay";
+	firmware-name = "qcom/sdm845/Sony/tama/cdsp.mbn";
+};
+
+&gpu {
+	status = "okay";
+
+	zap-shader {
+		memory-region = <&gpu_mem>;
+		firmware-name = "qcom/sdm845/Sony/tama/a630_zap.mbn";
+	};
+};
+
 &gcc {
 	protected-clocks = <GCC_QSPI_CORE_CLK>,
 			<GCC_QSPI_CORE_CLK_SRC>,
@@ -572,6 +591,28 @@
 	monitored-battery = <&battery>;
 };
 
+
+&ipa {
+	status = "okay";
+
+	memory-region = <&ipa_fw_mem>;
+	firmware-name = "qcom/sdm845/Sony/tama/ipa_fws.mbn";
+};
+
+&slpi_pas {
+	status = "okay";
+	firmware-name = "qcom/sdm845/Sony/tama/slpi.mbn";
+};
+
+&mdss {
+	status = "okay";
+};
+
+/* Modem/wifi */
+&mss_pil {
+	status = "okay";
+	firmware-name = "qcom/sdm845/Sony/tama/mba.mbn", "qcom/sdm845/Sony/tama/modem.mbn";
+};
 
 &qupv3_id_0 {
 	status = "okay";
