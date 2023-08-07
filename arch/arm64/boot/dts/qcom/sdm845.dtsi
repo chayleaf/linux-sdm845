@@ -4883,6 +4883,8 @@
 			         <&gcc GCC_GPU_CFG_AHB_CLK>;
 			clock-names = "bus", "iface";
 
+			status = "disabled";
+
 			power-domains = <&gpucc GPU_CX_GDSC>;
 		};
 

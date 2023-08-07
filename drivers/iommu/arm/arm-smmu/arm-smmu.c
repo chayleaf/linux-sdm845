@@ -1517,15 +1517,18 @@ static int arm_smmu_set_pgtable_quirks(struct iommu_domain *domain,
 
 static int arm_smmu_of_xlate(struct device *dev, struct of_phandle_args *args)
 {
-	u32 mask, fwid = 0;
+	u32 mask = UINT_MAX, fwid = 0;
 
 	if (args->args_count > 0)
 		fwid |= FIELD_PREP(ARM_SMMU_SMR_ID, args->args[0]);
 
-	if (args->args_count > 1)
+	if (args->args_count > 1) {
 		fwid |= FIELD_PREP(ARM_SMMU_SMR_MASK, args->args[1]);
-	else if (!of_property_read_u32(args->np, "stream-match-mask", &mask))
+		mask = args->args[1];
+	} else if (!of_property_read_u32(args->np, "stream-match-mask", &mask))
 		fwid |= FIELD_PREP(ARM_SMMU_SMR_MASK, mask);
+	
+	dev_info(dev, "\t%s: fwid = 0x%08x (SMR 0x%04x mask 0x%04x)\n", __func__, fwid, args->args[0], mask);
 
 	return iommu_fwspec_add_ids(dev, &fwid, 1);
 }
@@ -1590,10 +1593,13 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	int i;
 	u32 reg;
 
+	dev_info(smmu->dev, "\tClear global FSR\n");
+
 	/* clear global FSR */
 	reg = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_sGFSR);
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_sGFSR, reg);
 
+	dev_info(smmu->dev, "\tReset stream mapping groups\n");
 	/*
 	 * Reset stream mapping groups: Initial values mark all SMRn as
 	 * invalid and all S2CRn as bypass unless overridden.
@@ -1601,16 +1607,19 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	for (i = 0; i < smmu->num_mapping_groups; ++i)
 		arm_smmu_write_sme(smmu, i);
 
+	dev_info(smmu->dev, "\tInvalidate CBs, clear CB_FSR\n");
 	/* Make sure all context banks are disabled and clear CB_FSR  */
 	for (i = 0; i < smmu->num_context_banks; ++i) {
 		arm_smmu_write_context_bank(smmu, i);
 		arm_smmu_cb_write(smmu, i, ARM_SMMU_CB_FSR, ARM_SMMU_FSR_FAULT);
 	}
 
+	dev_info(smmu->dev, "\tInvalidate TLB\n");
 	/* Invalidate the TLB, just in case */
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_TLBIALLH, QCOM_DUMMY_VAL);
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_TLBIALLNSNH, QCOM_DUMMY_VAL);
 
+	dev_info(smmu->dev, "\tConfigure GR0\n");
 	reg = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_sCR0);
 
 	/* Enable fault reporting */
@@ -1645,6 +1654,8 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	/* Push the button */
 	arm_smmu_tlb_sync_global(smmu);
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_sCR0, reg);
+
+	dev_info(smmu->dev, "\tReset complete\n");
 }
 
 static int arm_smmu_id_size_to_bits(int size)

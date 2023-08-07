@@ -469,36 +469,49 @@ static inline void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
 	return smmu->base + (n << smmu->pgshift);
 }
 
+#define arm_smmu_page_name(page) ((page) < 2 ? "GR" : "CB")
+
 static inline u32 arm_smmu_readl(struct arm_smmu_device *smmu, int page, int offset)
 {
+	void __iomem *addr = arm_smmu_page(smmu, page) + offset;
 	if (smmu->impl && unlikely(smmu->impl->read_reg))
 		return smmu->impl->read_reg(smmu, page, offset);
-	return readl_relaxed(arm_smmu_page(smmu, page) + offset);
+	u32 val = readl_relaxed(addr);
+	printk("\tread  %s%03d 0x%016lx <- 0x%016x (off 0x%04x)\n",  arm_smmu_page_name(page), page, addr, val, offset);
+	return val;
 }
 
 static inline void arm_smmu_writel(struct arm_smmu_device *smmu, int page,
 				   int offset, u32 val)
 {
+	void __iomem *addr = arm_smmu_page(smmu, page) + offset;
+	printk("\twrite %s%03d 0x%016lx <- 0x%016x (off 0x%04x)\n",  arm_smmu_page_name(page), page, addr, val, offset);
 	if (smmu->impl && unlikely(smmu->impl->write_reg))
 		smmu->impl->write_reg(smmu, page, offset, val);
 	else
-		writel_relaxed(val, arm_smmu_page(smmu, page) + offset);
+		writel_relaxed(val, addr);
 }
 
 static inline u64 arm_smmu_readq(struct arm_smmu_device *smmu, int page, int offset)
 {
+	void __iomem *addr = arm_smmu_page(smmu, page) + offset;
 	if (smmu->impl && unlikely(smmu->impl->read_reg64))
 		return smmu->impl->read_reg64(smmu, page, offset);
-	return readq_relaxed(arm_smmu_page(smmu, page) + offset);
+	u64 val = readq_relaxed(addr);
+	printk("\tread  %s%03d 0x%016lx <- 0x%016x (off 0x%04x)\n",  arm_smmu_page_name(page), page, addr, val, offset);
+
+	return val;
 }
 
 static inline void arm_smmu_writeq(struct arm_smmu_device *smmu, int page,
 				   int offset, u64 val)
 {
+	void __iomem *addr = arm_smmu_page(smmu, page) + offset;
+	printk("\twrite %s%03d 0x%016lx <- 0x%016x (off 0x%04x)\n",  arm_smmu_page_name(page), page, addr, val, offset);
 	if (smmu->impl && unlikely(smmu->impl->write_reg64))
 		smmu->impl->write_reg64(smmu, page, offset, val);
 	else
-		writeq_relaxed(val, arm_smmu_page(smmu, page) + offset);
+		writeq_relaxed(val, addr);
 }
 
 #define ARM_SMMU_GR0		0
