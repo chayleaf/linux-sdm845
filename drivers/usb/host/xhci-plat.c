@@ -78,12 +78,7 @@ static void xhci_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
 {
 	struct xhci_plat_priv *priv = xhci_to_priv(xhci);
 
-	/*
-	 * As of now platform drivers don't provide MSI support so we ensure
-	 * here that the generic code does not try to make a pci_dev from our
-	 * dev struct in order to setup MSI
-	 */
-	xhci->quirks |= XHCI_PLAT | priv->quirks;
+	xhci->quirks |= priv->quirks;
 }
 
 /* called during probe() after chip reset completes */
@@ -478,7 +473,7 @@ static int __maybe_unused xhci_plat_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	ret = xhci_resume(xhci, 0);
+	ret = xhci_resume(xhci, PMSG_RESUME);
 	if (ret)
 		return ret;
 
@@ -507,7 +502,7 @@ static int __maybe_unused xhci_plat_runtime_resume(struct device *dev)
 	struct usb_hcd  *hcd = dev_get_drvdata(dev);
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 
-	return xhci_resume(xhci, 0);
+	return xhci_resume(xhci, PMSG_AUTO_RESUME);
 }
 
 const struct dev_pm_ops xhci_plat_pm_ops = {
