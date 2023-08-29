@@ -639,6 +639,18 @@ config DRM_PANEL_SAMSUNG_S6E3FC2X01
 	  command mode panel found in the OnePlus 6T smartphone.
 
 	  The panel is 2340x1080@60Hz
+	  
+config DRM_PANEL_SAMSUNG_EA8074
+	tristate "Samsung EA8074-based DPI panel driver"
+	depends on OF && SPI && GPIOLIB
+	depends on BACKLIGHT_CLASS_DEVICE
+	select DRM_MIPI_DBI
+	help
+	  Say Y here if you want to enable support for the Samsung
+	  EA8074 panel. Mainly found on Xiaomi Mi 8(dipper) and the
+	  Xiaomi Mi 8 Pro(equuleus) mobile devices.
+	  
+	  The panel is 2248x1080@60Hz
 
 config DRM_PANEL_SEIKO_43WVF1G
 	tristate "Seiko 43WVF1G panel"
