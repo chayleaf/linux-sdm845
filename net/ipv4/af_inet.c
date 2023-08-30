@@ -100,6 +100,7 @@
 #include <net/ip_fib.h>
 #include <net/inet_connection_sock.h>
 #include <net/gro.h>
+#include <net/gso.h>
 #include <net/tcp.h>
 #include <net/udp.h>
 #include <net/udplite.h>
@@ -339,7 +340,7 @@ lookup_protocol:
 	else
 		inet->pmtudisc = IP_PMTUDISC_WANT;
 
-	inet->inet_id = 0;
+	atomic_set(&inet->inet_id, 0);
 
 	sock_init_data(sock, sk);
 
