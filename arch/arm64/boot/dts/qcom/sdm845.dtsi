@@ -920,6 +920,15 @@
 
 		status = "disabled";
 
+		cooling {
+			compatible = "qcom,qmi-cooling-adsp";
+
+			adsp_vdd: vdd {
+				label = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
+
 		glink-edge {
 			interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
 			label = "lpass";
@@ -1021,6 +1030,15 @@
 		qcom,smem-state-names = "stop";
 
 		status = "disabled";
+
+		cooling {
+			compatible = "qcom,qmi-cooling-cdsp";
+
+			cdsp_vdd: vdd {
+				label = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
 
 		glink-edge {
 			interrupts = <GIC_SPI 574 IRQ_TYPE_EDGE_RISING>;
@@ -3302,6 +3320,35 @@
 
 			status = "disabled";
 
+			cooling {
+				compatible = "qcom,qmi-cooling-modem";
+
+				modem_pa: pa {
+					label = "pa";
+					#cooling-cells = <2>;
+				};
+
+				modem_proc: proc {
+					label = "modem";
+					#cooling-cells = <2>;
+				};
+
+				modem_current: current {
+					label = "modem_current";
+					#cooling-cells = <2>;
+				};
+
+				modem_skin: skin {
+					label = "modem_skin";
+					#cooling-cells = <2>;
+				};
+
+				modem_vdd: vdd {
+					label = "cpuv_restriction_cold";
+					#cooling-cells = <2>;
+				};
+			};
+
 			mba {
 				memory-region = <&mba_region>;
 			};
@@ -3363,6 +3410,15 @@
 			qcom,smem-state-names = "stop";
 
 			status = "disabled";
+
+			cooling {
+				compatible = "qcom,qmi-cooling-slpi";
+
+				slpi_vdd: vdd {
+					label = "cpuv_restriction_cold";
+					#cooling-cells = <2>;
+				};
+			};
 
 			glink-edge {
 				interrupts = <GIC_SPI 170 IRQ_TYPE_EDGE_RISING>;
