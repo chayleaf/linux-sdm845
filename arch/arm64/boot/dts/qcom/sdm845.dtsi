@@ -26,6 +26,7 @@
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
 #include <dt-bindings/clock/qcom,gcc-sdm845.h>
 #include <dt-bindings/thermal/thermal.h>
+#include <dt-bindings/thermal/qcom,tmd.h>
 
 / {
 	interrupt-parent = <&intc>;
@@ -898,6 +899,66 @@
 			alignment = <0x0 0x400000>;
 			size = <0x0 0x1000000>;
 			reusable;
+		};
+	};
+
+	qmi-tmd-modem {
+		compatible = "qcom,qmi-cooling";
+		qcom,instance-id = <MODEM0_INSTANCE_ID>;
+
+		modem_pa: pa {
+			label = "pa";
+			#cooling-cells = <2>;
+		};
+
+		modem_proc: proc {
+			label = "modem";
+			#cooling-cells = <2>;
+		};
+
+		modem_current: current {
+			label = "modem_current";
+			#cooling-cells = <2>;
+		};
+
+		modem_skin: skin {
+			label = "modem_skin";
+			#cooling-cells = <2>;
+		};
+
+		modem_vdd: vdd {
+			label = "cpuv_restriction_cold";
+			#cooling-cells = <2>;
+		};
+	};
+
+	qmi-tmd-adsp {
+		compatible = "qcom,qmi-cooling";
+		qcom,instance-id = <ADSP_INSTANCE_ID>;
+
+		adsp_vdd: vdd {
+			label = "cpuv_restriction_cold";
+			#cooling-cells = <2>;
+		};
+	};
+
+	qmi-tmd-cdsp {
+		compatible = "qcom,qmi-cooling";
+		qcom,instance-id = <CDSP_INSTANCE_ID>;
+
+		cdsp_vdd: vdd {
+			label = "cpuv_restriction_cold";
+			#cooling-cells = <2>;
+		};
+	};
+
+	qmi-tmd-slpi {
+		compatible = "qcom,qmi-cooling";
+		qcom,instance-id = <SLPI_INSTANCE_ID>;
+
+		slpi_vdd: vdd {
+			label = "cpuv_restriction_cold";
+			#cooling-cells = <2>;
 		};
 	};
 
