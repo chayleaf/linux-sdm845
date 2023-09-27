@@ -517,6 +517,11 @@
 	status = "okay";
 };
 
+&usb_dwc3 {
+	maximum-speed = "super-speed";
+	dr_mode = "host";
+};
+
 &usb_qmpphy {
 	vdda-phy-supply = <&pm2250_l12>;
 	vdda-pll-supply = <&pm2250_l13>;

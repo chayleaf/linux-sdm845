@@ -1412,8 +1412,11 @@ struct qmp_usb_offsets {
 	u16 serdes;
 	u16 pcs;
 	u16 pcs_usb;
+	u16 pcs_misc;
 	u16 tx;
 	u16 rx;
+	u16 tx2;
+	u16 rx2;
 };
 
 /* struct qmp_phy_cfg - per-PHY initialization config */
@@ -1564,6 +1567,16 @@ static const struct qmp_usb_offsets qmp_usb_offsets_v5 = {
 	.pcs_usb	= 0x1200,
 	.tx		= 0x0e00,
 	.rx		= 0x1000,
+};
+
+static const struct qmp_usb_offsets qmp_usb_offsets_v3 = {
+	.serdes = 0,
+	.pcs = 0xc00,
+	.tx = 0x200,
+	.rx = 0x400,
+	.tx2 = 0x600,
+	.rx2 = 0x800,
+	.pcs_misc = 0xa00,
 };
 
 static const struct qmp_phy_cfg ipq8074_usb3phy_cfg = {
@@ -1921,6 +1934,8 @@ static const struct qmp_phy_cfg sm8350_usb3_uniphy_cfg = {
 
 static const struct qmp_phy_cfg qcm2290_usb3phy_cfg = {
 	.lanes			= 2,
+
+	.offsets		= &qmp_usb_offsets_v3,
 
 	.serdes_tbl		= qcm2290_usb3_serdes_tbl,
 	.serdes_tbl_num		= ARRAY_SIZE(qcm2290_usb3_serdes_tbl),
@@ -2496,6 +2511,11 @@ static int qmp_usb_parse_dt(struct qmp_usb *qmp)
 	qmp->pcs_usb = base + offs->pcs_usb;
 	qmp->tx = base + offs->tx;
 	qmp->rx = base + offs->rx;
+	if (cfg->lanes >= 2) {
+		qmp->tx2 = base + offs->tx2;
+		qmp->rx2 = base + offs->rx2;
+		qmp->pcs_misc = base + offs->pcs_misc;
+	}
 
 	qmp->pipe_clk = devm_clk_get(dev, "pipe");
 	if (IS_ERR(qmp->pipe_clk)) {
@@ -2522,19 +2542,19 @@ static int qmp_usb_probe(struct platform_device *pdev)
 
 	qmp->cfg = of_device_get_match_data(dev);
 	if (!qmp->cfg)
-		return -EINVAL;
+		return dev_err_probe(dev, -EINVAL, "of_device_get_match_data\n");
 
 	ret = qmp_usb_clk_init(qmp);
 	if (ret)
-		return ret;
+		return dev_err_probe(dev, ret, "qmp_usb_clk_init\n");
 
 	ret = qmp_usb_reset_init(qmp);
 	if (ret)
-		return ret;
+		return dev_err_probe(dev, ret, "qmp_usb_reset_init\n");
 
 	ret = qmp_usb_vreg_init(qmp);
 	if (ret)
-		return ret;
+		return dev_err_probe(dev, ret, "qmp_usb_vreg_init\n");
 
 	/* Check for legacy binding with child node. */
 	np = of_get_next_available_child(dev->of_node, NULL);
@@ -2544,13 +2564,17 @@ static int qmp_usb_probe(struct platform_device *pdev)
 		np = of_node_get(dev->of_node);
 		ret = qmp_usb_parse_dt(qmp);
 	}
-	if (ret)
+	if (ret) {
+		dev_err(dev, "qmp_usb_parse_dt fail %d\n", ret);
 		goto err_node_put;
+	}
 
 	pm_runtime_set_active(dev);
 	ret = devm_pm_runtime_enable(dev);
-	if (ret)
+	if (ret) {
+		dev_err(dev, "devm_pm_runtime_enable fail %d\n", ret);
 		goto err_node_put;
+	}
 	/*
 	 * Prevent runtime pm from being ON by default. Users can enable
 	 * it using power/control in sysfs.
@@ -2558,8 +2582,10 @@ static int qmp_usb_probe(struct platform_device *pdev)
 	pm_runtime_forbid(dev);
 
 	ret = phy_pipe_clk_register(qmp, np);
-	if (ret)
+	if (ret) {
+		dev_err(dev, "phy_pipe_clk_register fail %d\n", ret);
 		goto err_node_put;
+	}
 
 	qmp->phy = devm_phy_create(dev, np, &qmp_usb_phy_ops);
 	if (IS_ERR(qmp->phy)) {

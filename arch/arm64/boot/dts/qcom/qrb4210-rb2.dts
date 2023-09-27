@@ -228,7 +228,7 @@
 };
 
 &mdss {
-	status = "okay";
+	//status = "okay";
 };
 
 &mdss_dsi0 {
@@ -468,7 +468,7 @@
 };
 
 &spi5 {
-	status = "okay";
+	//status = "okay";
 
 	can@0 {
 		compatible = "microchip,mcp2518fd";
@@ -521,7 +521,7 @@
 
 &usb_dwc3 {
 	maximum-speed = "super-speed";
-	dr_mode = "peripheral";
+	dr_mode = "host";
 };
 
 &usb_hsphy {
