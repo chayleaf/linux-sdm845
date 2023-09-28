@@ -183,7 +183,7 @@
 
 &i2c2 {
 	clock-frequency = <400000>;
-	status = "okay";
+	//status = "okay";
 
 	lt9611_codec: hdmi-bridge@2b {
 		compatible = "lontium,lt9611uxc";
@@ -221,14 +221,15 @@
 	};
 };
 
-&mdss {
-	status = "okay";
-};
+// SMMU borked
+// &mdss {
+// 	status = "okay";
+// };
 
-&mdss_dsi0 {
-	vdda-supply = <&pm2250_l5>;
-	status = "okay";
-};
+// &mdss_dsi0 {
+// 	vdda-supply = <&pm2250_l5>;
+// 	status = "okay";
+// };
 
 &mdss_dsi0_out {
 	remote-endpoint = <&lt9611_a>;
