@@ -17,12 +17,17 @@ workflow:
   rules:
     - if: $CI_COMMIT_BRANCH =~ /^sdm845\/.+-dev$/
       variables:
-        PROJECT_PIPELINE_NAME: Test build for $CI_COMMIT_BRANCH
+        PROJECT_PIPELINE_NAME: build and boot test for $CI_COMMIT_BRANCH
         PIPELINE: "build-dev"
     - if: $CI_COMMIT_BRANCH =~ /^sdm845\/.+-release$/ && $CI_COMMIT_AUTHOR != "SDM845 CI <sdm845-ci@blah.com>"
       variables:
         PROJECT_PIPELINE_NAME: Upgrade to latest stable tag
         PIPELINE: "build-release"
+    # Merge request pipeline
+    - if: $CI_MERGE_REQUEST_ID
+      variables:
+        PROJECT_PIPELINE_NAME: build and boot test for $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+        PIPELINE: "build-mr"
     - if: $CI_COMMIT_TAG =~ /^sdm845-.*$/
       when: never
 
@@ -49,6 +54,7 @@ merge-stable:
     - '[[ -z "$USE_PREV_ARTIFACTS" ]] && ./ci/apk_retry.sh add --allow-untrusted bash bison findutils flex installkernel openssl-dev perl zstd gcc gcc-aarch64 wget make git musl-dev sudo'
     - wget "https://gitlab.com/postmarketOS/ci-common/-/raw/master/install_pmbootstrap.sh" -O /tmp/install_pmbootstrap.sh
     - sh /tmp/install_pmbootstrap.sh
+    - git config --global --add safe.directory $CI_PROJECT_DIR
   script:
     - '[[ -n "$USE_PREV_ARTIFACTS" ]] && ./ci/bypass_build.sh $USE_PREV_ARTIFACTS && exit 0'
     # Ref to build might be an artifact from a previous job
@@ -62,8 +68,7 @@ merge-stable:
     - sed -i /home/pmos/.local/var/pmbootstrap/cache_git/pmaports/$PACKAGE/APKBUILD -e "s/^pkgrel=.*/pkgrel=0/"
     - sed -i /home/pmos/.local/var/pmbootstrap/cache_git/pmaports/$PACKAGE/APKBUILD -e "s/^_tag=.*/_tag=$CHECKOUT_REF/"
     - sudo -u pmos -- pmbootstrap checksum linux-${FLAVOR}
-    - export PYTHONUNBUFFERED=1
-    - sudo -E -u pmos -- pmbootstrap --details-to-stdout build --force linux-${FLAVOR}
+    - sudo -u pmos -- env PYTHONUNBUFFERED=1 pmbootstrap --details-to-stdout build --force linux-${FLAVOR}
   after_script:
     - mkdir -p packages
     - echo "linux-$FLAVOR" >> packages/packages
@@ -78,13 +83,15 @@ merge-stable:
       - packages/
   timeout: 10 h
 
-# Plain old build
+# Plain old build for -dev branches and merge requests
 build-dev:
   extends: .build
-  variables:
-    USE_PREV_ARTIFACTS: https://gitlab.com/sdm845-mainline/linux/-/jobs/5161887969/artifacts/raw/packages/edge/aarch64/linux-postmarketos-qcom-sdm845-6.6.0_rc2-r0.apk
+  # NOTE: this is a hack to bypass the build by reusing artifacts from a previous build.
+  # It's here for testing the boot-test job
+  # variables:
+  #   USE_PREV_ARTIFACTS: https://gitlab.com/sdm845-mainline/linux/-/jobs/5161887969/artifacts/raw/packages/edge/aarch64/linux-postmarketos-qcom-sdm845-6.6.0_rc2-r0.apk
   rules:
-    - if: $PIPELINE == "build-dev"
+    - if: $PIPELINE != "build-release"
 
 # Get the latest stable tag from the merge_stable job
 # and build that
@@ -96,11 +103,12 @@ build-release:
     - job: merge-stable
       artifacts: true
 
-boot-test:
+.boot-test:
   stage: test
   variables:
     ADDITIONAL_PKGS_JOB: "5180486159"
   before_script:
+    - '[ -z $CDBA_SSH_KEY ] && echo CDBA_SSH_KEY not set! && exit 1'
     - ./ci/apk_retry.sh add --allow-untrusted wget curl openssh # gitlab_api
     - wget "https://gitlab.com/postmarketOS/ci-common/-/raw/master/install_pmbootstrap.sh" -O /tmp/install_pmbootstrap.sh
     - sh /tmp/install_pmbootstrap.sh
@@ -115,6 +123,9 @@ boot-test:
     - sudo -E -u pmos -- ./ci/build_boot_img.sh
     - ./ci/boot.sh
     - cp /home/pmos/.local/var/pmbootstrap/chroot_rootfs_$DEVICE/boot/boot.img boot-$DEVICE.img
+  needs:
+    - job: build-dev
+      artifacts: true
   artifacts:
     expire_in: 1 week
     paths:
@@ -127,6 +138,24 @@ boot-test:
         DEVICE: oneplus-enchilada
       - CDBA_DEVICE: sdm845-fajita-1
         DEVICE: oneplus-fajita
+
+boot-test:
+  extends: .boot-test
+  rules:
+    - if: $PIPELINE == "build-dev"
+
+# Manual boot test in merge request pipeline
+boot-test-mr:
+  extends: .boot-test
+  # These are protected variables, they're only accessable when this job runs under
+  # the main repo, not under a fork. The "when: manual" setting causes this job to be
+  # run in the parent repo.
+  when: manual
+  variables:
+    CDBA_SSH_KEY: $CDBA_SSH_KEY
+    SDM845_CI_TOKEN: $SDM845_CI_TOKEN
+  rules:
+    - if: $PIPELINE == "build-mr"
 
 open-pmaports-mr:
   stage: pmaports
