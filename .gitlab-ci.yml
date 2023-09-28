@@ -15,19 +15,19 @@ stages:
 workflow:
   name: '$PROJECT_PIPELINE_NAME'
   rules:
+    # Merge request pipeline
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        PROJECT_PIPELINE_NAME: Build and boot MR $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+        PIPELINE: "build-mr"
     - if: $CI_COMMIT_BRANCH =~ /^sdm845\/.+-dev$/
       variables:
-        PROJECT_PIPELINE_NAME: build and boot test for $CI_COMMIT_BRANCH
+        PROJECT_PIPELINE_NAME: Build and boot dev $CI_COMMIT_BRANCH
         PIPELINE: "build-dev"
     - if: $CI_COMMIT_BRANCH =~ /^sdm845\/.+-release$/ && $CI_COMMIT_AUTHOR != "SDM845 CI <sdm845-ci@blah.com>"
       variables:
-        PROJECT_PIPELINE_NAME: Upgrade to latest stable tag
+        PROJECT_PIPELINE_NAME: SHIPPING $CI_COMMIT_BRANCH!
         PIPELINE: "build-release"
-    # Merge request pipeline
-    - if: $CI_MERGE_REQUEST_ID
-      variables:
-        PROJECT_PIPELINE_NAME: build and boot test for $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
-        PIPELINE: "build-mr"
     - if: $CI_COMMIT_TAG =~ /^sdm845-.*$/
       when: never
 

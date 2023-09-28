@@ -32,8 +32,7 @@ if [ -n "$ADDITIONAL_PKGS_JOB" ]; then
 
 		unzip /tmp/artifacts.$ADDITIONAL_PKGS_JOB.zip -d $TMP/ && break
 		sleep 3
-		done
-	ls -R $TMP/
+	done
 	sudo cp $TMP/packages/edge/aarch64/*.apk /home/pmos/.local/var/pmbootstrap/packages/edge/aarch64/
 fi
 pmb index
