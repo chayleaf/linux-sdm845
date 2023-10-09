@@ -150,6 +150,13 @@ properties:
       controller, this property contains a phandle that references the
       controller.
 
+  occlusions:
+    $ref: panel-occlusions.yaml#
+    description:
+      Some panels have non-standard shapes due to features like rounded corners,
+      notches, cutouts, and "waterfall" edges. The panel-occlusions bindings
+      can be used to describe these features.
+
 dependencies:
   width-mm: [ height-mm ]
   height-mm: [ width-mm ]
