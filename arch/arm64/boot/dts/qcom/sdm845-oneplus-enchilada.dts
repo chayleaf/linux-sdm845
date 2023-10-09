@@ -27,6 +27,23 @@
 	status = "okay";
 
 	compatible = "samsung,sofef00";
+
+	occlusions {
+		notch {
+			/* X, Y, Radius, Start angle, End angle, where angles are degrees clockwise from north */
+			/* A clockwise arc from the top of the display to halfway down the notch */
+			path = <363 8  10 0    90>,
+			/* An anti-clockwise arc continuing from the previous, ending at the bottom of the notch */
+			       <435 10 20 270 180>,
+			       <645 10 20 180  90>,
+			       <645 8  10  90   0>;
+		};
+
+		corners {
+			radius-top-px = <160>;
+			radius-bottom-px = <115>;
+		};
+	};
 };
 
 &bq27441_fg {
