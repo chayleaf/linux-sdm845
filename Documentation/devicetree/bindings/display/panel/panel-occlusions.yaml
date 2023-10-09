@@ -1,0 +1,182 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/panel/panel-occlusions.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Common Properties for describing display notches, cutouts, and other occlusions
+
+maintainers:
+  - Caleb Connolly <caleb.connolly@linaro.org>
+
+description: |
+  This document defines devicetree nodes that can be used to describe
+  different kind of display occlusions such as notches, camera cutouts, rounded
+  corners, and other features that may require special treatment by the display
+  subsystem. All pixel values should be given in the displays native resolution.
+
+properties:
+  $nodename:
+    const: occlusions
+
+  corners:
+    type: object
+    description: |
+      An area of the display which is fully obscured by a notch.
+    properties:
+      radius-px:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: Describes the radius when it's identical for all corners
+
+      radius-top-px:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: Describes the radius when it's identical for both top corners
+
+      radius-bottom-px:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: Describes the radius when it's identical for both top corners
+
+      radius-top-left-px:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: The radius of the top left corner in pixels
+
+      radius-top-right-px:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: The radius of the top right corner in pixels
+
+      radius-bottom-left-px:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: The radius of the bottom left corner in pixels
+
+      radius-bottom-right-px:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: The radius of the bottom right corner in pixels
+
+    dependencies:
+      radius-top-left-px: [ radius-top-right-px ]
+      radius-top-right-px: [ radius-top-left-px ]
+      radius-bottom-left-px: [ radius-bottom-right-px ]
+      radius-bottom-right-px: [ radius-bottom-left-px ]
+
+    anyOf:
+      - required:
+          - radius-px
+      - required:
+          - radius-top-px
+          - radius-bottom-px
+      - required:
+          - radius-top-px
+          - radius-bottom-left-px
+          - radius-bottom-right-px
+      - required:
+          - radius-bottom-px
+          - radius-top-left-px
+          - radius-top-right-px
+      - required:
+          - radius-top-left-px
+          - radius-top-right-px
+          - radius-bottom-left-px
+          - radius-bottom-right-px
+
+    additionalProperties: false
+
+patternProperties:
+  "^cutout(-[0-9])?$":
+    type: object
+    description: |
+      An area of the display which is not directly adjacent to an
+      edge and is fully occluded (for example, a camera cutout).
+    properties:
+      x-position-px:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: The horizontal coordinate of the center of the cutout.
+
+      y-position-px:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: The horizontal coordinate of the center of the cutout.
+
+      width-px:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: The width of the cutout in pixels.
+
+      height-px:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: The width of the cutout in pixels.
+
+      corner-radius-px:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: |
+          The radius of the corners in pixels. For a circle this should be half of
+          the width/height.
+
+    required:
+      - x-position-px
+      - y-position-px
+      - width-px
+      - height-px
+      - corner-radius-px
+
+    additionalProperties: false
+
+  "^notch(-[0-9])?$":
+    type: object
+    description: |
+      An area of the display which is fully occluded by a notch.
+    properties:
+      path:
+        $ref: /schemas/types.yaml#/definitions/uint32-matrix
+        description: |
+          Sequence of values defining the arcs which describe this path. Lines
+          are inserted between arcs that don't directly meet.
+        maxItems: 8 # Ought to cover most scenarios
+        items:
+          items:
+            - description: X coordinate of center point in pixels
+            - description: Y coordinate of center point in pixels
+            - description: Circle radius
+            - description: Starting angle in degrees
+            - description: Ending angle in degrees
+
+    required:
+      - path
+
+    additionalProperties: false
+
+  "^(left|right|top|bottom)-edge$":
+    type: object
+    description: |
+      An edge of the screen with reduced visibility due to a waterfall design
+      or similar.
+    properties:
+      size-px:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: The distance from the edge where it begins to obscure visbility
+
+      curve-degrees:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: The number of degrees that the display curves.
+        maximum: 100
+
+    required:
+      - size-px
+      - curve-degrees
+
+additionalProperties: false
+
+examples:
+  - | # A panel with a large-ish notch on the top edge, and different corner radii
+    panel {
+        occlusions {
+            notch {
+                path = <360 8  10 0    90>,
+                       <435 10 20 270 180>,
+                       <645 10 20 180  90>,
+                       <645 8  10  90   0>;
+            };
+
+            corners {
+                radius-top-px = <30>;
+                radius-bottom-px = <40>;
+            };
+        };
+    };
