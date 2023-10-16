@@ -30,16 +30,6 @@
 #define QMI_TMD_RESP_TIMEOUT msecs_to_jiffies(100)
 
 /**
- * struct qmi_instance_id - QMI instance ID and name
- * @id:		The QMI instance ID
- * @name:	Friendly name for this instance
- */
-struct qmi_instance_id {
-	u32 id;
-	const char *name;
-};
-
-/**
  * struct qmi_tmd_client - TMD client state
  * @dev:	Device associated with this client
  * @name:	Friendly name for the remote TMD service
@@ -81,6 +71,16 @@ struct qmi_tmd {
 	unsigned int cur_state;
 	unsigned int max_state;
 	struct qmi_tmd_client *client;
+};
+
+/**
+ * struct qmi_instance_id - QMI instance match data
+ * @id:		The QMI instance ID
+ * @name:	Friendly name for this instance
+ */
+struct qmi_instance_data {
+	u32 id;
+	const char *name;
 };
 
 /* Notify the remote subsystem of the requested cooling state */
@@ -421,7 +421,7 @@ static int qmi_tmd_client_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct qmi_tmd_client *client;
-	const struct qmi_instance_id *match;
+	const struct qmi_instance_data *match;
 	int ret;
 
 	client = devm_kzalloc(dev, sizeof(*client), GFP_KERNEL);
@@ -475,16 +475,16 @@ static void qmi_tmd_client_remove(struct platform_device *pdev)
 static const struct of_device_id qmi_tmd_device_table[] = {
 	{
 		.compatible = "qcom,qmi-cooling-modem",
-		.data = &((struct qmi_instance_id) { MODEM0_INSTANCE_ID, "modem" }),
+		.data = &((struct qmi_instance_data) { MODEM0_INSTANCE_ID, "modem" }),
 	}, {
 		.compatible = "qcom,qmi-cooling-adsp",
-		.data = &((struct qmi_instance_id) { ADSP_INSTANCE_ID, "adsp" }),
+		.data = &((struct qmi_instance_data) { ADSP_INSTANCE_ID, "adsp" }),
 	}, {
 		.compatible = "qcom,qmi-cooling-cdsp",
-		.data = &((struct qmi_instance_id) { CDSP_INSTANCE_ID, "cdsp" }),
+		.data = &((struct qmi_instance_data) { CDSP_INSTANCE_ID, "cdsp" }),
 	}, {
 		.compatible = "qcom,qmi-cooling-slpi",
-		.data = &((struct qmi_instance_id) { SLPI_INSTANCE_ID, "slpi" }),
+		.data = &((struct qmi_instance_data) { SLPI_INSTANCE_ID, "slpi" }),
 	},
 	{}
 };
