@@ -18,7 +18,8 @@ description:
   (e.g. by raising minimum voltage on core system rails).
 
   Each subnode represents a control for a single instance of the TMD service running
-  on a remote subsystem.
+  on a remote subsystem. Controls are either timer based (?? TODO) or via Direct State
+  Control (DSC) where the cooling state maps directly to the state of the device.
 
 definitions:
   tmd:
@@ -48,7 +49,7 @@ properties:
   vdd:
     $ref: "#/definitions/tmd"
     description:
-      Restrict primary rail minimum voltage to "nominal" setting.
+      Increase core rail voltage of the DSP for warming
     properties:
       label:
         const: cpuv_restriction_cold
@@ -65,32 +66,124 @@ allOf:
           contains:
             const: qcom,qmi-cooling-modem
     then:
-      properties:
-        pa:
+      patternProperties:
+        "^(lte|gsm)-power-timed$":
           $ref: "#/definitions/tmd"
-          description:
-            Power Amplifier TMD
+          anyOf:
+            - description:
+                LTE Power Amplifier timed throttling (pre-5G)
+            - description:
+                WCDMA and GSM baseband timed throttling (5G modems)
           properties:
             label:
               const: pa
 
-        proc:
+      properties:
+        lte-power-dc:
           $ref: "#/definitions/tmd"
           description:
-            Modem processor temperature TMD
+            LTE Power Amplifier Direct throttling (pre-5G)
           properties:
             label:
-              const: modem
+              const: pa_dsc
 
-        current:
+        5g-mmw-beam0:
           $ref: "#/definitions/tmd"
           description:
-            Modem peak current TMD
+            5G millimeter wave beam 0 timed throttling
           properties:
             label:
-              const: modem_current
+              const: mmw0
 
-        skin:
+        5g-mmw-beam1:
+          $ref: "#/definitions/tmd"
+          description:
+            5G millimeter wave beam 1 timed throttling
+          properties:
+            label:
+              const: mmw1
+
+        5g-mmw-beam2:
+          $ref: "#/definitions/tmd"
+          description:
+            5G millimeter wave beam 2 timed throttling
+          properties:
+            label:
+              const: mmw2
+
+        5g-mmw-beam3:
+          $ref: "#/definitions/tmd"
+          description:
+            5G millimeter wave beam 3 timed throttling
+          properties:
+            label:
+              const: mmw3
+
+        5g-mmw-beam0-skin:
+          $ref: "#/definitions/tmd"
+          description:
+            5G millimeter wave beam 0 timed throttling (skin temperature)
+          properties:
+            label:
+              const: mmw_skin0
+
+        5g-mmw-beam1-skin:
+          $ref: "#/definitions/tmd"
+          description:
+            5G millimeter wave beam 1 timed throttling (skin temperature)
+          properties:
+            label:
+              const: mmw_skin1
+
+        5g-mmw-beam2-skin:
+          $ref: "#/definitions/tmd"
+          description:
+            5G millimeter wave beam 2 timed throttling (skin temperature)
+          properties:
+            label:
+              const: mmw_skin2
+
+        5g-mmw-beam3-skin:
+          $ref: "#/definitions/tmd"
+          description:
+            5G millimeter wave beam 3 timed throttling (skin temperature)
+          properties:
+            label:
+              const: mmw_skin3
+
+        5g-mmw-beam0-skin-dsc:
+          $ref: "#/definitions/tmd"
+          description:
+            5G millimeter wave beam 0 direct state control (skin temperature)
+          properties:
+            label:
+              const: mmw_skin0_dsc
+
+        5g-mmw-beam1-skin-dsc:
+          $ref: "#/definitions/tmd"
+          description:
+            5G millimeter wave beam 1 direct state control (skin temperature)
+          properties:
+            label:
+              const: mmw_skin1_dsc
+
+        5g-mmw-beam2-skin-dsc:
+          $ref: "#/definitions/tmd"
+          description:
+            5G millimeter wave beam 2 direct state control (skin temperature)
+          properties:
+            label:
+              const: mmw_skin2_dsc
+
+        5g-mmw-beam3-skin-dsc:
+          $ref: "#/definitions/tmd"
+          description:
+            5G millimeter wave beam 3 direct state control (skin temperature)
+          properties:
+            label:
+              const: mmw_skin3_dsc
+
+        baseband-skin:
           $ref: "#/definitions/tmd"
           description:
             Modem skin temperature TMD
