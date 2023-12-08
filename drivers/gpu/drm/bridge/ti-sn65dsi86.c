@@ -1594,6 +1594,8 @@ static int ti_sn_pwm_probe(struct auxiliary_device *adev,
 
 	devm_pm_runtime_enable(&adev->dev);
 
+	devm_pm_runtime_enable(&adev->dev);
+
 	return pwmchip_add(&pdata->pchip);
 }
 
