@@ -358,6 +358,9 @@ static irqreturn_t vfe_isr(int irq, void *dev)
 		writel_relaxed(vfe_bus_status[i], vfe->base + VFE_BUS_IRQ_CLEAR(i));
 	}
 
+	dev_dbg(vfe->camss->dev, "VFE: IRQ status0 = %#x, status1 = %#x\n",
+		status0, status1);
+
 	/* Enforce ordering between IRQ reading and interpretation */
 	wmb();
 
@@ -504,6 +507,8 @@ static int vfe_enable(struct vfe_line *line)
 {
 	struct vfe_device *vfe = to_vfe(line);
 	int ret;
+
+	dev_dbg(vfe->camss->dev, "Enable VFE line %d\n", line->id);
 
 	mutex_lock(&vfe->stream_lock);
 
