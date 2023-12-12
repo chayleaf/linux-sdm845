@@ -7,6 +7,7 @@
 
 /dts-v1/;
 
+#include <dt-bindings/clock/qcom,camcc-sdm845.h>
 #include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/sound/qcom,q6afe.h>
@@ -193,6 +194,47 @@
 		enable-active-high;
 		regulator-boot-on;
 	};
+
+	// From schematics
+	cam0_1p05_en: cam0-1p05-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "cam0_1p05_supply";
+
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1050000>;
+
+		gpio = <&tlmm 8 0>;
+		enable-active-high;
+		regulator-boot-on;
+		/*
+		 * HACK: FORCE THIS REGULATOR TO ALWAYS BE ON
+		 * FOR DEVELOPMENT
+		 */
+		regulator-always-on;
+
+		vin-supply = <&vreg_s3a_1p35>;
+		vbias-supply = <&vreg_bob>;
+	};
+
+	cam0_2p8_en: cam0-2p5-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "cam0_2p5_supply";
+
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+
+		gpio = <&tlmm 27 0>;
+		enable-active-high;
+		regulator-boot-on;
+		/*
+		 * HACK: FORCE THIS REGULATOR TO ALWAYS BE ON
+		 * FOR DEVELOPMENT
+		 */
+		regulator-always-on;
+
+		vin-supply = <&vreg_bob>;
+	};
+
 };
 
 &adsp_pas {
@@ -248,6 +290,9 @@
 			regulator-max-microvolt = <1028000>;
 		};
 
+		vdda_mipi_csi0_0p9:
+		vdda_mipi_csi1_0p9:
+		vdda_mipi_csi2_0p9:
 		vdda_mipi_dsi0_pll:
 		vdda_qlink_lv:
 		vdda_ufs1_core:
@@ -302,6 +347,16 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
+		vreg_l21a_2p95: ldo21 {
+			regulator-min-microvolt = <2704000>;
+			regulator-max-microvolt = <2960000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			/*
+			 * HACK ON FOR CAMERA DEV, NOT SURE IF NEEDED
+			 */
+			 regulator-always-on;
+		};
+
 		vreg_l23a_3p3: ldo23 {
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3312000>;
@@ -334,6 +389,19 @@
 			regulator-max-microvolt = <3008000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
+
+		cam_vio_1p8:
+		vreg_lvs1_1p8: lvs1 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+
+			/*
+			* HACK: FORCE THIS REGULATOR TO ALWAYS BE ON
+			* FOR DEVELOPMENT
+			*/
+			regulator-always-on;
+		};
+
 	};
 
 	regulators-1 {
@@ -362,6 +430,63 @@
 		vreg_s3c_0p6: smps3 {
 			regulator-min-microvolt = <600000>;
 			regulator-max-microvolt = <600000>;
+		};
+	};
+};
+
+&cci {
+	status = "okay";
+};
+
+&camss {
+	vdda-csi0-supply = <&vdda_mipi_csi0_0p9>;
+	vdda-csi1-supply = <&vdda_mipi_csi1_0p9>;
+	vdda-csi2-supply = <&vdda_mipi_csi2_0p9>;
+
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			csiphy0_ep: endpoint {
+				data-lanes = <0 1 2 3>;
+				remote-endpoint = <&imx519_ep>;
+			};
+		};
+	};
+};
+
+&cci_i2c0 {
+	camera@1a {
+		compatible = "sony,imx519";
+		reg = <0x1a>;
+
+		// GPIO 40 seems to be "CAM1_PWDN", probably we need to deal with that
+		reset-gpios = <&tlmm 28 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cam0_default>;
+
+		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
+		clock-names = "xclk";
+		clock-frequency = <24000000>;
+
+		power-domains = <&clock_camcc TITAN_TOP_GDSC>;
+
+		vddl-supply = <&cam_vio_1p8>; // lvs1
+		ldo-supply = <&vreg_l21a_2p95>;
+		vana-supply = <&cam0_2p8_en>;
+		vdig-supply = <&cam0_1p05_en>;
+
+		status = "okay";
+
+		port {
+			imx519_ep: endpoint {
+				remote-endpoint = <&csiphy0_ep>;
+				data-lanes = <1 2 3 4>;      //   428750000
+				link-frequencies = /bits/ 64 <493500000>;
+			};
 		};
 	};
 };
@@ -856,6 +981,24 @@
 
 &tlmm {
 	gpio-reserved-ranges = <0 4>, <81 4>;
+
+	cam0_default: cam0_default {
+		rst {
+			pins = "gpio28";
+			function = "gpio";
+
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		mclk0 {
+			pins = "gpio13";
+			function = "cam_mclk";
+
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
 
 	hall_sensor_default: hall-sensor-default-state {
 		pins = "gpio124";
