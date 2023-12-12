@@ -405,8 +405,11 @@ static int call_s_stream(struct v4l2_subdev *sd, int enable)
 	 * .disable_streams() operation, we can use the enabled_streams field
 	 * to store the subdev streaming state.
 	 */
-	if (WARN_ON(!!sd->enabled_streams == !!enable))
+	if (WARN_ON(!!sd->enabled_streams == !!enable)) {
+		dev_info(sd->dev, "s_stream(%d) called on %s subdev\n",
+			 enable, enable ? "started" : "stopped");
 		return 0;
+	}
 
 #if IS_REACHABLE(CONFIG_LEDS_CLASS)
 	if (!IS_ERR_OR_NULL(sd->privacy_led)) {
