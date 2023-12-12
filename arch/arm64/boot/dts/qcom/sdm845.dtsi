@@ -4292,6 +4292,9 @@
 			power-domains = <&clock_camcc IFE_0_GDSC>,
 				<&clock_camcc IFE_1_GDSC>,
 				<&clock_camcc TITAN_TOP_GDSC>;
+			power-domain-names = "ife0",
+				"ife1",
+				"top";
 
 			clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 				<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
