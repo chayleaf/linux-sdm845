@@ -661,6 +661,7 @@ static const struct camss_subdev_resources vfe_res_845[] = {
 				{ 19200000, 75000000, 384000000, 538666667 },
 				{ 384000000 } },
 		.reg = { "vfe0" },
+		.pd_name = "ife0",
 		.interrupt = { "vfe0" },
 		.line_num = 4,
 		.has_pd = true,
@@ -684,6 +685,7 @@ static const struct camss_subdev_resources vfe_res_845[] = {
 				{ 19200000, 75000000, 384000000, 538666667 },
 				{ 384000000 } },
 		.reg = { "vfe1" },
+		.pd_name = "ife1",
 		.interrupt = { "vfe1" },
 		.line_num = 4,
 		.has_pd = true,
@@ -1805,6 +1807,7 @@ static const struct camss_resources sdm660_resources = {
 
 static const struct camss_resources sdm845_resources = {
 	.version = CAMSS_845,
+	.pd_name = "top",
 	.csiphy_res = csiphy_res_845,
 	.csid_res = csid_res_845,
 	.vfe_res = vfe_res_845,
