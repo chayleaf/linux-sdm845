@@ -560,6 +560,10 @@
 	status = "okay";
 };
 
+&usb_dwc3 {
+	dr_mode = "host";
+};
+
 &usb_qmpphy {
 	vdda-phy-supply = <&pm4125_l12>;
 	vdda-pll-supply = <&pm4125_l13>;
