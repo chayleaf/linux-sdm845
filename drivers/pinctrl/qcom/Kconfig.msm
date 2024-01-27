@@ -237,6 +237,14 @@ config PINCTRL_SC8280XP
 	  Qualcomm Technologies Inc TLMM block found on the Qualcomm
 	  Technologies Inc SC8280xp platform.
 
+config PINCTRL_SDM429W
+	tristate "Qualcomm Technologies Inc SDM429W pin controller driver"
+	depends on ARM64 || ARM || COMPILE_TEST
+	help
+	 This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	 Qualcomm Technologies Inc TLMM block found on the Qualcomm
+	 Technologies Inc SDM429W platform.
+
 config PINCTRL_SDM660
 	tristate "Qualcomm Technologies Inc SDM660 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
