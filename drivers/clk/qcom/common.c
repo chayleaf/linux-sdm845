@@ -285,6 +285,7 @@ int qcom_cc_really_probe(struct platform_device *pdev,
 	qcom_cc_drop_protected(dev, cc);
 
 	for (i = 0; i < num_clk_hws; i++) {
+		dev_info(dev, "Registering clk %s\n", clk_hws[i]->init->name);
 		ret = devm_clk_hw_register(dev, clk_hws[i]);
 		if (ret)
 			return ret;
@@ -294,6 +295,8 @@ int qcom_cc_really_probe(struct platform_device *pdev,
 		if (!rclks[i])
 			continue;
 
+		dev_info(dev, "Registering rclk %s\n", rclks[i]->hw.init->name);
+
 		ret = devm_clk_register_regmap(dev, rclks[i]);
 		if (ret)
 			return ret;
@@ -302,6 +305,8 @@ int qcom_cc_really_probe(struct platform_device *pdev,
 	ret = devm_of_clk_add_hw_provider(dev, qcom_cc_clk_hw_get, cc);
 	if (ret)
 		return ret;
+
+	dev_info(dev, "registered %zu clocks\n", num_clks);
 
 	return 0;
 }

@@ -97,6 +97,8 @@ static int clk_branch_toggle(struct clk_hw *hw, bool en,
 	struct clk_branch *br = to_clk_branch(hw);
 	int ret;
 
+	pr_info("%s: %s\n", __func__, en ? "enable" : "disable");
+
 	if (en) {
 		ret = clk_enable_regmap(hw);
 		if (ret)

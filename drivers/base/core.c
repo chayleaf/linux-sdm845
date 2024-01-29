@@ -4966,7 +4966,7 @@ int dev_err_probe(const struct device *dev, int err, const char *fmt, ...)
 		dev_err(dev, "error %pe: %pV", ERR_PTR(err), &vaf);
 	} else {
 		device_set_deferred_probe_reason(dev, &vaf);
-		dev_dbg(dev, "error %pe: %pV", ERR_PTR(err), &vaf);
+		dev_info(dev, "error %pe: %pV", ERR_PTR(err), &vaf);
 	}
 
 	va_end(args);

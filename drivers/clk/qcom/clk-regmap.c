@@ -25,9 +25,13 @@ int clk_is_enabled_regmap(struct clk_hw *hw)
 	unsigned int val;
 	int ret;
 
+	pr_info("%s(%s): enable_reg: %x, enable_mask: %x\n", __func__, rclk->hw.init->name, rclk->enable_reg, rclk->enable_mask);
+
 	ret = regmap_read(rclk->regmap, rclk->enable_reg, &val);
 	if (ret != 0)
 		return ret;
+
+	pr_info("%s(%s): val: %x\n", __func__, rclk->hw.init->name, val);
 
 	if (rclk->enable_is_inverted)
 		return (val & rclk->enable_mask) == 0;
@@ -54,6 +58,8 @@ int clk_enable_regmap(struct clk_hw *hw)
 		val = 0;
 	else
 		val = rclk->enable_mask;
+
+	pr_info("%s: enable_reg: %x, enable_mask: %x, val: %x\n", __func__, rclk->enable_reg, rclk->enable_mask, val);
 
 	return regmap_update_bits(rclk->regmap, rclk->enable_reg,
 				  rclk->enable_mask, val);
