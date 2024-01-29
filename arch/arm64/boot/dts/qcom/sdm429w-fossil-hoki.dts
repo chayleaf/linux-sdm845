@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) 2023, Caleb Connolly <caleb.connolly@linaro.org>
+ */
+
+/dts-v1/;
+
+#include "sdm429w.dtsi"
+#include "pm660.dtsi"
+
+/ {
+	model = "Fossil Gen 6";
+	compatible = "fossil,hoki", "qcom,sdm429w";
+	chassis-type = "watch";
+	qcom,msm-name = "SDA429";
+	qcom,msm-id = <0x1b5 0x00>;
+	qcom,board-id = <0x10b 0x0a>;
+	qcom,pmic-id = <0x2001b 0x00 0x00 0x00>;
+
+	aliases {
+		serial0 = &uart_0;
+	};
+
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		stdout-path = "serial0:115200n8";
+
+		/* Use framebuffer setup by the bootloader. */
+		framebuffer0: framebuffer@90001000 {
+			compatible = "simple-framebuffer";
+			reg = <0x0 0x90001000 0x0 0x1400000>;
+			width = <416>;
+			height = <416>;
+			stride = <(416 * 3)>;
+			format = "r8g8b8";
+		};
+	};
+};
+
+&lpass {
+	status = "disabled";
+};
+
+&uart_0 {
+	status = "okay";
+};
+
+&sdhc_1 {
+	status = "okay";
+};
+
+&pm660_gpios {
+	/* FIXME: a bunch of these are protected and cause a device
+	 * reset if touched */
+	status = "disabled";
+};
