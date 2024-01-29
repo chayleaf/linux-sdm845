@@ -628,6 +628,15 @@ config SC_VIDEOCC_7280
 	  Say Y if you want to support video devices and functionality such as
 	  video encode and decode.
 
+config SDM_GCC_429W
+	tristate "SDM429W Global Clock Controller"
+	depends on ARM64 || COMPILE_TEST
+	select QCOM_GDSC
+	help
+	  Support for the global clock controller on SDM660 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  i2C, USB, UFS, SDDC, PCIe, etc.
+
 config SDM_CAMCC_845
 	tristate "SDM845 Camera Clock Controller"
 	depends on ARM64 || COMPILE_TEST
