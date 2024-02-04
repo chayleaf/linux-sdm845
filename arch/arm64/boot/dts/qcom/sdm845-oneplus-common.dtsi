@@ -461,11 +461,11 @@
 
 &cci_i2c0 {
 	camera@1a {
-		compatible = "sony,imx519";
+		compatible = "mipi-ccs", "sony,imx519";
 		reg = <0x1a>;
 
 		// GPIO 40 seems to be "CAM1_PWDN", probably we need to deal with that
-		reset-gpios = <&tlmm 28 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&tlmm 28 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cam0_default>;
 
@@ -475,10 +475,10 @@
 
 		power-domains = <&clock_camcc TITAN_TOP_GDSC>;
 
-		vddl-supply = <&cam_vio_1p8>; // lvs1
+		vio-supply = <&cam_vio_1p8>; // lvs1
 		ldo-supply = <&vreg_l21a_2p95>;
 		vana-supply = <&cam0_2p8_en>;
-		vdig-supply = <&cam0_1p05_en>;
+		vcore-supply = <&cam0_1p05_en>;
 
 		status = "okay";
 
