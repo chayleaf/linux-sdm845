@@ -160,8 +160,10 @@ static int csiphy_set_clock_rates(struct csiphy_device *csiphy)
 
 			/* if sensor pixel clock is not available */
 			/* set highest possible CSIPHY clock rate */
-			if (min_rate == 0)
-				j = clock->nfreqs - 1;
+			//if (min_rate == 0)
+			j = clock->nfreqs - 1;
+			dev_info(dev, "CALEB! CSIPHY%d: setting clock rate to %u MHz\n",
+				 csiphy->id, clock->freq[j] / 1000);
 
 			round_rate = clk_round_rate(clock->clk, clock->freq[j]);
 			if (round_rate < 0) {
