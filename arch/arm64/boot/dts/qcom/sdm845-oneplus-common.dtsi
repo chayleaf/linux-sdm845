@@ -196,10 +196,9 @@
 		regulator-boot-on;
 	};
 
-	// From schematics
-	cam0_1p05_en: cam0-1p05-regulator {
+	main_cam_1p05_en: main-cam-1p05-regulator {
 		compatible = "regulator-fixed";
-		regulator-name = "cam0_1p05_supply";
+		regulator-name = "main_cam_1p05_supply";
 
 		regulator-min-microvolt = <1050000>;
 		regulator-max-microvolt = <1050000>;
@@ -217,14 +216,53 @@
 		vbias-supply = <&vreg_bob>;
 	};
 
-	cam0_2p8_en: cam0-2p5-regulator {
+	main_cam_2p8_en: main-cam-2p5-regulator {
 		compatible = "regulator-fixed";
-		regulator-name = "cam0_2p5_supply";
+		regulator-name = "main_cam_2p5_supply";
 
 		regulator-min-microvolt = <2800000>;
 		regulator-max-microvolt = <2800000>;
 
 		gpio = <&tlmm 27 0>;
+		enable-active-high;
+		regulator-boot-on;
+		/*
+		 * HACK: FORCE THIS REGULATOR TO ALWAYS BE ON
+		 * FOR DEVELOPMENT
+		 */
+		regulator-always-on;
+
+		vin-supply = <&vreg_bob>;
+	};
+
+	sub_cam_1p05_en: sub-cam-1p05-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "sub_cam_1p05_supply";
+
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1050000>;
+
+		gpio = <&tlmm 78 0>;
+		enable-active-high;
+		regulator-boot-on;
+		/*
+		 * HACK: FORCE THIS REGULATOR TO ALWAYS BE ON
+		 * FOR DEVELOPMENT
+		 */
+		regulator-always-on;
+
+		vin-supply = <&vreg_s3a_1p35>;
+		vbias-supply = <&vreg_bob>;
+	};
+
+	sub_cam_2p8_en: sub-cam-2p8-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "sub_cam_2p8_supply";
+
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+
+		gpio = <&tlmm 79 0>;
 		enable-active-high;
 		regulator-boot-on;
 		/*
@@ -456,6 +494,14 @@
 				remote-endpoint = <&imx519_ep>;
 			};
 		};
+
+		port@1 {
+			reg = <0>;
+			csiphy1_ep: endpoint {
+				data-lanes = <0 1 2 3>;
+				remote-endpoint = <&imx376k_ep>;
+			};
+		};
 	};
 };
 
@@ -464,10 +510,10 @@
 		compatible = "mipi-ccs", "sony,imx519";
 		reg = <0x1a>;
 
-		// GPIO 40 seems to be "CAM1_PWDN", probably we need to deal with that
+		// GPIO 40 seems to be "sub_cam_PWDN", probably we need to deal with that
 		reset-gpios = <&tlmm 28 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&cam0_default>;
+		pinctrl-0 = <&main_cam_default>;
 
 		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
 		clock-names = "xclk";
@@ -477,8 +523,8 @@
 
 		vio-supply = <&cam_vio_1p8>; // lvs1
 		ldo-supply = <&vreg_l21a_2p95>;
-		vana-supply = <&cam0_2p8_en>;
-		vcore-supply = <&cam0_1p05_en>;
+		vana-supply = <&main_cam_2p8_en>;
+		vcore-supply = <&main_cam_1p05_en>;
 
 		status = "okay";
 
@@ -487,6 +533,38 @@
 				remote-endpoint = <&csiphy0_ep>;
 				data-lanes = <1 2 3 4>;      //   428750000
 				link-frequencies = /bits/ 64 <493500000>;
+			};
+		};
+	};
+};
+
+&cci_i2c1 {
+	camera@20 {
+		compatible = "mipi-ccs", "sony,imx376k";
+		reg = <0x20>;
+
+		reset-gpios = <&tlmm 23 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sub_cam_default>;
+
+		clocks = <&clock_camcc CAM_CC_MCLK2_CLK>;
+		clock-names = "xclk";
+		clock-frequency = <24000000>;
+
+		power-domains = <&clock_camcc TITAN_TOP_GDSC>;
+
+		vio-supply = <&cam_vio_1p8>; // lvs1
+		ldo-supply = <&vreg_l21a_2p95>;
+		vana-supply = <&main_cam_2p8_en>;
+		vcore-supply = <&main_cam_1p05_en>;
+
+		status = "okay";
+
+		port {
+			imx376k_ep: endpoint {
+				remote-endpoint = <&csiphy1_ep>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <360000000>;
 			};
 		};
 	};
@@ -983,7 +1061,7 @@
 &tlmm {
 	gpio-reserved-ranges = <0 4>, <81 4>;
 
-	cam0_default: cam0_default {
+	main_cam_default: main-cam-default-state {
 		rst {
 			pins = "gpio28";
 			function = "gpio";
@@ -994,6 +1072,25 @@
 
 		mclk0 {
 			pins = "gpio13";
+			function = "cam_mclk";
+
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
+	sub_cam_default: sub-cam-default-state {
+		rst {
+			pins = "gpio23";
+			function = "gpio";
+
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		/* Yes really, mclk2 for the second sensor */
+		mclk2 {
+			pins = "gpio15";
 			function = "cam_mclk";
 
 			drive-strength = <2>;
