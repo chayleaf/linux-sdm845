@@ -133,6 +133,8 @@ static int csid_set_clock_rates(struct csid_device *csid)
 				return -EINVAL;
 			}
 
+			dev_info(dev, "CSID clock rate %lu\n", rate);
+
 			ret = clk_set_rate(clock->clk, rate);
 			if (ret < 0) {
 				dev_err(dev, "clk set rate failed: %d\n", ret);

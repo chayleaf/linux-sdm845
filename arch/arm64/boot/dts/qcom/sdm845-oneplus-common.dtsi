@@ -515,6 +515,17 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&main_cam_default>;
 
+		/* For the default mode of 4656x3496x10 4 lanes
+		 * the output pixel clock is 602400000
+		 *
+		 * CSID clock = 1.5 * (pclk * bitWidth / (laneCount * 16))
+		 * = 141187500.0
+		 * Pick next higest rate... 384000000
+		 */
+
+		/* Combo mode -> multiple sensors on one PHY
+		 * so op6 is NOT combo mode */
+
 		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
 		clock-names = "xclk";
 		clock-frequency = <24000000>;
@@ -531,8 +542,8 @@
 		port {
 			imx519_ep: endpoint {
 				remote-endpoint = <&csiphy0_ep>;
-				data-lanes = <1 2 3 4>;      //   428750000
-				link-frequencies = /bits/ 64 <493500000>;
+				data-lanes = <1 2 3 4>;  //   428750000
+				link-frequencies = /bits/ 64 <1520000000>;
 			};
 		};
 	};

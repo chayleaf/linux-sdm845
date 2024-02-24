@@ -1046,7 +1046,7 @@ s64 camss_get_link_freq(struct media_entity *entity, unsigned int bpp,
 
 	subdev = media_entity_to_v4l2_subdev(sensor);
 
-	return v4l2_get_link_freq(subdev->ctrl_handler, bpp, 2 * lanes);
+	return v4l2_get_link_freq(subdev->ctrl_handler, bpp, 16 * lanes);
 }
 
 /*
@@ -1122,6 +1122,7 @@ static int camss_of_parse_endpoint_node(struct device *dev,
 	csd->interface.csiphy_id = vep.base.port;
 
 	mipi_csi2 = &vep.bus.mipi_csi2;
+	// AAAHHHHHHH C-PHY! has no clock lane
 	lncfg->clk.pos = mipi_csi2->clock_lane;
 	lncfg->clk.pol = mipi_csi2->lane_polarities[0];
 	lncfg->num_data = mipi_csi2->num_data_lanes;
