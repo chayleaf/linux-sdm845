@@ -103,6 +103,45 @@
 
 		vin-supply = <&vph_pwr>;
 	};
+
+	main_cam_1p05_en: main-cam-1p05-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "main_cam_1p05_supply";
+
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1050000>;
+
+		gpio = <&pm8998_gpios 12 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-boot-on;
+		/*
+		 * HACK: FORCE THIS REGULATOR TO ALWAYS BE ON
+		 * FOR DEVELOPMENT
+		 */
+		regulator-always-on;
+
+		vin-supply = <&vreg_s3a_1p35>;
+		vbias-supply = <&vreg_bob>;
+	};
+
+	main_cam_2p8_en: main-cam-2p5-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "main_cam_2p5_supply";
+
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+
+		gpio = <&tlmm 27 0>;
+		enable-active-high;
+		regulator-boot-on;
+		/*
+		 * HACK: FORCE THIS REGULATOR TO ALWAYS BE ON
+		 * FOR DEVELOPMENT
+		 */
+		regulator-always-on;
+
+		vin-supply = <&vreg_bob>;
+	};
 };
 
 &adsp_pas {
@@ -365,9 +404,16 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
+		cam_vio_1p8:
 		vreg_lvs1a_1p8: lvs1 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
+
+			/*
+			* HACK: FORCE THIS REGULATOR TO ALWAYS BE ON
+			* FOR DEVELOPMENT
+			*/
+			regulator-always-on;
 		};
 
 		vreg_lvs2a_1p8: lvs2 {
@@ -402,6 +448,63 @@
 		vreg_s3c_0p6: smps3 {
 			regulator-min-microvolt = <600000>;
 			regulator-max-microvolt = <600000>;
+		};
+	};
+};
+
+&cci {
+	status = "okay";
+};
+
+&camss {
+	vdda-csi0-supply = <&vdda_mipi_csi0_0p9>;
+	vdda-csi1-supply = <&vdda_mipi_csi1_0p9>;
+	vdda-csi2-supply = <&vdda_mipi_csi2_0p9>;
+
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			csiphy0_ep: endpoint {
+				data-lanes = <0 1 2 3>;
+				remote-endpoint = <&imx519_ep>;
+			};
+		};
+	};
+};
+
+&cci_i2c0 {
+	camera@34 {
+		compatible = "mipi-ccs", "sony,imx519";
+		reg = <0x34>;
+
+		// LOW tested first, might not work
+		reset-gpios = <&tlmm 80 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&main_cam_default>;
+
+		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
+		clock-names = "xclk";
+		clock-frequency = <24000000>;
+
+		power-domains = <&clock_camcc TITAN_TOP_GDSC>;
+
+		vio-supply = <&cam_vio_1p8>; // lvs1
+		ldo-supply = <&vreg_l21a_2p95>;
+		vana-supply = <&main_cam_2p8_en>;
+		vcore-supply = <&main_cam_1p05_en>;
+
+		status = "okay";
+
+		port {
+			imx519_ep: endpoint {
+				remote-endpoint = <&csiphy0_ep>;
+				data-lanes = <1 2 3 4>;      //   428750000
+				link-frequencies = /bits/ 64 <493500000>;
+			};
 		};
 	};
 };
@@ -534,6 +637,14 @@
 			input-enable;
 			bias-pull-up;
 			qcom,drive-strength = <0>;
+		};
+	};
+
+	main_cam_dvdd_gpio: pm8998-gpio12-state {
+		pinconf {
+			pins = "gpio12";
+			function = "normal";
+			output-enable;
 		};
 	};
 };
@@ -906,6 +1017,33 @@
 
 &tlmm {
 	gpio-reserved-ranges = <0 4>, <81 4>;
+
+	main_cam_default: main-cam-default-state {
+		rst {
+			pins = "gpio80";
+			function = "gpio";
+
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		mclk0 {
+			pins = "gpio13";
+			function = "cam_mclk";
+
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		/* Turn on AFVDD */
+		af-hack {
+			pins = "gpio8";
+			function = "gpio";
+
+			drive-strength = <16>;
+			bias-pull-up;
+		};
+	};
 
 	sdc2_default_state: sdc2-default-state {
 		clk-pins {
