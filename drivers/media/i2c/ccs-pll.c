@@ -8,7 +8,7 @@
  * Copyright (C) 2011--2012 Nokia Corporation
  * Contact: Sakari Ailus <sakari.ailus@linux.intel.com>
  */
-
+#define DEBUG
 #include <linux/device.h>
 #include <linux/gcd.h>
 #include <linux/lcm.h>
@@ -647,7 +647,10 @@ ccs_pll_calculate_op(struct device *dev, const struct ccs_pll_limits *lim,
 	if (more_mul_min > more_mul_max) {
 		dev_dbg(dev,
 			"unable to compute more_mul_min and more_mul_max\n");
-		return -EINVAL;
+		//return -EINVAL;
+		more_mul_min ^= more_mul_max;
+		more_mul_max ^= more_mul_min;
+		more_mul_min ^= more_mul_max;
 	}
 
 	more_mul_factor = lcm(div, op_pll_fr->pre_pll_clk_div) / div;
@@ -749,8 +752,12 @@ int ccs_pll_calculate(struct device *dev, const struct ccs_pll_limits *lim,
 	    !op_lim_fr->max_pll_ip_clk_freq_hz ||
 	    !op_lim_fr->min_pll_op_clk_freq_hz ||
 	    !op_lim_fr->max_pll_op_clk_freq_hz ||
-	    !op_lim_bk->max_sys_clk_div || !op_lim_fr->max_pll_multiplier)
+	    !op_lim_bk->max_sys_clk_div || !op_lim_fr->max_pll_multiplier) {
+		dev_err(dev, "invalid PLL or op_lim parameters!\n");
+		__builtin_dump_struct(op_lim_fr, _dev_err, dev);
+		//__builtin_dump_struct(pll, _dev_err, dev);
 		return -EINVAL;
+	}
 
 	/*
 	 * Make sure op_pix_clk_div will be integer --- unless flexible
