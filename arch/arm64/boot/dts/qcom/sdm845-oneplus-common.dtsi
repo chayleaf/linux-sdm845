@@ -10,6 +10,7 @@
 #include <dt-bindings/clock/qcom,camcc-sdm845.h>
 #include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/leds/common.h>
+#include <dt-bindings/media/video-interfaces.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/sound/qcom,q6afe.h>
 #include <dt-bindings/sound/qcom,q6asm.h>
@@ -515,24 +516,25 @@
 		port@0 {
 			reg = <0>;
 			csiphy0_ep: endpoint {
-				data-lanes = <0 1 2 3>;
+				data-lanes = <0 1 2>;
+				bus-type = <MEDIA_BUS_TYPE_CSI2_CPHY>;
 				remote-endpoint = <&imx519_ep>;
 			};
 		};
 
-		port@1 {
-			reg = <0>;
-			csiphy1_ep: endpoint {
-				data-lanes = <0 1 2 3>;
-				remote-endpoint = <&imx376k_ep>;
-			};
-		};
+		// port@1 {
+		// 	reg = <1>;
+		// 	csiphy1_ep: endpoint {
+		// 		data-lanes = <0 1 2 3>;
+		// 		remote-endpoint = <&imx376k_ep>;
+		// 	};
+		// };
 	};
 };
 
 &cci_i2c0 {
 	camera@1a {
-		compatible = "mipi-ccs", "sony,imx519";
+		compatible = /*"mipi-ccs", */"sony,imx519";
 		reg = <0x1a>;
 
 		// GPIO 40 seems to be "sub_cam_PWDN", probably we need to deal with that
@@ -540,59 +542,76 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&main_cam_default>;
 
+		/* For the default mode of 4656x3496x10 @ 60fps
+		 * the output pixel clock is 1130060000
+		 *
+		 * CSID clock = 1.5 * (pclk * bitWidth / (laneCount * 16))
+		 * = 353143750 ~= 353MHz
+		 * Pick next higest rate for csi0 clk... 384000000
+		 */
+
+		/* Combo mode -> multiple sensors on one PHY
+		 * so op6 is NOT combo mode */
+
 		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
 		clock-names = "xclk";
 		clock-frequency = <24000000>;
 
 		power-domains = <&clock_camcc TITAN_TOP_GDSC>;
 
+		// CCS supply names
 		vio-supply = <&cam_vio_1p8>; // lvs1
 		ldo-supply = <&vreg_l21a_2p95>;
 		vana-supply = <&main_cam_2p8_en>;
 		vcore-supply = <&main_cam_1p05_en>;
+
+		// IMX519 driver supply names
+		vddl-supply = <&cam_vio_1p8>; // lvs1
+		vdig-supply = <&main_cam_1p05_en>;
 
 		status = "okay";
 
 		port {
 			imx519_ep: endpoint {
 				remote-endpoint = <&csiphy0_ep>;
-				data-lanes = <1 2 3 4>;      //   428750000
-				link-frequencies = /bits/ 64 <493500000>;
+				data-lanes = <0 1 2>;  //   428750000
+				bus-type = <MEDIA_BUS_TYPE_CSI2_CPHY>;
+				link-frequencies = /bits/ 64 <324009984>;
 			};
 		};
 	};
 };
 
 &cci_i2c1 {
-	camera@20 {
-		compatible = "mipi-ccs", "sony,imx376k";
-		reg = <0x20>;
+	// camera@20 {
+	// 	compatible = "mipi-ccs", "sony,imx376k";
+	// 	reg = <0x20>;
 
-		reset-gpios = <&tlmm 23 GPIO_ACTIVE_LOW>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&sub_cam_default>;
+	// 	reset-gpios = <&tlmm 23 GPIO_ACTIVE_LOW>;
+	// 	pinctrl-names = "default";
+	// 	pinctrl-0 = <&sub_cam_default>;
 
-		clocks = <&clock_camcc CAM_CC_MCLK2_CLK>;
-		clock-names = "xclk";
-		clock-frequency = <24000000>;
+	// 	clocks = <&clock_camcc CAM_CC_MCLK2_CLK>;
+	// 	clock-names = "xclk";
+	// 	clock-frequency = <24000000>;
 
-		power-domains = <&clock_camcc TITAN_TOP_GDSC>;
+	// 	power-domains = <&clock_camcc TITAN_TOP_GDSC>;
 
-		vio-supply = <&cam_vio_1p8>; // lvs1
-		ldo-supply = <&vreg_l21a_2p95>;
-		vana-supply = <&main_cam_2p8_en>;
-		vcore-supply = <&main_cam_1p05_en>;
+	// 	vio-supply = <&cam_vio_1p8>; // lvs1
+	// 	ldo-supply = <&vreg_l21a_2p95>;
+	// 	vana-supply = <&main_cam_2p8_en>;
+	// 	vcore-supply = <&main_cam_1p05_en>;
 
-		status = "okay";
+	// 	status = "okay";
 
-		port {
-			imx376k_ep: endpoint {
-				remote-endpoint = <&csiphy1_ep>;
-				data-lanes = <1 2 3 4>;
-				link-frequencies = /bits/ 64 <360000000>;
-			};
-		};
-	};
+	// 	port {
+	// 		imx376k_ep: endpoint {
+	// 			remote-endpoint = <&csiphy1_ep>;
+	// 			data-lanes = <1 2 3 4>;
+	// 			link-frequencies = /bits/ 64 <360000000>;
+	// 		};
+	// 	};
+	// };
 };
 
 &cdsp_pas {
