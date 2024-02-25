@@ -64,6 +64,7 @@ struct csiphy_reg_t {
 };
 
 /* GEN2 1.0 2PH */
+/* 5 entries: clock + 4 lanes */
 static const struct
 csiphy_reg_t lane_regs_sdm845[5][14] = {
 	{
@@ -145,6 +146,75 @@ csiphy_reg_t lane_regs_sdm845[5][14] = {
 		{0x0638, 0xFE, 0x00, CSIPHY_DEFAULT_PARAMS},
 		{0x0660, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
 		{0x0664, 0x7F, 0x00, CSIPHY_DEFAULT_PARAMS},
+	},
+};
+
+/* GEN2 1.0 3PH */
+/* 3 entries: 3 lanes (C-PHY!) */
+static const struct
+csiphy_reg_t lane_regs_sdm845_3ph[3][19] = {
+	{
+		{0x015C, 0x43, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0168, 0xA0, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x016C, 0x25, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0104, 0x06, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x010C, 0x12, 0x00, CSIPHY_SETTLE_CNT_LOWER_BYTE},
+		{0x0108, 0x00, 0x00, CSIPHY_SETTLE_CNT_HIGHER_BYTE},
+		{0x0114, 0x20, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0150, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0118, 0x3e, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x011C, 0x41, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0120, 0x41, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0124, 0x7F, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0128, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x012C, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0144, 0x12, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0160, 0x02, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x01CC, 0x41, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0164, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x01DC, 0x51, 0x00, CSIPHY_DEFAULT_PARAMS},
+	},
+	{
+		{0x035C, 0x43, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0368, 0xA0, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x036C, 0x25, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0304, 0x06, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x030C, 0x12, 0x00, CSIPHY_SETTLE_CNT_LOWER_BYTE},
+		{0x0308, 0x00, 0x00, CSIPHY_SETTLE_CNT_HIGHER_BYTE},
+		{0x0314, 0x20, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0350, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0318, 0x3e, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x031C, 0x41, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0320, 0x41, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0324, 0x7F, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0328, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x032C, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0344, 0x12, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0360, 0x02, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x03CC, 0x41, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0364, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x03DC, 0x51, 0x00, CSIPHY_DEFAULT_PARAMS},
+	},
+	{
+		{0x055C, 0x43, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0568, 0xA0, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x056C, 0x25, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0504, 0x06, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x050C, 0x12, 0x00, CSIPHY_SETTLE_CNT_LOWER_BYTE},
+		{0x0508, 0x00, 0x00, CSIPHY_SETTLE_CNT_HIGHER_BYTE},
+		{0x0514, 0x20, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0550, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0518, 0x3e, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x051C, 0x41, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0520, 0x41, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0524, 0x7F, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0528, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x052C, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0544, 0x12, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0560, 0x02, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x05CC, 0x41, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x0564, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
+		{0x05DC, 0x51, 0x00, CSIPHY_DEFAULT_PARAMS},
 	},
 };
 
@@ -421,8 +491,8 @@ static void csiphy_gen2_config_lanes(struct csiphy_device *csiphy,
 
 	switch (csiphy->camss->res->version) {
 	case CAMSS_845:
-		r = &lane_regs_sdm845[0][0];
-		array_size = ARRAY_SIZE(lane_regs_sdm845[0]);
+		r = &lane_regs_sdm845_3ph[0][0];
+		array_size = ARRAY_SIZE(lane_regs_sdm845_3ph[0]);
 		break;
 	case CAMSS_8250:
 		r = &lane_regs_sm8250[0][0];
@@ -432,6 +502,8 @@ static void csiphy_gen2_config_lanes(struct csiphy_device *csiphy,
 		WARN(1, "unknown cspi version\n");
 		return;
 	}
+
+	dev_info(csiphy->camss->dev, "%s settle_cnt: %u\n", __func__, settle_cnt);
 
 	for (l = 0; l < 5; l++) {
 		for (i = 0; i < array_size; i++, r++) {
@@ -475,11 +547,26 @@ static void csiphy_lanes_enable(struct csiphy_device *csiphy,
 	int i;
 
 	settle_cnt = csiphy_settle_cnt_calc(link_freq, csiphy->timer_clk_rate);
+	dev_info(csiphy->camss->dev, "settle_cnt: %u\n", settle_cnt);
+	settle_cnt = 14; // DOWNSTREAM
 
-	val = CSIPHY_3PH_CMN_CSI_COMMON_CTRL5_CLK_ENABLE;
-	for (i = 0; i < c->num_data; i++)
-		val |= BIT(c->data[i].pos * 2);
+	if (!c->cphy) {
+		val = CSIPHY_3PH_CMN_CSI_COMMON_CTRL5_CLK_ENABLE;
+		for (i = 0; i < c->num_data; i++)
+			val |= BIT(c->data[i].pos * 2);
+	} else {
+		/* Value for 3 lane C-PHY */
+		val = 0x2a;
+		// FIXME: urgh this sucks
+		// for (i = 0; i < c->num_data; i++) {
+		// 	temp = (i << 1) + 1;
+		// 	/* For typical 3 lane C-PHY it's bits 0, 1 and 2
+		// 	 * resulting in val 0b101010 */
+		// 	val |= (BIT(c->data[i].pos) << temp);
+		// }
+	}
 
+	/* These writes match the "csiphy_common_reg_1_0" downstream */
 	writel_relaxed(val, csiphy->base + CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(5));
 
 	val = CSIPHY_3PH_CMN_CSI_COMMON_CTRL6_COMMON_PWRDN_B;
@@ -487,6 +574,11 @@ static void csiphy_lanes_enable(struct csiphy_device *csiphy,
 
 	val = 0x02;
 	writel_relaxed(val, csiphy->base + CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(7));
+
+	val = 0x01;
+	writel_relaxed(val, csiphy->base + CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(0));
+
+	usleep_range(1000, 2000);
 
 	val = 0x00;
 	writel_relaxed(val, csiphy->base + CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(0));

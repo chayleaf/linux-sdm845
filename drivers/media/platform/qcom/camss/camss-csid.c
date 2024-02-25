@@ -106,10 +106,10 @@ static int csid_set_clock_rates(struct csid_device *csid)
 		    !strcmp(clock->name, "csi1") ||
 		    !strcmp(clock->name, "csi2") ||
 		    !strcmp(clock->name, "csi3")) {
-			u64 min_rate = link_freq / 4;
+			u64 min_rate = 383000000; //link_freq / 4;
 			long rate;
 
-			camss_add_clock_margin(&min_rate);
+			//camss_add_clock_margin(&min_rate);
 
 			for (j = 0; j < clock->nfreqs; j++)
 				if (min_rate < clock->freq[j])
@@ -133,13 +133,18 @@ static int csid_set_clock_rates(struct csid_device *csid)
 				return -EINVAL;
 			}
 
+			dev_info(dev, "CSID clock rate %lu\n", rate);
+			rate = 384000000;
+
 			ret = clk_set_rate(clock->clk, rate);
 			if (ret < 0) {
 				dev_err(dev, "clk set rate failed: %d\n", ret);
 				return ret;
 			}
 		} else if (clock->nfreqs) {
-			clk_set_rate(clock->clk, clock->freq[0]);
+			dev_info(dev, "CSID clock %s rate %u\n",
+				 clock->name, clock->freq[clock->nfreqs - 1]);
+			clk_set_rate(clock->clk, clock->freq[clock->nfreqs - 1]);
 		}
 	}
 

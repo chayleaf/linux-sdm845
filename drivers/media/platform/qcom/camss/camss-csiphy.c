@@ -143,7 +143,7 @@ static int csiphy_set_clock_rates(struct csiphy_device *csiphy)
 		struct camss_clock *clock = &csiphy->clock[i];
 
 		if (csiphy->rate_set[i]) {
-			u64 min_rate = link_freq / 4;
+			u64 min_rate = 0; //link_freq / 4;
 			long round_rate;
 
 			camss_add_clock_margin(&min_rate);
@@ -171,6 +171,13 @@ static int csiphy_set_clock_rates(struct csiphy_device *csiphy)
 			}
 
 			csiphy->timer_clk_rate = round_rate;
+
+			dev_info(dev, "CSIPHY%d timer clk rate: %u\n",
+				 csiphy->id, csiphy->timer_clk_rate);
+
+			/* for C-PHY mode the max rate is always a safe bet for this clock */
+			// DOWNSTREAM MATCHES
+			csiphy->timer_clk_rate = 269333333;
 
 			ret = clk_set_rate(clock->clk, csiphy->timer_clk_rate);
 			if (ret < 0) {
@@ -257,6 +264,7 @@ static int csiphy_stream_on(struct csiphy_device *csiphy)
 		return -EINVAL;
 	}
 
+	/* Unused on SDM845 !! */
 	if (csiphy->base_clk_mux) {
 		val = readl_relaxed(csiphy->base_clk_mux);
 		if (cfg->combo_mode && (lane_mask & 0x18) == 0x18) {
