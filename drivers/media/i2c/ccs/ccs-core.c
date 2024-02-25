@@ -480,6 +480,8 @@ static int ccs_pll_try(struct ccs_sensor *sensor, struct ccs_pll *pll)
 		.min_line_length_pck = CCS_LIM(sensor, MIN_LINE_LENGTH_PCK),
 	};
 
+	__builtin_dump_struct(&lim, _dev_info, &client->dev);
+
 	return ccs_pll_calculate(&client->dev, &lim, pll);
 }
 
@@ -1161,11 +1163,13 @@ static int ccs_get_mbus_formats(struct ccs_sensor *sensor)
 			pll->link_freq = sensor->hwcfg.op_sys_clock[j];
 
 			rval = ccs_pll_try(sensor, pll);
-			dev_dbg(&client->dev, "link freq %u Hz, bpp %u %s\n",
+			dev_dbg(&client->dev, "link freq %u Hz, bpp %u %s: %d\n",
 				pll->link_freq, pll->bits_per_pixel,
-				rval ? "not ok" : "ok");
-			if (rval)
+				rval ? "not ok" : "ok", rval);
+			if (rval) {
+				__builtin_dump_struct(pll, _dev_err, &client->dev);
 				continue;
+			}
 
 			set_bit(j, valid_link_freqs);
 		}
