@@ -8,3 +8,5 @@ ifneq ($(CONFIG_USB),)
 endif
 
 obj-$(CONFIG_MEDIA_SUPPORT) += mc.o
+
+ccflags-y += -DDEBUG

@@ -14,6 +14,7 @@
  * Copyright (C) 2012 Renesas Electronics Corp.
  * Author: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
  */
+#define DEBUG
 #include <linux/acpi.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
