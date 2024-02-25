@@ -568,8 +568,9 @@ static int vfe_set_clock_rates(struct vfe_device *vfe)
 				if (min_rate < tmp)
 					min_rate = tmp;
 			}
+			min_rate = 400000000;
 
-			camss_add_clock_margin(&min_rate);
+			//camss_add_clock_margin(&min_rate);
 
 			for (j = 0; j < clock->nfreqs; j++)
 				if (min_rate < clock->freq[j])

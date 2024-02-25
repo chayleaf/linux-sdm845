@@ -590,7 +590,7 @@ static const struct camss_subdev_resources csid_res_845[] = {
 				{ 80000000 },
 				{ 0 },
 				{ 19200000, 100000000, 320000000, 404000000, 480000000, 600000000 },
-				{ 320000000 },
+				{ 404000097 },
 				{ 0 },
 				{ 19200000, 75000000, 384000000, 538666667 },
 				{ 384000000 } },
@@ -1046,6 +1046,7 @@ s64 camss_get_link_freq(struct media_entity *entity, unsigned int bpp,
 
 	subdev = media_entity_to_v4l2_subdev(sensor);
 
+	/* FIXME: this is bogus for C-PHY */
 	return v4l2_get_link_freq(subdev->ctrl_handler, bpp, 2 * lanes);
 }
 
@@ -1122,9 +1123,11 @@ static int camss_of_parse_endpoint_node(struct device *dev,
 	csd->interface.csiphy_id = vep.base.port;
 
 	mipi_csi2 = &vep.bus.mipi_csi2;
+	// AAAHHHHHHH C-PHY! has no clock lane
 	lncfg->clk.pos = mipi_csi2->clock_lane;
 	lncfg->clk.pol = mipi_csi2->lane_polarities[0];
 	lncfg->num_data = mipi_csi2->num_data_lanes;
+	lncfg->cphy = vep.bus_type == V4L2_FWNODE_BUS_TYPE_CSI2_CPHY;
 
 	lncfg->data = devm_kcalloc(dev,
 				   lncfg->num_data, sizeof(*lncfg->data),
