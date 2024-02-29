@@ -533,6 +533,8 @@
 };
 
 &cci_i2c0 {
+	/* The sensor is at i2c address 0x34, but the CCI driver is missing a bit shift
+	 * to the right by 1, so we need to use 0x1a here */
 	camera@1a {
 		compatible = /*"mipi-ccs", */"sony,imx519";
 		reg = <0x1a>;
@@ -1114,6 +1116,14 @@
 
 			drive-strength = <2>;
 			bias-disable;
+		};
+
+		pwrdn {
+			pins = "gpio40";
+			function = "gpio";
+
+			drive-strength = <8>;
+			bias-pull-up;
 		};
 
 		mclk0 {

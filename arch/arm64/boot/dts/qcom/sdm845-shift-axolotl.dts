@@ -471,18 +471,20 @@
 			csiphy0_ep: endpoint {
 				data-lanes = <0 1 2 3>;
 				remote-endpoint = <&imx519_ep>;
+				link-frequencies = /bits/ 64 <493500000>;
 			};
 		};
 	};
 };
 
 &cci_i2c0 {
-	camera@34 {
+	/* The sensor is at i2c address 0x34, but the CCI driver is missing a bit shift
+	 * to the right by 1, so we need to use 0x1a here */
+	camera@1a {
 		compatible = "mipi-ccs", "sony,imx519";
-		reg = <0x34>;
+		reg = <0x1a>;
 
-		// LOW tested first, might not work
-		reset-gpios = <&tlmm 80 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&tlmm 80 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&main_cam_default>;
 

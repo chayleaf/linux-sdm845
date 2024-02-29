@@ -1039,6 +1039,7 @@ s64 camss_get_link_freq(struct media_entity *entity, unsigned int bpp,
 {
 	struct media_entity *sensor;
 	struct v4l2_subdev *subdev;
+	s64 link_freq;
 
 	sensor = camss_find_sensor(entity);
 	if (!sensor)
@@ -1047,7 +1048,9 @@ s64 camss_get_link_freq(struct media_entity *entity, unsigned int bpp,
 	subdev = media_entity_to_v4l2_subdev(sensor);
 
 	/* FIXME: this is bogus for C-PHY */
-	return v4l2_get_link_freq(subdev->ctrl_handler, bpp, 2 * lanes);
+	link_freq = v4l2_get_link_freq(subdev->ctrl_handler, bpp, 2 * lanes);
+	dev_info(subdev->dev, "link_freq: %lld\n", link_freq);
+	return link_freq;
 }
 
 /*
