@@ -1039,6 +1039,7 @@ s64 camss_get_link_freq(struct media_entity *entity, unsigned int bpp,
 {
 	struct media_entity *sensor;
 	struct v4l2_subdev *subdev;
+	s64 link_freq;
 
 	sensor = camss_find_sensor(entity);
 	if (!sensor)
@@ -1047,7 +1048,9 @@ s64 camss_get_link_freq(struct media_entity *entity, unsigned int bpp,
 	subdev = media_entity_to_v4l2_subdev(sensor);
 
 	/* FIXME: this is bogus for C-PHY */
-	return v4l2_get_link_freq(subdev->ctrl_handler, bpp, 2 * lanes);
+	link_freq = v4l2_get_link_freq(subdev->ctrl_handler, bpp, 2 * lanes);
+	dev_info(subdev->dev, "link_freq: %lld\n", link_freq);
+	return link_freq;
 }
 
 /*
@@ -1128,6 +1131,12 @@ static int camss_of_parse_endpoint_node(struct device *dev,
 	lncfg->clk.pol = mipi_csi2->lane_polarities[0];
 	lncfg->num_data = mipi_csi2->num_data_lanes;
 	lncfg->cphy = vep.bus_type == V4L2_FWNODE_BUS_TYPE_CSI2_CPHY;
+
+	dev_info(dev, "CSIPHY%d: %s, %d data lanes, %s clock lane\n",
+		 csd->interface.csiphy_id,
+		 lncfg->cphy ? "C-PHY" : "D-PHY",
+		 lncfg->num_data,
+		 lncfg->cphy ? "no" : "with");
 
 	lncfg->data = devm_kcalloc(dev,
 				   lncfg->num_data, sizeof(*lncfg->data),
