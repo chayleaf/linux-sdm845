@@ -510,6 +510,19 @@
 	status = "okay";
 };
 
+&pmi8998_charger {
+	monitored-battery = <&battery>;
+
+	status = "okay";
+};
+
+&pmi8998_fg {
+	status = "okay";
+
+	power-supplies = <&pmi8998_charger>;
+	monitored-battery = <&battery>;
+};
+
 &pmi8998_wled {
 	qcom,current-limit-microamp = <20000>;
 	qcom,current-boost-limit = <970>;
