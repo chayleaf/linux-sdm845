@@ -578,6 +578,14 @@ config DRM_PANEL_SAMSUNG_S6E88A0_AMS452EF01
 	select DRM_MIPI_DSI
 	select VIDEOMODE_HELPERS
 
+config DRM_PANEL_SAMSUNG_AMB655X
+	tristate "Samsung AMB655X DSI panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  DRM panel driver for the Samsung AMB655X panel. 1080x2400 @ 60hz or 90hz
+
 config DRM_PANEL_SAMSUNG_ATNA33XC20
 	tristate "Samsung ATNA33XC20 eDP panel"
 	depends on OF
