@@ -3,6 +3,20 @@
 // Generated with linux-mdss-dsi-panel-driver-generator from vendor device tree:
 //   Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
 
+#define DEBUG
+
+/*
+STATUS:
+* works if reset is skipped!
+* with reset backlight works but panel just displays garbage and DSI code
+  is very unhappy https://p.calebs.dev/d94ca6@raw
+
+Ideas:
+* panel isn't ready to receive frames for some reason?
+...
+
+*/
+
 #include <linux/backlight.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
@@ -32,22 +46,53 @@ struct samsung_amb655x *to_samsung_amb655x(struct drm_panel *panel)
 
 static void samsung_amb655x_reset(struct samsung_amb655x *ctx)
 {
-	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
+	// gpiod_set_value_cansleep(ctx->reset_gpio, 0);
 	usleep_range(10000, 11000);
-	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+	// gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 	usleep_range(1000, 2000);
-	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
+	// gpiod_set_value_cansleep(ctx->reset_gpio, 0);
 	usleep_range(10000, 11000);
 }
 
 static int samsung_amb655x_on(struct samsung_amb655x *ctx)
 {
+	struct drm_dsc_picture_parameter_set pps;
 	struct mipi_dsi_device *dsi = ctx->dsi;
 	struct device *dev = &dsi->dev;
 	int ret;
 
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
-	mipi_dsi_dcs_write_seq(dsi, 0x9e,
+	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+
+	drm_dsc_pps_payload_pack(&pps, &ctx->dsc);
+
+	// __builtin_dump_struct(&pps, _dev_info, &dsi->dev);
+	// print_hex_dump_bytes("pps: ", DUMP_PREFIX_OFFSET, &pps, sizeof(pps));
+
+/*
+Generated PPS:
+11 00 00 89 30 80 09 60 04 38 00 1e 02 1c 02 1c
+02 00 02 0e 00 20 02 e3 00 07 00 0c 03 50 03 64
+18 00 10 f0 03 0c 20 00 06 0b 0b 33 0e 1c 2a 38
+46 54 62 69 70 77 79 7b 7d 7e 01 02 01 00 09 40
+09 be 19 fc 19 fa 19 f8 1a 38 1a 78 1a b6 2a f6
+2b 34 2b 74 3b 74 6b f4 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+Downstream PPS:
+9e
+11 00 00 89 30 80 09 60 04 38 00 1e 02 1c 02 1c
+02 00 02 0e 00 20 02 e3 00 07 00 0c 03 50 03 64
+18 00 10 f0 03 0c 20 00 06 0b 0b 33 0e 1c 2a 38
+46 54 62 69 70 77 79 7b 7d 7e 01 02 01 00 09 40
+09 be 19 fc 19 fa 19 f8 1a 38 1a 78 1a b6 2a f6
+2b 34 2b 74 3b 74 6b f4 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+*/
+
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0x5a, 0x5a);
+	mipi_dsi_dcs_write_long(dsi, 0x9e,
 			       0x11, 0x00, 0x00, 0x89, 0x30, 0x80, 0x09, 0x60,
 			       0x04, 0x38, 0x00, 0x1e, 0x02, 0x1c, 0x02, 0x1c,
 			       0x02, 0x00, 0x02, 0x0e, 0x00, 0x20, 0x02, 0xe3,
@@ -64,8 +109,8 @@ static int samsung_amb655x_on(struct samsung_amb655x *ctx)
 			       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 			       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 			       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
-	mipi_dsi_dcs_write_seq(dsi, 0x9d, 0x01);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
+	mipi_dsi_dcs_write_long(dsi, 0x9d, 0x01);
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
 
 	ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
 	if (ret < 0) {
@@ -74,80 +119,91 @@ static int samsung_amb655x_on(struct samsung_amb655x *ctx)
 	}
 	usleep_range(11000, 12000);
 
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
-	mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x04);
-	mipi_dsi_dcs_write_seq(dsi, 0xd5, 0x24, 0x9e, 0x9e, 0x00, 0x20);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
-	mipi_dsi_dcs_write_seq(dsi, 0xfc, 0x5a, 0x5a);
-	mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x16);
-	mipi_dsi_dcs_write_seq(dsi, 0xd1, 0x22);
-	mipi_dsi_dcs_write_seq(dsi, 0xd6, 0x11);
-	mipi_dsi_dcs_write_seq(dsi, 0xfc, 0xa5, 0xa5);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
+	/* VLIN CURRENT LIMIT */
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0x5a, 0x5a);
+	mipi_dsi_dcs_write_long(dsi, 0xb0, 0x04);
+	mipi_dsi_dcs_write_long(dsi, 0xd5, 0x24, 0x9e, 0x9e, 0x00, 0x20);
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
 
-	ret = mipi_dsi_dcs_set_tear_on(dsi, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
-	if (ret < 0) {
-		dev_err(dev, "Failed to set tear on: %d\n", ret);
-		return ret;
-	}
+	/* OSC Select */
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0x5a, 0x5a);
+	mipi_dsi_dcs_write_long(dsi, 0xfc, 0x5a, 0x5a);
+	mipi_dsi_dcs_write_long(dsi, 0xb0, 0x16);
+	mipi_dsi_dcs_write_long(dsi, 0xd1, 0x22);
+	mipi_dsi_dcs_write_long(dsi, 0xd6, 0x11);
+	mipi_dsi_dcs_write_long(dsi, 0xfc, 0xa5, 0xa5);
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
 
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
-	mipi_dsi_dcs_write_seq(dsi, 0xdf, 0x83, 0x00, 0x10);
-	mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x01);
-	mipi_dsi_dcs_write_seq(dsi, 0xe6, 0x01);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
+	/* TE ON */
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0x5a, 0x5a);
+	mipi_dsi_dcs_write_long(dsi, MIPI_DCS_SET_TEAR_ON, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
 
-	ret = mipi_dsi_dcs_set_column_address(dsi, 0x0000, 0x0437);
+	/* TSP Setting */
+	// mipi_dsi_dcs_write_long(dsi, 0xf0, 0x5a, 0x5a);
+	// mipi_dsi_dcs_write_long(dsi, 0xdf, 0x83, 0x00, 0x10);
+	// mipi_dsi_dcs_write_long(dsi, 0xb0, 0x01);
+	// mipi_dsi_dcs_write_long(dsi, 0xe6, 0x01);
+	// mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
+
+	ret = mipi_dsi_dcs_set_column_address(dsi, 0x0000, 1080 - 1);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set column address: %d\n", ret);
 		return ret;
 	}
 
-	ret = mipi_dsi_dcs_set_page_address(dsi, 0x0000, 0x095f);
+	ret = mipi_dsi_dcs_set_page_address(dsi, 0x0000, 2400 - 1);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set page address: %d\n", ret);
 		return ret;
 	}
 
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
-	mipi_dsi_dcs_write_seq(dsi, 0xd5, 0x8d);
-	mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x0a);
-	mipi_dsi_dcs_write_seq(dsi, 0xd5, 0x05);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
-	mipi_dsi_dcs_write_seq(dsi, 0xfc, 0x5a, 0x5a);
-	mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x01);
-	mipi_dsi_dcs_write_seq(dsi, 0xe4, 0xa6, 0x75, 0xa3);
-	mipi_dsi_dcs_write_seq(dsi, 0xe9,
+	/* FD Setting */
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0x5a, 0x5a);
+	mipi_dsi_dcs_write_long(dsi, 0xd5, 0x8d);
+	mipi_dsi_dcs_write_long(dsi, 0xb0, 0x0a);
+	mipi_dsi_dcs_write_long(dsi, 0xd5, 0x05);
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
+
+	/* FFC Function */
+	mipi_dsi_dcs_write_long(dsi, 0xfc, 0x5a, 0x5a);
+	mipi_dsi_dcs_write_long(dsi, 0xb0, 0x01);
+	mipi_dsi_dcs_write_long(dsi, 0xe4, 0xa6, 0x75, 0xa3);
+	mipi_dsi_dcs_write_long(dsi, 0xe9,
 			       0x11, 0x75, 0xa6, 0x75, 0xa3, 0x4b, 0x17, 0xac,
 			       0x4b, 0x17, 0xac, 0x00, 0x19, 0x19);
-	mipi_dsi_dcs_write_seq(dsi, 0xfc, 0xa5, 0xa5);
+	mipi_dsi_dcs_write_long(dsi, 0xfc, 0xa5, 0xa5);
 	msleep(61);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
-	mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x06);
-	mipi_dsi_dcs_write_seq(dsi, 0xb7, 0x01);
-	mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x05);
-	mipi_dsi_dcs_write_seq(dsi, 0xb7, 0x13);
-	mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x01);
-	mipi_dsi_dcs_write_seq(dsi, 0xb7, 0x4c);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
-	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY, 0x20);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
-	mipi_dsi_dcs_write_seq(dsi, 0x60, 0x00);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
-	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_WRITE_POWER_SAVE, 0x00);
-	mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
-	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY, 0x20);
-	msleep(110);
+
+	/* Dimming Setting */
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0x5a, 0x5a);
+	mipi_dsi_dcs_write_long(dsi, 0xb0, 0x06);
+	mipi_dsi_dcs_write_long(dsi, 0xb7, 0x01);
+	mipi_dsi_dcs_write_long(dsi, 0xb0, 0x05);
+	mipi_dsi_dcs_write_long(dsi, 0xb7, 0x13);
+	mipi_dsi_dcs_write_long(dsi, 0xb0, 0x01);
+	mipi_dsi_dcs_write_long(dsi, 0xb7, 0x4c);
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
+
+	mipi_dsi_dcs_write_long(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY, 0x20);
+
+	/* 60hz Transition */
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0x5a, 0x5a);
+	mipi_dsi_dcs_write_long(dsi, 0x60, 0x00);
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
+
+	/* ACL Mode */
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0x5a, 0x5a);
+	mipi_dsi_dcs_write_long(dsi, MIPI_DCS_WRITE_POWER_SAVE, 0x00);
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
+	// mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY, 0x20);
+	// msleep(110);
 
 	/* Enable backlight */
-	mipi_dsi_dcs_write_seq(dsi, 0x9F, 0x5A, 0x5A);
-	mipi_dsi_dcs_write_seq(dsi, 0x29);
-	mipi_dsi_dcs_write_seq(dsi, 0x13);
-	mipi_dsi_dcs_write_seq(dsi, 0x9F, 0xA5, 0xA5);
+	//mipi_dsi_dcs_write_long(dsi, 0x9F, 0x5A, 0x5A);
+	mipi_dsi_dcs_set_display_on(dsi);
+	// mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_ENTER_NORMAL_MODE);
+	// mipi_dsi_dcs_write_long(dsi, 0x9F, 0xA5, 0xA5);
 
 	return 0;
 }
@@ -158,7 +214,9 @@ static int samsung_amb655x_off(struct samsung_amb655x *ctx)
 	struct device *dev = &dsi->dev;
 	int ret;
 
-	mipi_dsi_dcs_write_seq(dsi, 0x9f, 0x5a, 0x5a);
+	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+
+	mipi_dsi_dcs_write_long(dsi, 0x9f, 0x5a, 0x5a);
 
 	ret = mipi_dsi_dcs_set_display_on(dsi);
 	if (ret < 0) {
@@ -180,7 +238,7 @@ static int samsung_amb655x_off(struct samsung_amb655x *ctx)
 		return ret;
 	}
 
-	mipi_dsi_dcs_write_seq(dsi, 0x9f, 0xa5, 0xa5);
+	mipi_dsi_dcs_write_long(dsi, 0x9f, 0xa5, 0xa5);
 	msleep(150);
 
 	return 0;
@@ -190,7 +248,6 @@ static int samsung_amb655x_prepare(struct drm_panel *panel)
 {
 	struct samsung_amb655x *ctx = to_samsung_amb655x(panel);
 	struct device *dev = &ctx->dsi->dev;
-	struct drm_dsc_picture_parameter_set pps;
 	int ret;
 
 	samsung_amb655x_reset(ctx);
@@ -198,11 +255,9 @@ static int samsung_amb655x_prepare(struct drm_panel *panel)
 	ret = samsung_amb655x_on(ctx);
 	if (ret < 0) {
 		dev_err(dev, "Failed to initialize panel: %d\n", ret);
-		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+		// gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 		return ret;
 	}
-
-	// drm_dsc_pps_payload_pack(&pps, &ctx->dsc);
 
 	// ret = mipi_dsi_picture_parameter_set(ctx->dsi, &pps);
 	// if (ret < 0) {
@@ -221,6 +276,20 @@ static int samsung_amb655x_prepare(struct drm_panel *panel)
 	return 0;
 }
 
+static int samsung_amb655x_enable(struct drm_panel *panel)
+{
+	struct samsung_amb655x *ctx = to_samsung_amb655x(panel);
+	struct mipi_dsi_device *dsi = ctx->dsi;
+
+	/* Enable backlight */
+	// mipi_dsi_dcs_write_long(dsi, 0x9F, 0x5A, 0x5A);
+	// mipi_dsi_dcs_set_display_on(dsi);
+	// mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_ENTER_NORMAL_MODE);
+	// mipi_dsi_dcs_write_long(dsi, 0x9F, 0xA5, 0xA5);
+
+	return 0;
+}
+
 static int samsung_amb655x_unprepare(struct drm_panel *panel)
 {
 	struct samsung_amb655x *ctx = to_samsung_amb655x(panel);
@@ -231,7 +300,7 @@ static int samsung_amb655x_unprepare(struct drm_panel *panel)
 	if (ret < 0)
 		dev_err(dev, "Failed to un-initialize panel: %d\n", ret);
 
-	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+	// gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 
 	return 0;
 }
@@ -271,6 +340,7 @@ static int samsung_amb655x_get_modes(struct drm_panel *panel,
 
 static const struct drm_panel_funcs samsung_amb655x_panel_funcs = {
 	.prepare = samsung_amb655x_prepare,
+	.enable = samsung_amb655x_enable,
 	.unprepare = samsung_amb655x_unprepare,
 	.get_modes = samsung_amb655x_get_modes,
 };
@@ -281,13 +351,13 @@ static int samsung_amb655x_bl_update_status(struct backlight_device *bl)
 	u16 brightness = backlight_get_brightness(bl);
 	int ret;
 
-	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
+	//dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
 
 	ret = mipi_dsi_dcs_set_display_brightness_large(dsi, brightness);
 	if (ret < 0)
 		return ret;
 
-	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+	//dsi->mode_flags |= MIPI_DSI_MODE_LPM;
 
 	return 0;
 }
@@ -300,13 +370,13 @@ static int samsung_amb655x_bl_get_brightness(struct backlight_device *bl)
 	u16 brightness;
 	int ret;
 
-	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
+	//dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
 
 	ret = mipi_dsi_dcs_get_display_brightness_large(dsi, &brightness);
 	if (ret < 0)
 		return ret;
 
-	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+	//dsi->mode_flags |= MIPI_DSI_MODE_LPM;
 
 	return brightness;
 }
@@ -340,10 +410,10 @@ static int samsung_amb655x_probe(struct mipi_dsi_device *dsi)
 	if (!ctx)
 		return -ENOMEM;
 
-	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->reset_gpio))
-		return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
-				     "Failed to get reset-gpios\n");
+	// ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
+	// if (IS_ERR(ctx->reset_gpio))
+	// 	return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
+	// 			     "Failed to get reset-gpios\n");
 
 	ctx->dsi = dsi;
 	mipi_dsi_set_drvdata(dsi, ctx);
