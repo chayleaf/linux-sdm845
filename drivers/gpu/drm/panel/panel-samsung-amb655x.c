@@ -140,11 +140,11 @@ Downstream PPS:
 	mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
 
 	/* TSP Setting */
-	// mipi_dsi_dcs_write_long(dsi, 0xf0, 0x5a, 0x5a);
-	// mipi_dsi_dcs_write_long(dsi, 0xdf, 0x83, 0x00, 0x10);
-	// mipi_dsi_dcs_write_long(dsi, 0xb0, 0x01);
-	// mipi_dsi_dcs_write_long(dsi, 0xe6, 0x01);
-	// mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0x5a, 0x5a);
+	mipi_dsi_dcs_write_long(dsi, 0xdf, 0x83, 0x00, 0x10);
+	mipi_dsi_dcs_write_long(dsi, 0xb0, 0x01);
+	mipi_dsi_dcs_write_long(dsi, 0xe6, 0x01);
+	mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
 
 	ret = mipi_dsi_dcs_set_column_address(dsi, 0x0000, 1080 - 1);
 	if (ret < 0) {
@@ -187,23 +187,27 @@ Downstream PPS:
 
 	mipi_dsi_dcs_write_long(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY, 0x20);
 
-	/* 60hz Transition */
+	/* refresh rate Transition */
 	mipi_dsi_dcs_write_long(dsi, 0xf0, 0x5a, 0x5a);
-	mipi_dsi_dcs_write_long(dsi, 0x60, 0x00);
+	/* 60 Hz */
+	//mipi_dsi_dcs_write_long(dsi, 0x60, 0x00);
+
+	/* 120 Hz */
+	mipi_dsi_dcs_write_long(dsi, 0x60, 0x10);
 	mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
 
 	/* ACL Mode */
 	mipi_dsi_dcs_write_long(dsi, 0xf0, 0x5a, 0x5a);
 	mipi_dsi_dcs_write_long(dsi, MIPI_DCS_WRITE_POWER_SAVE, 0x00);
 	mipi_dsi_dcs_write_long(dsi, 0xf0, 0xa5, 0xa5);
-	// mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY, 0x20);
-	// msleep(110);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY, 0x20);
+	msleep(110);
 
 	/* Enable backlight */
-	//mipi_dsi_dcs_write_long(dsi, 0x9F, 0x5A, 0x5A);
+	mipi_dsi_dcs_write_long(dsi, 0x9F, 0x5A, 0x5A);
 	mipi_dsi_dcs_set_display_on(dsi);
-	// mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_ENTER_NORMAL_MODE);
-	// mipi_dsi_dcs_write_long(dsi, 0x9F, 0xA5, 0xA5);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_ENTER_NORMAL_MODE);
+	mipi_dsi_dcs_write_long(dsi, 0x9F, 0xA5, 0xA5);
 
 	return 0;
 }
@@ -319,12 +323,26 @@ static const struct drm_display_mode samsung_amb655x_mode = {
 	.height_mm = 151,
 };
 
+static const struct drm_display_mode samsung_amb655x_120_mode = {
+	.clock = (1080 + 52 + 24 + 24) * (2400 + 4 + 4 + 8) * 120 / 1000,
+	.hdisplay = 1080,
+	.hsync_start = 1080 + 52,
+	.hsync_end = 1080 + 52 + 24,
+	.htotal = 1080 + 52 + 24 + 24,
+	.vdisplay = 2400,
+	.vsync_start = 2400 + 4,
+	.vsync_end = 2400 + 4 + 4,
+	.vtotal = 2400 + 4 + 4 + 8,
+	.width_mm = 70,
+	.height_mm = 151,
+};
+
 static int samsung_amb655x_get_modes(struct drm_panel *panel,
 				     struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
 
-	mode = drm_mode_duplicate(connector->dev, &samsung_amb655x_mode);
+	mode = drm_mode_duplicate(connector->dev, &samsung_amb655x_120_mode);
 	if (!mode)
 		return -ENOMEM;
 
