@@ -10,11 +10,6 @@
 	compatible = "oneplus,kebab", "qcom,sm8250";
 };
 
-&display_panel {
-	compatible = "samsung,amb655x";
-	status = "okay";
-};
-
 &i2c13 {
 	clock-frequency = <400000>;
 	status = "okay";
