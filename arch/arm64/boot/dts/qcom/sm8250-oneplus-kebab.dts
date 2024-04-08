@@ -19,22 +19,5 @@
 	clock-frequency = <400000>;
 	status = "okay";
 
-	touchscreen@4b {
-		compatible = "syna,s3908";
-		reg = <0x4B>;
-
-		pinctrl-0 = <&ts_irq_active &tp_rst_active>;
-		pinctrl-names = "default";
-
-		interrupt-parent = <&tlmm>;
-		interrupts = <39 0x2008>;
-
-		reset-gpios = <&tlmm 38 GPIO_ACTIVE_HIGH>;
-
-		vdd-supply = <&vreg_l13a_ts_3p0>;
-		vcc-supply = <&vreg_l1c_1p8>;
-		vdd_volt = <3008000>;
-
-		max-objects = <10>;
-	};
+	/* Syanptics S3908 touchscreen @ 4b */
 };
