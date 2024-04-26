@@ -322,20 +322,11 @@
 	firmware-name = "qcom/sdm845/pixel3/cdsp.mbn";
 };
 
-&dsi0 {
+&mdss_dsi0 {
 	status = "okay";
 	vdda-supply = <&vdda_mipi_dsi0_1p2>;
 
-	ports {
-		port@1 {
-			endpoint {
-				remote-endpoint = <&lg_sw43408_in_0>;
-				data-lanes = <0 1 2 3>;
-			};
-		};
-	};
-
-	panel@0 {
+	panel {
 		compatible = "lg,sw43408";
 		reg = <0>;
 
@@ -354,19 +345,19 @@
 			port@0 {
 				reg = <0>;
 				lg_sw43408_in_0: endpoint {
-					remote-endpoint = <&dsi0_out>;
+					remote-endpoint = <&mdss_dsi0_out>;
 				};
 			};
 		};
 	};
 };
 
-&dsi0_out {
+&mdss_dsi0_out {
 	remote-endpoint = <&lg_sw43408_in_0>;
 	data-lanes = <0 1 2 3>;
 };
 
-&dsi0_phy {
+&mdss_dsi0_phy {
 	status = "okay";
 	vdds-supply = <&vdda_mipi_dsi0_pll>;
 };
