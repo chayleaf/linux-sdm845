@@ -139,7 +139,7 @@
 &adsp_pas {
 	status = "okay";
 
-	firmware-name = "qcom/sdm845/pixel3/adsp.mbn";
+	firmware-name = "qcom/sdm845/blueline/adsp.mbn";
 };
 
 &apps_rsc {
@@ -329,7 +329,7 @@
 
 &cdsp_pas {
 	status = "okay";
-	firmware-name = "qcom/sdm845/pixel3/cdsp.mbn";
+	firmware-name = "qcom/sdm845/blueline/cdsp.mbn";
 };
 
 &mdss_dsi0 {
@@ -391,7 +391,7 @@
 
 	zap-shader {
 		memory-region = <&gpu_mem>;
-		firmware-name = "qcom/sdm845/pixel3/a630_zap.mbn";
+		firmware-name = "qcom/sdm845/blueline/a630_zap.mbn";
 	};
 };
 
@@ -428,12 +428,12 @@
 	status = "okay";
 
 	memory-region = <&ipa_fw_mem>;
-	firmware-name = "qcom/sdm845/pixel3/ipa_fws.mbn";
+	firmware-name = "qcom/sdm845/blueline/ipa_fws.mbn";
 };
 
 &mss_pil {
 	status = "okay";
-	firmware-name = "qcom/sdm845/pixel3/mba.mbn", "qcom/sdm845/pixel3/modem.mbn";
+	firmware-name = "qcom/sdm845/blueline/mba.mbn", "qcom/sdm845/blueline/modem.mbn";
 };
 
 &mdss {
