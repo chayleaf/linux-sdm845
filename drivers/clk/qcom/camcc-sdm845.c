@@ -43,6 +43,8 @@ static struct clk_alpha_pll cam_cc_pll0 = {
 static const struct clk_div_table post_div_table_fabia_even[] = {
 	{ 0x0, 1 },
 	{ 0x1, 2 },
+	{ 0x3, 4 },
+	{ 0x7, 8 },
 	{ }
 };
 
@@ -204,7 +206,7 @@ static struct clk_rcg2 cam_cc_bps_clk_src = {
 		.name = "cam_cc_bps_clk_src",
 		.parent_data = cam_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(cam_cc_parent_data_0),
-		.flags = CLK_SET_RATE_PARENT,
+		//.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_shared_ops,
 	},
 };
@@ -283,7 +285,7 @@ static struct clk_rcg2 cam_cc_csi1phytimer_clk_src = {
 		.name = "cam_cc_csi1phytimer_clk_src",
 		.parent_data = cam_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(cam_cc_parent_data_0),
-		.flags = CLK_SET_RATE_PARENT,
+		//.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 	},
 };
@@ -298,7 +300,7 @@ static struct clk_rcg2 cam_cc_csi2phytimer_clk_src = {
 		.name = "cam_cc_csi2phytimer_clk_src",
 		.parent_data = cam_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(cam_cc_parent_data_0),
-		.flags = CLK_SET_RATE_PARENT,
+		//.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 	},
 };
@@ -313,7 +315,7 @@ static struct clk_rcg2 cam_cc_csi3phytimer_clk_src = {
 		.name = "cam_cc_csi3phytimer_clk_src",
 		.parent_data = cam_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(cam_cc_parent_data_0),
-		.flags = CLK_SET_RATE_PARENT,
+		//.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 	},
 };
@@ -408,7 +410,7 @@ static struct clk_rcg2 cam_cc_ife_0_clk_src = {
 		.name = "cam_cc_ife_0_clk_src",
 		.parent_data = cam_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(cam_cc_parent_data_0),
-		.flags = CLK_SET_RATE_PARENT,
+		//.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_shared_ops,
 	},
 };
@@ -445,7 +447,7 @@ static struct clk_rcg2 cam_cc_ife_1_clk_src = {
 		.name = "cam_cc_ife_1_clk_src",
 		.parent_data = cam_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(cam_cc_parent_data_0),
-		.flags = CLK_SET_RATE_PARENT,
+		//.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_shared_ops,
 	},
 };
@@ -514,7 +516,7 @@ static struct clk_rcg2 cam_cc_ipe_0_clk_src = {
 		.name = "cam_cc_ipe_0_clk_src",
 		.parent_data = cam_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(cam_cc_parent_data_0),
-		.flags = CLK_SET_RATE_PARENT,
+		//.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_shared_ops,
 	},
 };
@@ -529,7 +531,7 @@ static struct clk_rcg2 cam_cc_ipe_1_clk_src = {
 		.name = "cam_cc_ipe_1_clk_src",
 		.parent_data = cam_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(cam_cc_parent_data_0),
-		.flags = CLK_SET_RATE_PARENT,
+		//.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_shared_ops,
 	},
 };
@@ -544,7 +546,7 @@ static struct clk_rcg2 cam_cc_jpeg_clk_src = {
 		.name = "cam_cc_jpeg_clk_src",
 		.parent_data = cam_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(cam_cc_parent_data_0),
-		.flags = CLK_SET_RATE_PARENT,
+		//.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_shared_ops,
 	},
 };
@@ -569,14 +571,14 @@ static struct clk_rcg2 cam_cc_lrme_clk_src = {
 		.name = "cam_cc_lrme_clk_src",
 		.parent_data = cam_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(cam_cc_parent_data_0),
-		.flags = CLK_SET_RATE_PARENT,
+		//.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_shared_ops,
 	},
 };
 
 static const struct freq_tbl ftbl_cam_cc_mclk0_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(24000000, P_CAM_CC_PLL2_OUT_EVEN, 10, 1, 2),
+	F(24000000, P_CAM_CC_PLL2_OUT_EVEN, 5, 1, 2),
 	F(33333333, P_CAM_CC_PLL0_OUT_EVEN, 2, 1, 9),
 	F(34285714, P_CAM_CC_PLL2_OUT_EVEN, 14, 0, 0),
 	{ }
@@ -592,7 +594,7 @@ static struct clk_rcg2 cam_cc_mclk0_clk_src = {
 		.name = "cam_cc_mclk0_clk_src",
 		.parent_data = cam_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(cam_cc_parent_data_0),
-		.flags = CLK_SET_RATE_PARENT,
+		//.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 	},
 };
@@ -661,7 +663,7 @@ static struct clk_rcg2 cam_cc_slow_ahb_clk_src = {
 		.name = "cam_cc_slow_ahb_clk_src",
 		.parent_data = cam_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(cam_cc_parent_data_0),
-		.flags = CLK_SET_RATE_PARENT,
+		//.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 	},
 };
