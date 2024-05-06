@@ -6,6 +6,8 @@
  * Standard functionality for the common clock API.  See Documentation/driver-api/clk.rst
  */
 
+#define DEBUG
+
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/clk/clk-conf.h>
