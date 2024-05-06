@@ -537,7 +537,7 @@
 		compatible = /*"mipi-ccs", */"sony,imx519";
 		reg = <0x1a>;
 
-		// GPIO 40 seems to be "sub_cam_PWDN", probably we need to deal with that
+		// GPIO 40 seems to be "CAM1_PWDN", probably we need to deal with that
 		reset-gpios = <&tlmm 28 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&main_cam_default>;
@@ -1122,6 +1122,15 @@
 
 			drive-strength = <2>;
 			bias-disable;
+		};
+
+		pwdn {
+			pins = "gpio40";
+			function = "gpio";
+
+			drive-strength = <8>;
+			/* Power on */
+			bias-pull-down;
 		};
 	};
 

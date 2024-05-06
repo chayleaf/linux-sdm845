@@ -142,6 +142,10 @@ static int csid_set_clock_rates(struct csid_device *csid)
 				return ret;
 			}
 		} else if (clock->nfreqs) {
+			if (!strcmp(clock->name, "vfe0") || !strcmp(clock->name, "vfe0_src")) {
+				dev_info(dev,"CSID Skip clock %s\n", clock->name);
+				continue;
+			}
 			dev_info(dev, "CSID clock %s rate %u\n",
 				 clock->name, clock->freq[clock->nfreqs - 1]);
 			clk_set_rate(clock->clk, clock->freq[clock->nfreqs - 1]);

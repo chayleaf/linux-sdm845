@@ -519,62 +519,62 @@ static const struct camss_subdev_resources csiphy_res_845[] = {
 		.ops = &csiphy_ops_3ph_1_0
 	},
 
-	/* CSIPHY1 */
-	{
-		.regulators = {},
-		.clock = { "camnoc_axi", "soc_ahb", "slow_ahb_src",
-				"cpas_ahb", "cphy_rx_src", "csiphy1",
-				"csiphy1_timer_src", "csiphy1_timer" },
-		.clock_rate = { { 0 },
-				{ 0 },
-				{ 0 },
-				{ 0 },
-				{ 0 },
-				{ 0 },
-				{ 0 },
-				{ 19200000, 240000000, 269333333 } },
-		.reg = { "csiphy1" },
-		.interrupt = { "csiphy1" },
-		.ops = &csiphy_ops_3ph_1_0
-	},
+	// /* CSIPHY1 */
+	// {
+	// 	.regulators = {},
+	// 	.clock = { "camnoc_axi", "soc_ahb", "slow_ahb_src",
+	// 			"cpas_ahb", "cphy_rx_src", "csiphy1",
+	// 			"csiphy1_timer_src", "csiphy1_timer" },
+	// 	.clock_rate = { { 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 19200000, 240000000, 269333333 } },
+	// 	.reg = { "csiphy1" },
+	// 	.interrupt = { "csiphy1" },
+	// 	.ops = &csiphy_ops_3ph_1_0
+	// },
 
-	/* CSIPHY2 */
-	{
-		.regulators = {},
-		.clock = { "camnoc_axi", "soc_ahb", "slow_ahb_src",
-				"cpas_ahb", "cphy_rx_src", "csiphy2",
-				"csiphy2_timer_src", "csiphy2_timer" },
-		.clock_rate = { { 0 },
-				{ 0 },
-				{ 0 },
-				{ 0 },
-				{ 0 },
-				{ 0 },
-				{ 0 },
-				{ 19200000, 240000000, 269333333 } },
-		.reg = { "csiphy2" },
-		.interrupt = { "csiphy2" },
-		.ops = &csiphy_ops_3ph_1_0
-	},
+	// /* CSIPHY2 */
+	// {
+	// 	.regulators = {},
+	// 	.clock = { "camnoc_axi", "soc_ahb", "slow_ahb_src",
+	// 			"cpas_ahb", "cphy_rx_src", "csiphy2",
+	// 			"csiphy2_timer_src", "csiphy2_timer" },
+	// 	.clock_rate = { { 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 19200000, 240000000, 269333333 } },
+	// 	.reg = { "csiphy2" },
+	// 	.interrupt = { "csiphy2" },
+	// 	.ops = &csiphy_ops_3ph_1_0
+	// },
 
-	/* CSIPHY3 */
-	{
-		.regulators = {},
-		.clock = { "camnoc_axi", "soc_ahb", "slow_ahb_src",
-				"cpas_ahb", "cphy_rx_src", "csiphy3",
-				"csiphy3_timer_src", "csiphy3_timer" },
-		.clock_rate = { { 0 },
-				{ 0 },
-				{ 0 },
-				{ 0 },
-				{ 0 },
-				{ 0 },
-				{ 0 },
-				{ 19200000, 240000000, 269333333 } },
-		.reg = { "csiphy3" },
-		.interrupt = { "csiphy3" },
-		.ops = &csiphy_ops_3ph_1_0
-	}
+	// /* CSIPHY3 */
+	// {
+	// 	.regulators = {},
+	// 	.clock = { "camnoc_axi", "soc_ahb", "slow_ahb_src",
+	// 			"cpas_ahb", "cphy_rx_src", "csiphy3",
+	// 			"csiphy3_timer_src", "csiphy3_timer" },
+	// 	.clock_rate = { { 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 0 },
+	// 			{ 19200000, 240000000, 269333333 } },
+	// 	.reg = { "csiphy3" },
+	// 	.interrupt = { "csiphy3" },
+	// 	.ops = &csiphy_ops_3ph_1_0
+	// }
 };
 
 static const struct camss_subdev_resources csid_res_845[] = {
@@ -599,48 +599,48 @@ static const struct camss_subdev_resources csid_res_845[] = {
 		.ops = &csid_ops_gen2
 	},
 
-	/* CSID1 */
-	{
-		.regulators = { "vdda-phy", "vdda-pll" },
-		.clock = { "cpas_ahb", "cphy_rx_src", "slow_ahb_src",
-				"soc_ahb", "vfe1", "vfe1_src",
-				"vfe1_cphy_rx", "csi1",
-				"csi1_src" },
-		.clock_rate = { { 0 },
-				{ 384000000 },
-				{ 80000000 },
-				{ 0 },
-				{ 19200000, 100000000, 320000000, 404000000, 480000000, 600000000 },
-				{ 320000000 },
-				{ 0 },
-				{ 19200000, 75000000, 384000000, 538666667 },
-				{ 384000000 } },
-		.reg = { "csid1" },
-		.interrupt = { "csid1" },
-		.ops = &csid_ops_gen2
-	},
+	// /* CSID1 */
+	// {
+	// 	.regulators = { "vdda-phy", "vdda-pll" },
+	// 	.clock = { "cpas_ahb", "cphy_rx_src", "slow_ahb_src",
+	// 			"soc_ahb", "vfe1", "vfe1_src",
+	// 			"vfe1_cphy_rx", "csi1",
+	// 			"csi1_src" },
+	// 	.clock_rate = { { 0 },
+	// 			{ 384000000 },
+	// 			{ 80000000 },
+	// 			{ 0 },
+	// 			{ 19200000, 100000000, 320000000, 404000000, 480000000, 600000000 },
+	// 			{ 320000000 },
+	// 			{ 0 },
+	// 			{ 19200000, 75000000, 384000000, 538666667 },
+	// 			{ 384000000 } },
+	// 	.reg = { "csid1" },
+	// 	.interrupt = { "csid1" },
+	// 	.ops = &csid_ops_gen2
+	// },
 
-	/* CSID2 */
-	{
-		.regulators = { "vdda-phy", "vdda-pll" },
-		.clock = { "cpas_ahb", "cphy_rx_src", "slow_ahb_src",
-				"soc_ahb", "vfe_lite", "vfe_lite_src",
-				"vfe_lite_cphy_rx", "csi2",
-				"csi2_src" },
-		.clock_rate = { { 0 },
-				{ 384000000 },
-				{ 80000000 },
-				{ 0 },
-				{ 19200000, 100000000, 320000000, 404000000, 480000000, 600000000 },
-				{ 320000000 },
-				{ 0 },
-				{ 19200000, 75000000, 384000000, 538666667 },
-				{ 384000000 } },
-		.reg = { "csid2" },
-		.interrupt = { "csid2" },
-		.is_lite = true,
-		.ops = &csid_ops_gen2
-	}
+	// /* CSID2 */
+	// {
+	// 	.regulators = { "vdda-phy", "vdda-pll" },
+	// 	.clock = { "cpas_ahb", "cphy_rx_src", "slow_ahb_src",
+	// 			"soc_ahb", "vfe_lite", "vfe_lite_src",
+	// 			"vfe_lite_cphy_rx", "csi2",
+	// 			"csi2_src" },
+	// 	.clock_rate = { { 0 },
+	// 			{ 384000000 },
+	// 			{ 80000000 },
+	// 			{ 0 },
+	// 			{ 19200000, 100000000, 320000000, 404000000, 480000000, 600000000 },
+	// 			{ 320000000 },
+	// 			{ 0 },
+	// 			{ 19200000, 75000000, 384000000, 538666667 },
+	// 			{ 384000000 } },
+	// 	.reg = { "csid2" },
+	// 	.interrupt = { "csid2" },
+	// 	.is_lite = true,
+	// 	.ops = &csid_ops_gen2
+	// }
 };
 
 static const struct camss_subdev_resources vfe_res_845[] = {
@@ -669,50 +669,50 @@ static const struct camss_subdev_resources vfe_res_845[] = {
 	},
 
 	/* VFE1 */
-	{
-		.regulators = {},
-		.clock = { "camnoc_axi", "cpas_ahb", "slow_ahb_src",
-				"soc_ahb", "vfe1", "vfe1_axi",
-				"vfe1_src", "csi1",
-				"csi1_src"},
-		.clock_rate = { { 0 },
-				{ 0 },
-				{ 80000000 },
-				{ 0 },
-				{ 19200000, 100000000, 320000000, 404000000, 480000000, 600000000 },
-				{ 0 },
-				{ 320000000 },
-				{ 19200000, 75000000, 384000000, 538666667 },
-				{ 384000000 } },
-		.reg = { "vfe1" },
-		.pd_name = "ife1",
-		.interrupt = { "vfe1" },
-		.line_num = 4,
-		.has_pd = true,
-		.ops = &vfe_ops_170
-	},
+	// {
+	// 	.regulators = {},
+	// 	.clock = { "camnoc_axi", "cpas_ahb", "slow_ahb_src",
+	// 			"soc_ahb", "vfe1", "vfe1_axi",
+	// 			"vfe1_src", "csi1",
+	// 			"csi1_src"},
+	// 	.clock_rate = { { 0 },
+	// 			{ 0 },
+	// 			{ 80000000 },
+	// 			{ 0 },
+	// 			{ 19200000, 100000000, 320000000, 404000000, 480000000, 600000000 },
+	// 			{ 0 },
+	// 			{ 320000000 },
+	// 			{ 19200000, 75000000, 384000000, 538666667 },
+	// 			{ 384000000 } },
+	// 	.reg = { "vfe1" },
+	// 	.pd_name = "ife1",
+	// 	.interrupt = { "vfe1" },
+	// 	.line_num = 4,
+	// 	.has_pd = true,
+	// 	.ops = &vfe_ops_170
+	// },
 
-	/* VFE-lite */
-	{
-		.regulators = {},
-		.clock = { "camnoc_axi", "cpas_ahb", "slow_ahb_src",
-				"soc_ahb", "vfe_lite",
-				"vfe_lite_src", "csi2",
-				"csi2_src"},
-		.clock_rate = { { 0 },
-				{ 0 },
-				{ 80000000 },
-				{ 0 },
-				{ 19200000, 100000000, 320000000, 404000000, 480000000, 600000000 },
-				{ 320000000 },
-				{ 19200000, 75000000, 384000000, 538666667 },
-				{ 384000000 } },
-		.reg = { "vfe_lite" },
-		.interrupt = { "vfe_lite" },
-		.is_lite = true,
-		.line_num = 4,
-		.ops = &vfe_ops_170
-	}
+	// /* VFE-lite */
+	// {
+	// 	.regulators = {},
+	// 	.clock = { "camnoc_axi", "cpas_ahb", "slow_ahb_src",
+	// 			"soc_ahb", "vfe_lite",
+	// 			"vfe_lite_src", "csi2",
+	// 			"csi2_src"},
+	// 	.clock_rate = { { 0 },
+	// 			{ 0 },
+	// 			{ 80000000 },
+	// 			{ 0 },
+	// 			{ 19200000, 100000000, 320000000, 404000000, 480000000, 600000000 },
+	// 			{ 320000000 },
+	// 			{ 19200000, 75000000, 384000000, 538666667 },
+	// 			{ 384000000 } },
+	// 	.reg = { "vfe_lite" },
+	// 	.interrupt = { "vfe_lite" },
+	// 	.is_lite = true,
+	// 	.line_num = 4,
+	// 	.ops = &vfe_ops_170
+	// }
 };
 
 static const struct camss_subdev_resources csiphy_res_8250[] = {
@@ -1128,6 +1128,12 @@ static int camss_of_parse_endpoint_node(struct device *dev,
 	lncfg->clk.pol = mipi_csi2->lane_polarities[0];
 	lncfg->num_data = mipi_csi2->num_data_lanes;
 	lncfg->cphy = vep.bus_type == V4L2_FWNODE_BUS_TYPE_CSI2_CPHY;
+
+	dev_info(dev, "CSIPHY%d: %s, %d data lanes, %s clock lane\n",
+                 csd->interface.csiphy_id,
+                 lncfg->cphy ? "C-PHY" : "D-PHY",
+                 lncfg->num_data,
+                 lncfg->cphy ? "no" : "with");
 
 	lncfg->data = devm_kcalloc(dev,
 				   lncfg->num_data, sizeof(*lncfg->data),

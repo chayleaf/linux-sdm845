@@ -594,6 +594,7 @@ static int vfe_set_clock_rates(struct vfe_device *vfe)
 				return -EINVAL;
 			}
 
+			dev_err(dev, "set clk %s to %ld\n", clock->name, rate);
 			ret = clk_set_rate(clock->clk, rate);
 			if (ret < 0) {
 				dev_err(dev, "clk set rate failed: %d\n", ret);
