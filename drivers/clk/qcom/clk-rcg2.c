@@ -257,14 +257,6 @@ static int _freq_tbl_determine_rate(struct clk_hw *hw, const struct freq_tbl *f,
 	req->best_parent_rate = rate;
 	req->rate = f->freq;
 
-	if (!strcmp(clk_hw_get_name(hw), "cam_cc_csi0phytimer_clk_src")) {
-		req->best_parent_rate *= 4;
-		//pr_info("%s: HACKSSSSSS\n", clk_hw_get_name(hw));
-	}
-
-	pr_info("%s: rate %lu, parent_rate %lu, best_parent_rate %lu\n",
-		clk_hw_get_name(hw), req->rate, clk_hw_get_rate(p), req->best_parent_rate);
-
 	return 0;
 }
 

@@ -1302,15 +1302,11 @@ static unsigned long alpha_pll_fabia_recalc_rate(struct clk_hw *hw,
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
 	u32 l, frac, alpha_width = pll_alpha_width(pll);
-	unsigned long res;
 
 	regmap_read(pll->clkr.regmap, PLL_L_VAL(pll), &l);
 	regmap_read(pll->clkr.regmap, PLL_FRAC(pll), &frac);
 
-	res = alpha_pll_calc_rate(parent_rate, l, frac, alpha_width);
-	pr_info("fabia PLL %s: rcalc rate %lu (l: %#x, a: %#x)\n", clk_hw_get_name(hw), res, l, frac);
-
-	return res;
+	return alpha_pll_calc_rate(parent_rate, l, frac, alpha_width);
 }
 
 /*
@@ -1345,8 +1341,6 @@ static int alpha_pll_fabia_set_rate(struct clk_hw *hw, unsigned long rate,
 	ret = alpha_pll_check_rate_margin(hw, rrate, rate);
 	if (ret < 0)
 		return ret;
-
-	pr_info("fabia PLL %s: rate %lu (l: %#x, a: %#llx)\n", clk_hw_get_name(hw), rate, l, a);
 
 	regmap_write(pll->clkr.regmap, PLL_L_VAL(pll), l);
 	regmap_write(pll->clkr.regmap, PLL_FRAC(pll), a);
@@ -1450,8 +1444,6 @@ static unsigned long clk_alpha_pll_postdiv_fabia_recalc_rate(struct clk_hw *hw,
 		}
 	}
 
-	pr_info("%s: recalc rate %lu (div %d)\n", clk_hw_get_name(hw), parent_rate / div, div);
-
 	return (parent_rate / div);
 }
 
@@ -1548,8 +1540,6 @@ static int clk_alpha_pll_postdiv_fabia_set_rate(struct clk_hw *hw,
 			break;
 		}
 	}
-
-	pr_info("fabia postdiv %s set div: %d (val %d)\n", clk_hw_get_name(hw), div, val);
 
 	return regmap_update_bits(pll->clkr.regmap, PLL_USER_CTL(pll),
 				(BIT(pll->width) - 1) << pll->post_div_shift,
