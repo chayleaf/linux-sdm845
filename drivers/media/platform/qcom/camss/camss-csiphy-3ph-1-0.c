@@ -547,7 +547,7 @@ static void csiphy_lanes_enable(struct csiphy_device *csiphy,
 	int i;
 
 	settle_cnt = csiphy_settle_cnt_calc(link_freq, csiphy->timer_clk_rate);
-	dev_info(csiphy->camss->dev, "settle_cnt: %u\n", settle_cnt);
+	dev_info(csiphy->camss->dev, "settle_cnt: %u link freq %lld\n", settle_cnt, link_freq);
 	settle_cnt = 14; // DOWNSTREAM
 
 	if (!c->cphy) {

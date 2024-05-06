@@ -256,6 +256,8 @@ static int csiphy_stream_on(struct csiphy_device *csiphy)
 	u8 num_lanes = csiphy->cfg.csi2->lane_cfg.num_data;
 	u8 val;
 
+	dev_err(csiphy->camss->dev, "csiphy_stream_on\n");
+
 	link_freq = camss_get_link_freq(&csiphy->subdev.entity, bpp, num_lanes);
 
 	if (link_freq < 0) {
@@ -293,6 +295,7 @@ static int csiphy_stream_on(struct csiphy_device *csiphy)
  */
 static void csiphy_stream_off(struct csiphy_device *csiphy)
 {
+	dev_err(csiphy->camss->dev, "csiphy_stream_off\n");
 	csiphy->ops->lanes_disable(csiphy, &csiphy->cfg);
 }
 

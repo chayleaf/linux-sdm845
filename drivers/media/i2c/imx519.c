@@ -497,7 +497,7 @@ static const struct cci_reg_sequence mode_common_regs[] = {
 /* 16 mpix 60fps */
 static const struct cci_reg_sequence mode_4656x3496_regs[] = {
 	{ CCS_R_CSI_SIGNALING_MODE, CCS_CSI_SIGNALING_MODE_CSI_2_CPHY }, // again?!
-	{ CCS_R_CSI_DATA_FORMAT, 0x0A0A },
+	{ CCS_R_CSI_DATA_FORMAT, 0x0A0A }, // 10-bit
 	{ CCS_R_CSI_LANE_MODE, 0x02 }, // 3 lanes
 	{ CCS_R_LINE_LENGTH_PCK, 0x1900 }, // 6400
 	{ CCS_R_FRAME_LENGTH_LINES, 0x0DF1 }, // 3569
@@ -927,7 +927,7 @@ static const struct imx519_mode supported_modes_10bit[] = {
 			.regs = mode_4656x3496_regs,
 		}
 	},
-	{
+	/*{
 		.width = 3840,
 		.height = 2160,
 		.line_length_pix = 0x3870,
@@ -1018,7 +1018,7 @@ static const struct imx519_mode supported_modes_10bit[] = {
 			.num_of_regs = ARRAY_SIZE(mode_1280x720_regs),
 			.regs = mode_1280x720_regs,
 		}
-	}
+	}*/
 };
 
 /*
@@ -1855,7 +1855,7 @@ static int imx519_probe(struct i2c_client *client)
 
 	xclk_freq = clk_get_rate(imx519->xclk);
 	if (xclk_freq != IMX519_XCLK_FREQ)
-		return dev_err_probe(dev, -EINVAL,
+		dev_err_probe(dev, -EINVAL,
 				     "xclk frequency not supported: %d Hz\n",
 				     xclk_freq);
 
