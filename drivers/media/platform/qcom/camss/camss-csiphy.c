@@ -7,6 +7,7 @@
  * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  * Copyright (C) 2016-2018 Linaro Ltd.
  */
+#include "linux/clk-provider.h"
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -172,12 +173,18 @@ static int csiphy_set_clock_rates(struct csiphy_device *csiphy)
 
 			csiphy->timer_clk_rate = round_rate;
 
-			dev_info(dev, "CSIPHY%d timer clk rate: %u\n",
-				 csiphy->id, csiphy->timer_clk_rate);
+			dev_info(dev, "CSIPHY clk %s (clkname %s) rate: %u\n",
+				 clock->name, __clk_get_name(clock->clk), csiphy->timer_clk_rate);
+
+			if (!strcmp("vfe0_src", clock->name)) {
+				dev_info(dev, "SKIP vfe0_src CSIPHY clock_set_rate?!\n");
+				continue;
+			}
 
 			/* for C-PHY mode the max rate is always a safe bet for this clock */
 			// DOWNSTREAM MATCHES
-			csiphy->timer_clk_rate = 269333333;
+			// upstream calculates this right!
+			//csiphy->timer_clk_rate = 269333333;
 
 			ret = clk_set_rate(clock->clk, csiphy->timer_clk_rate);
 			if (ret < 0) {

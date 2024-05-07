@@ -145,6 +145,9 @@ static int clk_rcg2_set_parent(struct clk_hw *hw, u8 index)
 	if (ret)
 		return ret;
 
+	pr_info("%s: %s: %s\n", __func__, clk_hw_get_name(hw),
+		__clk_get_name(clk_hw_get_parent_by_index(hw, index)->clk));
+
 	return update_config(rcg);
 }
 
