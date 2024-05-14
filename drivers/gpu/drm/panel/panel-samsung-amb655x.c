@@ -388,13 +388,13 @@ static int samsung_amb655x_bl_get_brightness(struct backlight_device *bl)
 	u16 brightness;
 	int ret;
 
-	//dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
+	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
 
 	ret = mipi_dsi_dcs_get_display_brightness_large(dsi, &brightness);
 	if (ret < 0)
 		return ret;
 
-	//dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
 
 	return brightness;
 }
@@ -410,8 +410,8 @@ samsung_amb655x_create_backlight(struct mipi_dsi_device *dsi)
 	struct device *dev = &dsi->dev;
 	const struct backlight_properties props = {
 		.type = BACKLIGHT_RAW,
-		.brightness = 4095,
-		.max_brightness = 4095,
+		.brightness = 2047,
+		.max_brightness = 2047, // actually 4095 but that requires some magic? "bl-high2bit"
 	};
 
 	return devm_backlight_device_register(dev, dev_name(dev), dev, dsi,
