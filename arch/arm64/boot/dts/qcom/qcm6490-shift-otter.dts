@@ -658,7 +658,7 @@
 	led-0 {
 		function = LED_FUNCTION_FLASH;
 		color = <LED_COLOR_ID_WHITE>;
-		led-sources = <0>, <1>;
+		led-sources = <1>, <2>;
 		led-max-microamp = <500000>;
 		flash-max-microamp = <1500000>;
 		flash-max-timeout-us = <1280000>;
@@ -1106,6 +1106,6 @@
 };
 
 &wifi {
-	//qcom,ath11k-calibration-variant = "SHIFTphone_8";
+	qcom,ath11k-calibration-variant = "SHIFTphone_8";
 	status = "okay";
 };
