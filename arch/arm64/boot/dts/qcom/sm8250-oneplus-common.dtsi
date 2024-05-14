@@ -611,6 +611,9 @@
 	status = "okay";
 	vdda-phy-supply = <&vreg_l5a_0p88>;
 	vdda-pll-supply = <&vreg_l9a_1p2>;
+
+	/* Power on QCA639x chip, otherwise PCIe bus timeouts */
+	//power-domains = <&qca639x>;
 };
 
 &pm8150_gpios {
@@ -839,6 +842,10 @@
 
 &usb_1_dwc3 {
 	dr_mode = "peripheral";
+};
+
+&usb_1_role_switch_out {
+	remote-endpoint = <&pm8150b_role_switch_in>;
 };
 
 &usb_1_hsphy {
