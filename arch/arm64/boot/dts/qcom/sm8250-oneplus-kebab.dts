@@ -20,7 +20,7 @@
 		compatible = "syna,s3908";
 		reg = <0x4B>;
 
-		pinctrl-0 = <&ts_irq_active &ts_rst_active>;
+		pinctrl-0 = <&ts_irq_active &tp_rst_active>;
 		pinctrl-names = "default";
 
 		interrupt-parent = <&tlmm>;
