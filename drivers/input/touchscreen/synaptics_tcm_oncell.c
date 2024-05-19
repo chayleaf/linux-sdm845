@@ -6,7 +6,7 @@
  *  Copyright (c) 2024 Caleb Connolly <caleb.connolly@linaro.org>
  */
 
-//#define DEBUG
+#define DEBUG
 
 #include <linux/i2c.h>
 #include <linux/input.h>
@@ -25,55 +25,41 @@
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 
-/* Commands */
-#define TCM_NONE 0x00
-#define TCM_CONTINUE_WRITE 0x01
+/*
+ * The TCM oncell interface uses a command byte, which may be followed by additional
+ * data. The packet format is defined in the tcm_cmd struct.
+ *
+ * The following list only defines commands that are used in this driver (and their
+ * counterparts for context). Vendor reference implementations can be found at
+ * FIXME: <github link>
+ */
+
+/* Request information about the chip. We don't send this explicitly as it
+ * automatically sends this information when starting up.
+ */
 #define TCM_IDENTIFY 0x02
-#define TCM_RESET 0x04
+
+/* Enable/disable reporting touch inputs */
 #define TCM_ENABLE_REPORT 0x05
 #define TCM_DISABLE_REPORT 0x06
-#define TCM_GET_BOOT_INFO 0x10
-#define TCM_ERASE_FLASH 0x11
-#define TCM_WRITE_FLASH 0x12
-#define TCM_READ_FLASH 0x13
+
+/* After powering on, we send this to exit the bootloader mode and run the main
+ * firmware.
+ */
 #define TCM_RUN_APPLICATION_FIRMWARE 0x14
-#define TCM_SPI_MASTER_WRITE_THEN_READ 0x15
-#define TCM_REBOOT_TO_ROM_BOOTLOADER 0x16
-#define TCM_RUN_BOOTLOADER_FIRMWARE 0x1f
+
+/* Reports information about the vendor provided application firmware. This is
+ * also used to determine when the firmware has finished booting.
+ */
 #define TCM_GET_APPLICATION_INFO 0x20
-#define TCM_GET_STATIC_CONFIG 0x21
-#define TCM_SET_STATIC_CONFIG 0x22
-#define TCM_GET_DYNAMIC_CONFIG 0x23
-#define TCM_SET_DYNAMIC_CONFIG 0x24
-#define TCM_GET_TOUCH_REPORT_CONFIG 0x25
-#define TCM_SET_TOUCH_REPORT_CONFIG 0x26
-#define TCM_REZERO 0x27
-#define TCM_COMMIT_CONFIG 0x28
-#define TCM_DESCRIBE_DYNAMIC_CONFIG 0x29
-#define TCM_PRODUCTION_TEST 0x2a
-#define TCM_SET_CONFIG_ID 0x2b
-#define TCM_ENTER_DEEP_SLEEP 0x2c
-#define TCM_EXIT_DEEP_SLEEP 0x2d
-#define TCM_GET_TOUCH_INFO 0x2e
-#define TCM_GET_DATA_LOCATION 0x2f
-#define TCM_DOWNLOAD_CONFIG 0xc0
-#define TCM_GET_NSM_INFO 0xc3
-#define TCM_EXIT_ESD 0xc4
 
 #define MODE_APPLICATION 0x01
-#define MODE_HOST_DOWNLOAD 0x02
-#define MODE_BOOTLOADER 0x0b
-#define MODE_TDDI_BOOTLOADER 0x0c
 
 #define APP_STATUS_OK 0x00
 #define APP_STATUS_BOOTING 0x01
 #define APP_STATUS_UPDATING 0x02
-#define APP_STATUS_BAD_APP_CONFIG 0xff
 
-/* status codes */
-#define REPORT_IDLE 0x00
 #define REPORT_OK 0x01
-#define REPORT_BUSY 0x02
 #define REPORT_CONTINUED_READ 0x03
 #define REPORT_RECEIVE_BUFFER_OVERFLOW 0x0c
 #define REPORT_PREVIOUS_COMMAND_PENDING 0x0d
@@ -308,34 +294,41 @@ static void tcm_input_close(struct input_dev *dev)
 }
 
 /*
-The default report config looks like this:
+ * The firmware on this family of controllers has a report config system, allowing
+ * you to dynamically parse the data from the touch reports. The default S3908
+ * firmware report config looks like this:
+ *
+ * a5 01 80 00 11 08 1e 08 0f 01 04 01 06 04 07 04
+ * 08 0c 09 0c 0a 08 0b 08 0c 08 0d 10 0e 10 03 00
+ * 00 00
+ *
+ * a5 01 80 00 - HEADER + length
+ *
+ * 11 08 - TOUCH_FRAME_RATE (8 bits)
+ * 30 08 - UNKNOWN (8 bits)
+ * 0f 01 - TOUCH_0D_BUTTONS_STATE (1 bit)
+ * 04 01 - TOUCH_PAD_TO_NEXT_BYTE (7 bits - padding)
+ * 06 04 - TOUCH_OBJECT_N_INDEX (4 bits)
+ * 07 04 - TOUCH_OBJECT_N_CLASSIFICATION (4 bits)
+ * 08 0c - TOUCH_OBJECT_N_X_POSITION (12 bits)
+ * 09 0c - TOUCH_OBJECT_N_Y_POSITION (12 bits)
+ * 0a 08 - TOUCH_OBJECT_N_Z (8 bits)
+ * 0b 08 - TOUCH_OBJECT_N_X_WIDTH (8 bits)
+ * 0c 08 - TOUCH_OBJECT_N_Y_WIDTH (8 bits)
+ * 0d 10 - TOUCH_OBJECT_N_TX_POSITION_TIXELS (16 bits) ??
+ * 0e 10 - TOUCH_OBJECT_N_RX_POSITION_TIXELS (16 bits) ??
+ * 03 00 - TOUCH_FOREACH_END (0 bits)
+ * 00 00 - TOUCH_END (0 bits)
+ *
+ * Parsing this dynamically gets complicated, and we kinda don't need to.
+ *
+ */
 
-a5 01 80 00 11 08 1e 08 0f 01 04 01 06 04 07 04
-08 0c 09 0c 0a 08 0b 08 0c 08 0d 10 0e 10 03 00
-00 00
-
-a5 01 80 00 - HEADER + length
-
-11 08 - TOUCH_FRAME_RATE (8 bits)
-30 08 - UNKNOWN (8 bits)
-0f 01 - TOUCH_0D_BUTTONS_STATE (1 bit)
-04 01 - TOUCH_PAD_TO_NEXT_BYTE (7 bits - padding)
-06 04 - TOUCH_OBJECT_N_INDEX (4 bits)
-07 04 - TOUCH_OBJECT_N_CLASSIFICATION (4 bits)
-08 0c - TOUCH_OBJECT_N_X_POSITION (12 bits)
-09 0c - TOUCH_OBJECT_N_Y_POSITION (12 bits)
-0a 08 - TOUCH_OBJECT_N_Z (8 bits)
-0b 08 - TOUCH_OBJECT_N_X_WIDTH (8 bits)
-0c 08 - TOUCH_OBJECT_N_Y_WIDTH (8 bits)
-0d 10 - TOUCH_OBJECT_N_TX_POSITION_TIXELS (16 bits) ??
-0e 10 - TOUCH_OBJECT_N_RX_POSITION_TIXELS (16 bits) ??
-03 00 - TOUCH_FOREACH_END (0 bits)
-00 00 - TOUCH_END (0 bits)
-
-Parsing this dynamically gets complicated, and we kinda don't need to.
-
-*/
-
+/*
+ * Packed representation of the data received from the S3908
+ * controller when the display is touched. The actual report is
+ * 12 bytes (+ the message header) for a single finger.
+ */
 struct tcm_default_report_data {
 	u8 fps;
 	struct {
@@ -352,6 +345,8 @@ struct tcm_default_report_data {
 		u8 rx;
 	} __packed points[];
 } __packed;
+
+#define TCM_DEFAULT_REPORT_SIZE (REPORT_PEAK_LEN + 12)
 
 static int tcm_handle_touch_report(struct tcm_data *tcm, char *buf, size_t len)
 {
@@ -398,11 +393,14 @@ static irqreturn_t tcm_report_irq(int irq, void *data)
 	struct tcm_data *tcm = data;
 	struct tcm_message_header *header;
 	char buf[256];
+	/* Backup two bytes to avoid clobbering on continued read */
+	u16 spare;
 	u16 len;
 	int ret;
 
 	header = (struct tcm_message_header *)buf;
-	ret = tcm_recv_report(tcm, buf, sizeof(buf));
+	/* Read just enough for a 1 finger touch report (16 bytes total) */
+	ret = tcm_recv_report(tcm, buf, TCM_DEFAULT_REPORT_SIZE);
 	if (ret) {
 		dev_err(&tcm->client->dev, "failed to read report: %d\n", ret);
 		return IRQ_HANDLED;
@@ -410,7 +408,6 @@ static irqreturn_t tcm_report_irq(int irq, void *data)
 
 	switch (header->code) {
 	case REPORT_OK:
-	//case REPORT_CONTINUED_READ:
 	case REPORT_IDENTIFY:
 	case REPORT_TOUCH:
 	case REPORT_DELTA:
@@ -419,6 +416,10 @@ static irqreturn_t tcm_report_irq(int irq, void *data)
 	case REPORT_TOUCH_HOLD:
 		break;
 	default:
+		/* To keep this driver simple, we don't support REPORT_CONTINUED_READ
+		 * and instead expect all reports to be under 256 bytes. This works
+		 * even for 10 finger touch with the S3908 report config.
+		 */
 		dev_dbg(&tcm->client->dev, "Ignoring report %#x\n", header->code);
 		return IRQ_HANDLED;
 	}
@@ -427,21 +428,50 @@ static irqreturn_t tcm_report_irq(int irq, void *data)
 	len = get_unaligned_le16(buf + sizeof(*header));
 
 	dev_dbg(&tcm->client->dev, "report %#x len %u\n", header->code, len);
-	print_hex_dump_bytes("report: ", DUMP_PREFIX_OFFSET, buf, min(sizeof(buf), len + sizeof(*header)));
 
 	if (len > sizeof(buf) - sizeof(*header)) {
 		dev_err(&tcm->client->dev, "report too long\n");
 		return IRQ_HANDLED;
+	} else if (len > TCM_DEFAULT_REPORT_SIZE - sizeof(*header)) {
+		/* The read will include a 2 byte header which we need to overwrite */
+		spare = get_unaligned_le16(buf + TCM_DEFAULT_REPORT_SIZE - 2);
+		ret = tcm_recv_report(tcm, buf + TCM_DEFAULT_REPORT_SIZE - 2, len - TCM_DEFAULT_REPORT_SIZE + 2);
+		if (ret) {
+			dev_err(&tcm->client->dev, "failed to read report: %d\n", ret);
+			return IRQ_HANDLED;
+		}
+		if (buf[TCM_DEFAULT_REPORT_SIZE - 1] != REPORT_CONTINUED_READ) {
+			dev_err(&tcm->client->dev,
+				"Report has unexpected code %d\n",
+				buf[TCM_DEFAULT_REPORT_SIZE - 1]);
+			return IRQ_HANDLED;
+		}
+		put_unaligned_le16(spare, buf + TCM_DEFAULT_REPORT_SIZE - 2);
 	}
+
+	print_hex_dump_bytes("report:", DUMP_PREFIX_OFFSET, buf, len);
 
 	/* Check if this is a read response or an indication. For indications
 	 * (user touched the screen) we just parse the report directly.
 	 */
-	if (completion_done(&tcm->response) && header->code == REPORT_TOUCH) {
-		tcm_handle_touch_report(tcm, buf, len + sizeof(*header));
-		return IRQ_HANDLED;
+	if (completion_done(&tcm->response)) {
+		if (header->code == REPORT_TOUCH) {
+			tcm_handle_touch_report(tcm, buf, len + sizeof(*header));
+			return IRQ_HANDLED;
+		} else {
+			/* As we rely on the IRQF_ONESHOT flag for locking, it's
+			 * only safe to write to tcm->buf if there is a completion
+			 * pending. Otherwise we could risk racing with the code
+			 * parsing the buffer and clobbering it.
+			 */
+			dev_dbg(&tcm->client->dev, "Unexpected report!");
+			return IRQ_HANDLED;
+		}
 	}
 
+	/* For command responses, copy the stack-allocated buffer to the shared one
+	 * and fire the completion
+	 */
 	tcm->buf_size = len + sizeof(*header);
 	memcpy(tcm->buf, buf, len + sizeof(*header));
 	complete(&tcm->response);
@@ -467,10 +497,11 @@ static int tcm_hw_init(struct tcm_data *tcm, u16 *max_x, u16 *max_y)
 	if (id.mode != MODE_APPLICATION) {
 		/* We don't support firmware updates or anything else */
 		dev_err(&tcm->client->dev, "Device is not in application mode\n");
-		//return -ENODEV;
+		return -ENODEV;
 	}
 
 	do {
+		/* FIXME: how short can this be? */
 		msleep(20);
 		ret = tcm_read_message(tcm, TCM_GET_APPLICATION_INFO, &app_info, sizeof(app_info));
 		if (ret) {
@@ -504,61 +535,6 @@ static int tcm_power_on(struct tcm_data *tcm)
 
 	return 0;
 }
-
-/* just results in a NOT_IMPLEMENTED error :( */
-static int __maybe_unused tcm_set_report_config(struct tcm_data *tcm, struct tcm_report_config *config)
-{
-	int ret;
-	char buf[260];
-	struct tcm_cmd *cmd = (struct tcm_cmd *)buf;
-
-	u8 *p = cmd->data;
-	u8 *end = buf + sizeof(buf);
-
-	for (int entry = 0; entry < config->n_entries; entry++) {
-		const struct tcm_report_config_entry *e = &config->entries[entry];
-
-		*p++ = e->foreach;
-
-		for (int i = 0; i < e->n_props; i++) {
-			const struct tcm_report_config_prop *prop = &e->props[i];
-
-			if (p + 2 > end)
-				return -EINVAL;
-
-			*p++ = prop->id;
-			*p++ = prop->bits;
-		}
-	}
-
-	cmd->length = p - cmd->data;
-
-	dev_dbg(&tcm->client->dev, "default report config:\n");
-	tcm_read_message(tcm, TCM_GET_TOUCH_REPORT_CONFIG, NULL, 0);
-
-	dev_dbg(&tcm->client->dev, "setting report config (size %u)\n", cmd->length);
-	ret = tcm_send_cmd(tcm, cmd);
-	if (ret)
-		return ret;
-
-	dev_dbg(&tcm->client->dev, "NEW report config:\n");
-	tcm_read_message(tcm, TCM_GET_TOUCH_REPORT_CONFIG, NULL, 0);
-
-	return 0;
-}
-
-static const struct tcm_report_config_entry __maybe_unused report_config_default_entry = {
-	.foreach = TOUCH_FOREACH_ACTIVE_OBJECT,
-	.n_props = 4,
-	.props = (struct tcm_report_config_prop[]){
-		{ .id = TOUCH_OBJECT_N_INDEX, .bits = 4 },
-		{ .id = TOUCH_OBJECT_N_CLASSIFICATION, .bits = 4},
-		{ .id = TOUCH_OBJECT_N_X_POSITION, .bits = 16 },
-		{ .id = TOUCH_OBJECT_N_Y_POSITION, .bits = 16 },
-		// { .id = TOUCH_OBJECT_N_X_WIDTH, .bits = 12 },
-		// { .id = TOUCH_OBJECT_N_Y_WIDTH, .bits = 12 },
-	},
-};
 
 static int tcm_probe(struct i2c_client *client)
 {
@@ -611,14 +587,6 @@ static int tcm_probe(struct i2c_client *client)
 		dev_err(&client->dev, "failed to initialize hardware\n");
 		return ret;
 	}
-
-	// report_config.n_entries = 1;
-	// report_config.entries = &report_config_default_entry;
-	// ret = tcm_set_report_config(tcm, &report_config);
-	// if (ret) {
-	// 	dev_err(&client->dev, "failed to set report config\n");
-	// 	return ret;
-	// }
 
 	tcm->input = devm_input_allocate_device(&client->dev);
 	if (!tcm->input)
