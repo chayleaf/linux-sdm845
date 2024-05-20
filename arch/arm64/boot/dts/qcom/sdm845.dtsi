@@ -3992,6 +3992,17 @@
 			#interrupt-cells = <1>;
 		};
 
+		eud@88e0000 {
+			compatible = "qcom,sc7280-eud";
+			reg = <0 0x88e0000 0 0x2000>;
+
+			interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
+			// clocks = <&gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>;
+			// clock-names = "cfg_ahb_clk";
+			//vdda33-supply = <&pm8998_l24>;
+			status = "okay";
+		};
+
 		usb_1_hsphy: phy@88e2000 {
 			compatible = "qcom,sdm845-qusb2-phy", "qcom,qusb2-v2-phy";
 			reg = <0 0x088e2000 0 0x400>;
