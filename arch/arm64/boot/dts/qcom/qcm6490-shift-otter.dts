@@ -457,6 +457,10 @@
 	};
 };
 
+&eud {
+	status = "okay";
+};
+
 &gcc {
 	protected-clocks = <GCC_CFG_NOC_LPASS_CLK>,
 			<GCC_EDP_CLKREF_EN>,
