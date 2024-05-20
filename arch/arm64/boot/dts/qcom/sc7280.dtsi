@@ -3676,12 +3676,6 @@
 				phy-names = "usb2-phy";
 				maximum-speed = "high-speed";
 				usb-role-switch;
-
-				port {
-					usb2_role_switch: endpoint {
-						remote-endpoint = <&eud_ep>;
-					};
-				};
 			};
 		};
 
@@ -3918,6 +3912,8 @@
 			      <0 0x88e2000 0 0x1000>;
 			interrupts-extended = <&pdc 11 IRQ_TYPE_LEVEL_HIGH>;
 
+			qcom,secure-eud;
+
 			status = "disabled";
 
 			ports {
@@ -3927,7 +3923,7 @@
 				port@0 {
 					reg = <0>;
 					eud_ep: endpoint {
-						remote-endpoint = <&usb2_role_switch>;
+						remote-endpoint = <&usb_1_dwc3_role>;
 					};
 				};
 			};
@@ -4150,6 +4146,14 @@
 						reg = <1>;
 
 						usb_1_dwc3_ss: endpoint {
+						};
+					};
+
+					port@2 {
+						reg = <2>;
+
+						usb_1_dwc3_role: endpoint {
+							remote-endpoint = <&eud_ep>;
 						};
 					};
 				};
