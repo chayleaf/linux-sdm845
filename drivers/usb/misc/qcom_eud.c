@@ -15,6 +15,7 @@
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <linux/usb/role.h>
+#include <linux/firmware/qcom/qcom_scm.h>
 
 #define EUD_REG_INT1_EN_MASK	0x0024
 #define EUD_REG_INT_STATUS_1	0x0044
@@ -39,14 +40,27 @@ struct eud_chip {
 	int				irq;
 	bool				enabled;
 	bool				usb_attached;
+	bool				secure;
 };
+
+static void eud_mm_writel(struct eud_chip *priv, u32 val, u32 reg)
+{
+	if (!priv->mode_mgr)
+		return;
+
+	if (priv->secure) {
+		qcom_scm_io_writel((phys_addr_t)priv->mode_mgr + reg, val);
+	} else {
+		writel(val, priv->mode_mgr + reg);
+	}
+}
 
 static int enable_eud(struct eud_chip *priv)
 {
 	writel(EUD_ENABLE, priv->base + EUD_REG_CSR_EUD_EN);
 	writel(EUD_INT_VBUS | EUD_INT_SAFE_MODE,
 			priv->base + EUD_REG_INT1_EN_MASK);
-	writel(1, priv->mode_mgr + EUD_REG_EUD_EN2);
+	eud_mm_writel(priv, 1, EUD_REG_EUD_EN2);
 
 	return usb_role_switch_set_role(priv->role_sw, USB_ROLE_DEVICE);
 }
@@ -54,7 +68,7 @@ static int enable_eud(struct eud_chip *priv)
 static void disable_eud(struct eud_chip *priv)
 {
 	writel(0, priv->base + EUD_REG_CSR_EUD_EN);
-	writel(0, priv->mode_mgr + EUD_REG_EUD_EN2);
+	eud_mm_writel(priv, 0, EUD_REG_EUD_EN2);
 }
 
 static ssize_t enable_show(struct device *dev,
@@ -111,6 +125,8 @@ static void pet_eud(struct eud_chip *chip)
 	u32 reg;
 	int ret;
 
+	dev_err(chip->dev, "Petting EUD\n");
+
 	/* When the EUD_INT_PET_EUD in SW_ATTACH_DET is set, the cable has been
 	 * disconnected and we need to detach the pet to check if EUD is in safe
 	 * mode before attaching again.
@@ -137,6 +153,7 @@ static irqreturn_t handle_eud_irq(int irq, void *data)
 	u32 reg;
 
 	reg = readl(chip->base + EUD_REG_INT_STATUS_1);
+	dev_info(chip->dev, "EUD interrupt: 0x%x\n", reg);
 	switch (reg & EUD_INT_ALL) {
 	case EUD_INT_VBUS:
 		usb_attach_detach(chip);
@@ -202,7 +219,11 @@ static int eud_probe(struct platform_device *pdev)
 
 	chip->mode_mgr = devm_platform_ioremap_resource(pdev, 1);
 	if (IS_ERR(chip->mode_mgr))
-		return PTR_ERR(chip->mode_mgr);
+		chip->mode_mgr = NULL;
+
+	chip->secure = of_property_read_bool(chip->dev->of_node, "qcom,secure-eud");
+	dev_info(chip->dev, "EUD secure? %d\n", chip->secure);
+	chip->secure = true;
 
 	chip->irq = platform_get_irq(pdev, 0);
 	if (chip->irq < 0)
