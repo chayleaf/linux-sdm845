@@ -41,7 +41,7 @@
 #error PLANE_INDEX_BITS order must be equal to VIDEO_MAX_PLANES
 #endif
 
-static int debug;
+static int debug = 7;
 module_param(debug, int, 0644);
 
 #define dprintk(q, level, fmt, arg...)					\

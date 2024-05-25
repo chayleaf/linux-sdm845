@@ -519,7 +519,7 @@ static u32 csid_hw_version(struct csid_device *csid)
 static irqreturn_t csid_isr(int irq, void *dev)
 {
 	struct csid_device *csid = dev;
-	u32 val;
+	u32 val, rx_val;
 	u8 reset_done;
 	int i;
 
@@ -527,8 +527,10 @@ static irqreturn_t csid_isr(int irq, void *dev)
 	writel_relaxed(val, csid->base + CSID_TOP_IRQ_CLEAR);
 	reset_done = val & BIT(TOP_IRQ_STATUS_RESET_DONE);
 
-	val = readl_relaxed(csid->base + CSID_CSI2_RX_IRQ_STATUS);
-	writel_relaxed(val, csid->base + CSID_CSI2_RX_IRQ_CLEAR);
+	rx_val = readl_relaxed(csid->base + CSID_CSI2_RX_IRQ_STATUS);
+	writel_relaxed(rx_val, csid->base + CSID_CSI2_RX_IRQ_CLEAR);
+
+	pr_info("%s: TOP_IRQ: %#011x, RX_IRQ: %#011x (reset done; %d)", __func__, val, rx_val, reset_done);
 
 	/* Read and clear IRQ status for each enabled RDI channel */
 	for (i = 0; i < MSM_CSID_MAX_SRC_STREAMS; i++)

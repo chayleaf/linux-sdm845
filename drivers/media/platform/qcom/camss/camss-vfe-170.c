@@ -356,6 +356,8 @@ static irqreturn_t vfe_isr(int irq, void *dev)
 	for (i = VFE_LINE_RDI0; i < vfe->line_num; i++) {
 		vfe_bus_status[i] = readl_relaxed(vfe->base + VFE_BUS_IRQ_STATUS(i));
 		writel_relaxed(vfe_bus_status[i], vfe->base + VFE_BUS_IRQ_CLEAR(i));
+		dev_info(vfe->camss->dev, "VFE_BUS_IRQ_STATUS(%d) = 0x%08x\n",
+			 i, vfe_bus_status[i]);
 	}
 
 	/* Enforce ordering between IRQ reading and interpretation */
@@ -366,6 +368,9 @@ static irqreturn_t vfe_isr(int irq, void *dev)
 
 	if (status0 & STATUS_0_RESET_ACK)
 		vfe->isr_ops.reset_ack(vfe);
+
+	if (vfe_bus_status[0] & STATUS0_VIOLATION)
+		pr_err("VFE_BUS: violation = 0x%08x\n", readl_relaxed(vfe->base + VFE_BUS_IRQ_STATUS(0)));
 
 	for (i = VFE_LINE_RDI0; i < vfe->line_num; i++)
 		if (status0 & STATUS_0_RDI_REG_UPDATE(i))
@@ -546,6 +551,7 @@ error_get_output:
  */
 static void vfe_isr_sof(struct vfe_device *vfe, enum vfe_line_id line_id)
 {
+	//dev_info(vfe->camss->dev, "SOF %d\n", line_id);
 	/* nop */
 }
 
@@ -585,6 +591,8 @@ static void vfe_isr_wm_done(struct vfe_device *vfe, u8 wm)
 	unsigned long flags;
 	u32 index;
 	u64 ts = ktime_get_ns();
+
+	dev_info(vfe->camss->dev, "WM done %d\n", wm);
 
 	spin_lock_irqsave(&vfe->output_lock, flags);
 

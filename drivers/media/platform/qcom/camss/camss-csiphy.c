@@ -144,7 +144,7 @@ static int csiphy_set_clock_rates(struct csiphy_device *csiphy)
 		struct camss_clock *clock = &csiphy->clock[i];
 
 		if (csiphy->rate_set[i]) {
-			u64 min_rate = 0; //link_freq / 4;
+			u64 min_rate = link_freq / 4;
 			long round_rate;
 
 			camss_add_clock_margin(&min_rate);
@@ -210,6 +210,7 @@ static int csiphy_set_power(struct v4l2_subdev *sd, int on)
 	struct device *dev = csiphy->camss->dev;
 
 	if (on) {
+		pr_info("%s\n", __func__);
 		int ret;
 
 		ret = pm_runtime_resume_and_get(dev);

@@ -4405,6 +4405,19 @@
 				 <&apps_smmu 0x0c08 0x0>,
 				 <&apps_smmu 0x0c10 0x8>;
 
+			// FIXME: might need these later...
+			// interconnects = <&gem_noc MASTER_AMPSS_M0 0 &config_noc SLAVE_CAMERA_CFG 0>,
+			// 		<&mmss_noc MASTER_CAMNOC_HF 0 &mc_virt SLAVE_EBI_CH0 0>,
+			// 		<&mmss_noc MASTER_CAMNOC_SF 0 &mc_virt SLAVE_EBI_CH0 0>,
+			// 		<&mmss_noc MASTER_CAMNOC_ICP 0 &mc_virt SLAVE_EBI_CH0 0>;
+			// interconnect-names = "cam_ahb",
+			// 		"cam_hf_0_mnoc",
+			// 		"cam_sf_0_mnoc",
+			// 		"cam_sf_icp_mnoc";
+
+			resets = <&gcc GCC_MMSS_BCR>;
+			reset-names = "mmss";
+
 			status = "disabled";
 
 			ports {

@@ -504,7 +504,7 @@
 		port {
 			imx519_ep: endpoint {
 				remote-endpoint = <&csiphy0_ep>;
-				data-lanes = <1 2 3 4>;      //   428750000
+				data-lanes = <0 1 2 3>;      //   428750000
 				link-frequencies = /bits/ 64 <493500000>;
 			};
 		};

@@ -503,7 +503,7 @@ static void csiphy_gen2_config_lanes(struct csiphy_device *csiphy,
 		return;
 	}
 
-	dev_info(csiphy->camss->dev, "%s settle_cnt: %u\n", __func__, settle_cnt);
+	dev_info(csiphy->camss->dev, "%s settle_cnt: %u, REG WRITES:\n", __func__, settle_cnt);
 
 	for (l = 0; l < 5; l++) {
 		for (i = 0; i < array_size; i++, r++) {
@@ -517,6 +517,7 @@ static void csiphy_gen2_config_lanes(struct csiphy_device *csiphy,
 				val = r->reg_data;
 				break;
 			}
+			pr_info("Write %#010llx: %#010x\n", (phys_addr_t)csiphy->base + r->reg_addr, val);
 			writel_relaxed(val, csiphy->base + r->reg_addr);
 		}
 	}
@@ -548,7 +549,7 @@ static void csiphy_lanes_enable(struct csiphy_device *csiphy,
 
 	settle_cnt = csiphy_settle_cnt_calc(link_freq, csiphy->timer_clk_rate);
 	dev_info(csiphy->camss->dev, "settle_cnt: %u link freq %lld\n", settle_cnt, link_freq);
-	settle_cnt = 14; // DOWNSTREAM
+	//settle_cnt = 14; // DOWNSTREAM
 
 	if (!c->cphy) {
 		val = CSIPHY_3PH_CMN_CSI_COMMON_CTRL5_CLK_ENABLE;
@@ -565,6 +566,7 @@ static void csiphy_lanes_enable(struct csiphy_device *csiphy,
 		// 	val |= (BIT(c->data[i].pos) << temp);
 		// }
 	}
+	dev_info(csiphy->camss->dev, "lane mask: 0x%x\n", val);
 
 	/* These writes match the "csiphy_common_reg_1_0" downstream */
 	writel_relaxed(val, csiphy->base + CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(5));
@@ -589,8 +591,8 @@ static void csiphy_lanes_enable(struct csiphy_device *csiphy,
 		csiphy_gen1_config_lanes(csiphy, cfg, settle_cnt);
 
 	/* IRQ_MASK registers - disable all interrupts */
-	for (i = 11; i < 22; i++)
-		writel_relaxed(0, csiphy->base + CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(i));
+	// for (i = 11; i < 22; i++)
+	// 	writel_relaxed(0, csiphy->base + CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(i));
 }
 
 static void csiphy_lanes_disable(struct csiphy_device *csiphy,

@@ -350,8 +350,10 @@ static int video_get_subdev_format(struct camss_video *video,
 	int ret;
 
 	subdev = video_remote_subdev(video, &pad);
-	if (subdev == NULL)
+	if (subdev == NULL) {
+		pr_info("%s: No remote subdev found for %s\n", __func__, video->pad.entity->name);
 		return -EPIPE;
+	}
 
 	fmt.pad = pad;
 
@@ -479,8 +481,15 @@ static int video_check_format(struct camss_video *video)
 	    pix->height != sd_pix->height ||
 	    pix->width != sd_pix->width ||
 	    pix->num_planes != sd_pix->num_planes ||
-	    pix->field != format.fmt.pix_mp.field)
+	    pix->field != format.fmt.pix_mp.field) {
+		dev_err(video->camss->dev, "Format mismatch:"
+			" fmt (%#011x <> %#011x) size: (%ux%u <> %ux%u), planes: (%u <> %u), field: (%u <> %u)\n",
+			pix->pixelformat, sd_pix->pixelformat,
+			pix->width, pix->height, sd_pix->width, sd_pix->height,
+			pix->num_planes, sd_pix->num_planes,
+			pix->field, sd_pix->field);
 		return -EPIPE;
+	}
 
 	return 0;
 }

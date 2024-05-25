@@ -760,6 +760,7 @@ static int csid_link_setup(struct media_entity *entity,
 		if (!csiphy->cfg.csi2)
 			return -EPERM;
 
+		pr_info("%s: csiphy->id %d\n", __func__, csiphy->id);
 		csid->phy.csiphy_id = csiphy->id;
 
 		lane_cfg = &csiphy->cfg.csi2->lane_cfg;

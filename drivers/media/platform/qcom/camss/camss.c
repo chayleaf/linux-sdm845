@@ -18,6 +18,7 @@
 #include <linux/of_graph.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
+#include <linux/reset.h>
 #include <linux/slab.h>
 #include <linux/videodev2.h>
 
@@ -1741,6 +1742,13 @@ static int camss_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(dev);
+
+	struct reset_control *rst = devm_reset_control_get_by_index(dev, 0);
+	if (!IS_ERR_OR_NULL(rst)) {
+		reset_control_assert(rst);
+		reset_control_deassert(rst);
+		dev_info(dev, "Reset done\n");
+	}
 
 	return 0;
 

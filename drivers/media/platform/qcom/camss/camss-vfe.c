@@ -463,6 +463,8 @@ void vfe_isr_comp_done(struct vfe_device *vfe, u8 comp)
 {
 	unsigned int i;
 
+	dev_info(vfe->camss->dev, "Composite image done\n");
+
 	for (i = 0; i < ARRAY_SIZE(vfe->wm_output_map); i++)
 		if (vfe->wm_output_map[i] == VFE_LINE_PIX) {
 			vfe->isr_ops.wm_done(vfe, i);
@@ -568,7 +570,7 @@ static int vfe_set_clock_rates(struct vfe_device *vfe)
 				if (min_rate < tmp)
 					min_rate = tmp;
 			}
-			min_rate = 400000000;
+			//min_rate = 400000000;
 
 			//camss_add_clock_margin(&min_rate);
 
