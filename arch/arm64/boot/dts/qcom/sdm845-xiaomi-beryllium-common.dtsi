@@ -924,7 +924,7 @@
 
 &cci_i2c0 {
 	camera@10 {
-		compatible = "sony,imx363";
+		compatible = "sony,imx363-pdaf";
 		reg = <0x10>;
 		// CAM0_RST_N
 		reset-gpios = <&tlmm 80 0>;
@@ -935,10 +935,10 @@
 		clock-names = "xvclk";
 		clock-frequency = <24000000>;
 
-		dovdd-supply = <&cam_iovdd>;
+		vif-supply = <&cam_iovdd>;
 		// ldo-supply = <&cam_ldo>;
-		avdd-supply = <&cam0_avdd>;
-		dvdd-supply = <&cam0_dvdd>;
+		vana-supply = <&cam0_avdd>;
+		vdig-supply = <&cam0_dvdd>;
 
 		status = "ok";
 
