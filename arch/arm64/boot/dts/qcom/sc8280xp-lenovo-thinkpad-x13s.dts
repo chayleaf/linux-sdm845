@@ -626,9 +626,9 @@
 
 		orientation = <0>;	/* Front facing */
 
-		avdd-supply = <&vreg_l6q>;
-		dvdd-supply = <&vreg_l2q>;
-		dovdd-supply = <&vreg_l7q>;
+		// avdd-supply = <&vreg_l6q>;
+		// dvdd-supply = <&vreg_l2q>;
+		// dovdd-supply = <&vreg_l7q>;
 
 		port {
 			ov5675_ep: endpoint {
