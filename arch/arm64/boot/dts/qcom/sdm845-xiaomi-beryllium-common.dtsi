@@ -907,7 +907,7 @@
 	vdda-csi1-supply = <&vdda_mipi_csi1_0p9>;
 	vdda-csi2-supply = <&vdda_mipi_csi2_0p9>;
 
-	status = "ok";
+	status = "okay";
 
 	ports {
 		#address-cells = <1>;
@@ -945,7 +945,7 @@
 		port {
 			imx363_ep: endpoint {
 				data-lanes = <1 2 3 4>;
-				link-frequencies = /bits/ 64 <600000000>;
+				link-frequencies = /bits/ 64 <636000000>;
 				remote-endpoint = <&csiphy0_ep>;
 			};
 		};
