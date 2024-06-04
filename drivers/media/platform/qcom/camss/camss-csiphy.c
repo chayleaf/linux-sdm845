@@ -265,6 +265,10 @@ static int csiphy_stream_on(struct csiphy_device *csiphy)
 	u8 val;
 
 	link_freq = camss_get_link_freq(&csiphy->subdev.entity, bpp, num_lanes);
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_stream_on | link_freq - %lld\n", link_freq);
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_stream_on | lane_mask - 0x%x\n", lane_mask);
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_stream_on | bpp - %d\n", bpp);
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_stream_on | num_lanes - %d\n", num_lanes);
 
 	if (link_freq < 0) {
 		dev_err(csiphy->camss->dev,
@@ -274,6 +278,7 @@ static int csiphy_stream_on(struct csiphy_device *csiphy)
 
 	if (csiphy->base_clk_mux) {
 		val = readl_relaxed(csiphy->base_clk_mux);
+		printk(KERN_INFO "CAMSS: CSIPHY: csiphy_stream_on | Read csiphy->base_clk_mux | reg - 0x%x | val - 0x%x\n", csiphy->base_clk_mux, val);
 		if (cfg->combo_mode && (lane_mask & 0x18) == 0x18) {
 			val &= ~0xf0;
 			val |= cfg->csid_id << 4;
@@ -282,6 +287,7 @@ static int csiphy_stream_on(struct csiphy_device *csiphy)
 			val |= cfg->csid_id;
 		}
 		writel_relaxed(val, csiphy->base_clk_mux);
+		printk(KERN_INFO "CAMSS: CSIPHY: csiphy_stream_on | csiphy->base_clk_mux | reg - 0x%x | val - 0x%x\n", csiphy->base_clk_mux, val);
 
 		/* Enforce reg write ordering between clk mux & lane enabling */
 		wmb();

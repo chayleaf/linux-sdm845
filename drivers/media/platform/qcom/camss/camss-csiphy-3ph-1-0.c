@@ -355,9 +355,11 @@ static void csiphy_reset(struct csiphy_device *csiphy)
 
 	writel_relaxed(0x1, csiphy->base +
 		      CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 0));
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_reset | CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(%d, 0) | reg - 0x%x | val - 0x%x\n", regs->offset, CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 0), 0x1);
 	usleep_range(5000, 8000);
 	writel_relaxed(0x0, csiphy->base +
 		       CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 0));
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_reset | CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(%d, 0) | reg - 0x%x | val - 0x%x\n", regs->offset, CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 0), 0x0);
 }
 
 static irqreturn_t csiphy_isr(int irq, void *dev)
@@ -370,19 +372,24 @@ static irqreturn_t csiphy_isr(int irq, void *dev)
 		int c = i + 22;
 		u8 val = readl_relaxed(csiphy->base +
 				       CSIPHY_3PH_CMN_CSI_COMMON_STATUSn(regs->offset, i));
+		printk(KERN_INFO "CAMSS: CSIPHY: csiphy_isr | CSIPHY_3PH_CMN_CSI_COMMON_STATUSn(%d, %d) | reg - 0x%x | val - 0x%x\n", regs->offset, i, CSIPHY_3PH_CMN_CSI_COMMON_STATUSn(regs->offset, i), val);
 
 		writel_relaxed(val, csiphy->base +
 			       CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, c));
+		printk(KERN_INFO "CAMSS: CSIPHY: csiphy_isr | CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(%d, %d) | reg - 0x%x | val - 0x%x\n", regs->offset, c, CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, c), val);
 	}
 
 	writel_relaxed(0x1, csiphy->base +
 		       CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 10));
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_isr | CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(%d, 10) | reg - 0x%x | val - 0x%x\n", regs->offset, CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 10), 0x1);
 	writel_relaxed(0x0, csiphy->base +
 		       CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 10));
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_isr | CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(%d, 10) | reg - 0x%x | val - 0x%x\n", regs->offset, CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 10), 0x0);
 
 	for (i = 22; i < 33; i++) {
 		writel_relaxed(0x0, csiphy->base +
 			       CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, i));
+		printk(KERN_INFO "CAMSS: CSIPHY: csiphy_isr | CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(%d, %d) | reg - 0x%x | val - 0x%x\n", regs->offset, i, CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, i), 0x0);
 	}
 
 	return IRQ_HANDLED;
@@ -494,6 +501,7 @@ static void csiphy_gen2_config_lanes(struct csiphy_device *csiphy,
 		switch (r->csiphy_param_type) {
 		case CSIPHY_SETTLE_CNT_LOWER_BYTE:
 			val = settle_cnt & 0xff;
+			printk(KERN_INFO "CAMSS: CSIPHY: csiphy_gen2_config_lanes | CSIPHY_SETTLE_CNT_LOWER_BYTE -> settle_cnt & 0xFF | val - 0x%x\n", val);
 			break;
 		case CSIPHY_DNP_PARAMS:
 			continue;
@@ -502,6 +510,7 @@ static void csiphy_gen2_config_lanes(struct csiphy_device *csiphy,
 			break;
 		}
 		writel_relaxed(val, csiphy->base + r->reg_addr);
+		printk(KERN_INFO "CAMSS: CSIPHY: csiphy_gen2_config_lanes | reg - 0x%x | val - 0x%x\n", r->reg_addr, val);
 	}
 }
 
@@ -544,6 +553,7 @@ static void csiphy_lanes_enable(struct csiphy_device *csiphy,
 	int i;
 
 	settle_cnt = csiphy_settle_cnt_calc(link_freq, csiphy->timer_clk_rate);
+	printk("CAMSS: CSIPHY: csiphy_lanes_enable | settle_cnt = %d\n", settle_cnt);
 
 	val = CSIPHY_3PH_CMN_CSI_COMMON_CTRL5_CLK_ENABLE;
 	for (i = 0; i < c->num_data; i++)
@@ -551,18 +561,22 @@ static void csiphy_lanes_enable(struct csiphy_device *csiphy,
 
 	writel_relaxed(val, csiphy->base +
 		       CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 5));
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_lanes_enable | CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(%d, 5) | reg - 0x%x | val - 0x%x\n", regs->offset, CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 5), val);
 
 	val = CSIPHY_3PH_CMN_CSI_COMMON_CTRL6_COMMON_PWRDN_B;
 	writel_relaxed(val, csiphy->base +
 		       CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 6));
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_lanes_enable | CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(%d, 6) | reg - 0x%x | val - 0x%x\n", regs->offset, CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 6), val);
 
 	val = 0x02;
 	writel_relaxed(val, csiphy->base +
 		       CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 7));
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_lanes_enable | CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(%d, 7) | reg - 0x%x | val - 0x%x\n", regs->offset, CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 7), val);
 
 	val = 0x00;
 	writel_relaxed(val, csiphy->base +
 		       CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 0));
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_lanes_enable | CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(%d, 0) | reg - 0x%x | val - 0x%x\n", regs->offset, CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 0), val);
 
 	if (csiphy_is_gen2(csiphy->camss->res->version))
 		csiphy_gen2_config_lanes(csiphy, settle_cnt);
@@ -573,6 +587,7 @@ static void csiphy_lanes_enable(struct csiphy_device *csiphy,
 	for (i = 11; i < 22; i++) {
 		writel_relaxed(0, csiphy->base +
 			       CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, i));
+		printk(KERN_INFO "CAMSS: CSIPHY: csiphy_lanes_enable | CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(%d, %d) | reg - 0x%x | val - 0x%x\n", regs->offset, i, CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, i), 0);
 	}
 }
 
@@ -583,9 +598,11 @@ static void csiphy_lanes_disable(struct csiphy_device *csiphy,
 
 	writel_relaxed(0, csiphy->base +
 			  CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 5));
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_lanes_disable | CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(%d, 5) | reg - 0x%x | val - 0x%x\n", regs->offset, CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 5), 0);
 
 	writel_relaxed(0, csiphy->base +
 			  CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 6));
+	printk(KERN_INFO "CAMSS: CSIPHY: csiphy_lanes_disable | CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(%d, 6) | reg - 0x%x | val - 0x%x\n", regs->offset, CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 6), 0);
 }
 
 static int csiphy_init(struct csiphy_device *csiphy)
