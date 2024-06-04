@@ -194,12 +194,17 @@ static void __csid_configure_rx(struct csid_device *csid,
 	val |= phy->lane_assign << CSI2_RX_CFG0_DL0_INPUT_SEL;
 	val |= phy->csiphy_id << CSI2_RX_CFG0_PHY_NUM_SEL;
 	writel_relaxed(val, csid->base + CSID_CSI2_RX_CFG0);
+	printk(KERN_INFO "CSID: __csid_configure_rx | lane_num - %d\n", lane_cnt);
+	printk(KERN_INFO "CSID: __csid_configure_rx | lane_cfg - 0x%x\n", phy->lane_assign);
+	printk(KERN_INFO "CSID: __csid_configure_rx | phy_sel - 0x%x\n", phy->csiphy_id);
+	printk(KERN_INFO "CSID: __csid_configure_rx | CSID_CSI2_RX_CFG0 | reg - 0x%x | val - 0x%x\n", CSID_CSI2_RX_CFG0, val);
 
 	val = 1 << CSI2_RX_CFG1_PACKET_ECC_CORRECTION_EN;
 	if (vc > 3)
 		val |= 1 << CSI2_RX_CFG1_VC_MODE;
 	val |= 1 << CSI2_RX_CFG1_MISR_EN;
 	writel_relaxed(val, csid->base + CSID_CSI2_RX_CFG1);
+	printk(KERN_INFO "CSID: __csid_configure_rx | CSID_CSI2_RX_CFG1 | reg - 0x%x | val - 0x%x\n", CSID_CSI2_RX_CFG1, val);
 }
 
 static void __csid_ctrl_rdi(struct csid_device *csid, int enable, u8 rdi)
@@ -211,6 +216,7 @@ static void __csid_ctrl_rdi(struct csid_device *csid, int enable, u8 rdi)
 	else
 		val = HALT_CMD_HALT_AT_FRAME_BOUNDARY << RDI_CTRL_HALT_CMD;
 	writel_relaxed(val, csid->base + CSID_RDI_CTRL(rdi));
+	printk(KERN_INFO "CSID: __csid_ctrl_rdi | CSID_RDI_CTRL | reg - 0x%x | val - 0x%x\n", CSID_RDI_CTRL(rdi), val);
 }
 
 static void __csid_configure_testgen(struct csid_device *csid, u8 enable, u8 vc)
@@ -300,41 +306,59 @@ static void __csid_configure_rdi_stream(struct csid_device *csid, u8 enable, u8 
 	val |= vc << RDI_CFG0_VIRTUAL_CHANNEL;
 	val |= dt_id << RDI_CFG0_DT_ID;
 	writel_relaxed(val, csid->base + CSID_RDI_CFG0(vc));
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | VC %d\n", vc);
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | dt_id %d\n", dt_id);
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | data_type %d\n", format->data_type);
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | path_format 0x%x\n", DECODE_FORMAT_PAYLOAD_ONLY);
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | plain_format 0x%x\n", 0x0);
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | RDI_CFG0 | reg - 0x%x | val - 0x%x\n", CSID_RDI_CFG0(vc), val);
 
 	/* CSID_TIMESTAMP_STB_POST_IRQ */
 	val = 2 << RDI_CFG1_TIMESTAMP_STB_SEL;
 	writel_relaxed(val, csid->base + CSID_RDI_CFG1(vc));
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | CSID_RDI_CFG1 | reg - 0x%x | val - 0x%x\n", CSID_RDI_CFG1(vc), val);
 
 	val = 1;
 	writel_relaxed(val, csid->base + CSID_RDI_FRM_DROP_PERIOD(vc));
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | CSID_RDI_FRM_DROP_PERIOD | reg - 0x%x | val - 0x%x\n", CSID_RDI_FRM_DROP_PERIOD(vc), val);
 
 	val = 0;
 	writel_relaxed(val, csid->base + CSID_RDI_FRM_DROP_PATTERN(vc));
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | CSID_RDI_FRM_DROP_PATTERN | reg - 0x%x | val - 0x%x\n", CSID_RDI_FRM_DROP_PATTERN(vc), val);
 
 	val = 1;
 	writel_relaxed(val, csid->base + CSID_RDI_IRQ_SUBSAMPLE_PERIOD(vc));
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | CSID_RDI_IRQ_SUBSAMPLE_PERIOD | reg - 0x%x | val - 0x%x\n", CSID_RDI_IRQ_SUBSAMPLE_PERIOD(vc), val);
 
 	val = 0;
 	writel_relaxed(val, csid->base + CSID_RDI_IRQ_SUBSAMPLE_PATTERN(vc));
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | CSID_RDI_IRQ_SUBSAMPLE_PATTERN | reg - 0x%x | val - 0x%x\n", CSID_RDI_IRQ_SUBSAMPLE_PATTERN(vc), val);
 
 	val = 1;
 	writel_relaxed(val, csid->base + CSID_RDI_RPP_PIX_DROP_PERIOD(vc));
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | CSID_RDI_RPP_PIX_DROP_PERIOD | reg - 0x%x | val - 0x%x\n", CSID_RDI_RPP_PIX_DROP_PERIOD(vc), val);
 
 	val = 0;
 	writel_relaxed(val, csid->base + CSID_RDI_RPP_PIX_DROP_PATTERN(vc));
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | CSID_RDI_RPP_PIX_DROP_PATTERN | reg - 0x%x | val - 0x%x\n", CSID_RDI_RPP_PIX_DROP_PATTERN(vc), val);
 
 	val = 1;
 	writel_relaxed(val, csid->base + CSID_RDI_RPP_LINE_DROP_PERIOD(vc));
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | CSID_RDI_RPP_LINE_DROP_PERIOD | reg - 0x%x | val - 0x%x\n", CSID_RDI_RPP_LINE_DROP_PERIOD(vc), val);
 
 	val = 0;
 	writel_relaxed(val, csid->base + CSID_RDI_RPP_LINE_DROP_PATTERN(vc));
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | CSID_RDI_RPP_LINE_DROP_PATTERN | reg - 0x%x | val - 0x%x\n", CSID_RDI_RPP_LINE_DROP_PATTERN(vc), val);
 
 	val = 0;
 	writel_relaxed(val, csid->base + CSID_RDI_CTRL(vc));
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | CSID_RDI_CTRL | reg - 0x%x | val - 0x%x\n", CSID_RDI_CTRL(vc), val);
 
 	val = readl_relaxed(csid->base + CSID_RDI_CFG0(vc));
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | Read CSID_RDI_CFG0 | reg - 0x%x | val - 0x%x\n", CSID_RDI_CFG0(vc), val);
 	val |=  enable << RDI_CFG0_ENABLE;
 	writel_relaxed(val, csid->base + CSID_RDI_CFG0(vc));
+	printk(KERN_INFO "CSID: __csid_configure_rdi_stream | CSID_RDI_CFG0 | reg - 0x%x | val - 0x%x\n", CSID_RDI_CFG0(vc), val);
 }
 
 static void csid_configure_stream(struct csid_device *csid, u8 enable)
@@ -399,21 +423,30 @@ static irqreturn_t csid_isr(int irq, void *dev)
 	int i;
 
 	val = readl_relaxed(csid->base + CSID_TOP_IRQ_STATUS);
+	printk(KERN_INFO "CSID: csid_isr | Read CSID_TOP_IRQ_STATUS | reg - 0x%x | val - 0x%x\n", CSID_TOP_IRQ_STATUS, val);
 	writel_relaxed(val, csid->base + CSID_TOP_IRQ_CLEAR);
+	printk(KERN_INFO "CSID: csid_isr | CSID_TOP_IRQ_CLEAR | reg - 0x%x | val - 0x%x\n", CSID_TOP_IRQ_CLEAR, val);
+
 	reset_done = val & BIT(TOP_IRQ_STATUS_RESET_DONE);
+	printk(KERN_INFO "CSID: csid_isr | reset_done - %d\n", reset_done);
 
 	val = readl_relaxed(csid->base + CSID_CSI2_RX_IRQ_STATUS);
+	printk(KERN_INFO "CSID: csid_isr | Read CSID_CSI2_RX_IRQ_STATUS | reg - 0x%x | val - 0x%x\n", CSID_CSI2_RX_IRQ_STATUS, val);
 	writel_relaxed(val, csid->base + CSID_CSI2_RX_IRQ_CLEAR);
+	printk(KERN_INFO "CSID: csid_isr | CSID_CSI2_RX_IRQ_CLEAR | reg - 0x%x | val - 0x%x\n", CSID_CSI2_RX_IRQ_CLEAR, val);
 
 	/* Read and clear IRQ status for each enabled RDI channel */
 	for (i = 0; i < MSM_CSID_MAX_SRC_STREAMS; i++)
 		if (csid->phy.en_vc & BIT(i)) {
 			val = readl_relaxed(csid->base + CSID_CSI2_RDIN_IRQ_STATUS(i));
+			printk(KERN_INFO "CSID: csid_isr | Read CSID_CSI2_RDIN_IRQ_STATUS(%d) | reg - 0x%x | val - 0x%x\n", i, CSID_CSI2_RDIN_IRQ_STATUS(i), val);
 			writel_relaxed(val, csid->base + CSID_CSI2_RDIN_IRQ_CLEAR(i));
+			printk(KERN_INFO "CSID: csid_isr | CSID_CSI2_RDIN_IRQ_CLEAR(%d) | reg - 0x%x | val - 0x%x\n", i, CSID_CSI2_RDIN_IRQ_CLEAR(i), val);
 		}
 
 	val = 1 << IRQ_CMD_CLEAR;
 	writel_relaxed(val, csid->base + CSID_IRQ_CMD);
+	printk(KERN_INFO "CSID: csid_isr | CSID_IRQ_CMD | reg - 0x%x | val - 0x%x\n", CSID_IRQ_CMD, val);
 
 	if (reset_done)
 		complete(&csid->reset_complete);
@@ -435,13 +468,18 @@ static int csid_reset(struct csid_device *csid)
 	reinit_completion(&csid->reset_complete);
 
 	writel_relaxed(1, csid->base + CSID_TOP_IRQ_CLEAR);
+	printk(KERN_INFO "CSID: csid_reset | CSID_TOP_IRQ_CLEAR | reg - 0x%x | val - 0x%x\n", CSID_TOP_IRQ_CLEAR, 1);
 	writel_relaxed(1, csid->base + CSID_IRQ_CMD);
+	printk(KERN_INFO "CSID: csid_reset | CSID_IRQ_CMD | reg - 0x%x | val - 0x%x\n", CSID_IRQ_CMD, 1);
 	writel_relaxed(1, csid->base + CSID_TOP_IRQ_MASK);
+	printk(KERN_INFO "CSID: csid_reset | CSID_TOP_IRQ_MASK | reg - 0x%x | val - 0x%x\n", CSID_TOP_IRQ_MASK, 1);
 	writel_relaxed(1, csid->base + CSID_IRQ_CMD);
+	printk(KERN_INFO "CSID: csid_reset | CSID_IRQ_CMD | reg - 0x%x | val - 0x%x\n", CSID_IRQ_CMD, 1);
 
 	/* preserve registers */
 	val = 0x1e << RST_STROBES;
 	writel_relaxed(val, csid->base + CSID_RST_STROBES);
+	printk(KERN_INFO "CSID: csid_reset | CSID_RST_STROBES | reg - 0x%x | val - 0x%x\n", CSID_RST_STROBES, val);
 
 	time = wait_for_completion_timeout(&csid->reset_complete,
 					   msecs_to_jiffies(CSID_RESET_TIMEOUT_MS));
