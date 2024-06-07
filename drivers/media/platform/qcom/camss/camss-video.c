@@ -51,9 +51,21 @@ static int video_mbus_to_pix_mp(const struct v4l2_mbus_framefmt *mbus,
 	v4l2_fill_pix_format_mplane(pix, mbus);
 	pix->pixelformat = f->pixelformat;
 	pix->num_planes = f->planes;
+	printk(KERN_INFO "video_mbus_to_pix_mp: pix->num_planes - %d\n", pix->num_planes);
+	printk(KERN_INFO "video_mbus_to_pix_mp: pix->pixelformat - %d\n", pix->pixelformat);
+	printk(KERN_INFO "video_mbus_to_pix_mp: pix->width - %d\n", pix->width);
+	printk(KERN_INFO "video_mbus_to_pix_mp: pix->height - %d\n", pix->height);
+	printk(KERN_INFO "video_mbus_to_pix_mp: alignment - %d\n", alignment);
+
 	for (i = 0; i < pix->num_planes; i++) {
-		bytesperline = pix->width / f->hsub[i].numerator *
-			f->hsub[i].denominator * f->bpp[i] / 8;
+		printk(KERN_INFO "video_mbus_to_pix_mp: f->hsub[i].numerator - %d\n", f->hsub[i].numerator);
+		printk(KERN_INFO "video_mbus_to_pix_mp: f->hsub[i].denominator - %d\n", f->hsub[i].denominator);
+		printk(KERN_INFO "video_mbus_to_pix_mp: f->bpp[i] - %d\n", f->bpp[i]);
+
+		bytesperline = pix->width / f->hsub[i].numerator * f->hsub[i].denominator * f->bpp[i] / 8;
+
+		printk(KERN_INFO "video_mbus_to_pix_mp: bytesperline - %d\n", bytesperline);
+		
 		bytesperline = ALIGN(bytesperline, alignment);
 		pix->plane_fmt[i].bytesperline = bytesperline;
 		pix->plane_fmt[i].sizeimage = pix->height /
@@ -466,11 +478,18 @@ static int __video_try_fmt(struct camss_video *video, struct v4l2_format *f)
 	pix_mp->pixelformat = fi->pixelformat;
 	pix_mp->width = clamp_t(u32, width, 1, CAMSS_FRAME_MAX_WIDTH);
 	pix_mp->height = clamp_t(u32, height, 1, CAMSS_FRAME_MAX_HEIGHT_RDI);
+	printk(KERN_INFO "video_try_fmt: pix_mp->width - %d\n", pix_mp->width);
+	printk(KERN_INFO "video_try_fmt: pix_mp->height - %d\n", pix_mp->height);
+	printk(KERN_INFO "video_try_fmt: pix_mp->pixelformat - %d\n", pix_mp->pixelformat);
+
 	pix_mp->num_planes = fi->planes;
 	for (i = 0; i < pix_mp->num_planes; i++) {
 		bpl = pix_mp->width / fi->hsub[i].numerator *
 			fi->hsub[i].denominator * fi->bpp[i] / 8;
 		bpl = ALIGN(bpl, video->bpl_alignment);
+		printk(KERN_INFO "video_try_fmt: bpl - %d\n", bpl);
+		printk(KERN_INFO "video_try_fmt: fi->vsub[i].numerator - %d\n", fi->vsub[i].numerator);
+		printk(KERN_INFO "video_try_fmt: fi->vsub[i].denominator - %d\n", fi->vsub[i].denominator);
 		pix_mp->plane_fmt[i].bytesperline = bpl;
 		pix_mp->plane_fmt[i].sizeimage = pix_mp->height /
 			fi->vsub[i].numerator * fi->vsub[i].denominator * bpl;
