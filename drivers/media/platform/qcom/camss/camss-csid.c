@@ -583,6 +583,7 @@ static int csid_set_clock_rates(struct csid_device *csid)
 				dev_err(dev, "clk set rate failed: %d\n", ret);
 				return ret;
 			}
+			printk("CAMSS: CSID: csid_set_clock_rates - clk_name: %s, rate: %ld\n", clock->name, rate);
 		} else if (clock->nfreqs) {
 			clk_set_rate(clock->clk, clock->freq[0]);
 		}

@@ -711,6 +711,7 @@ static int vfe_set_clock_rates(struct vfe_device *vfe)
 				dev_err(dev, "clk set rate failed: %d\n", ret);
 				return ret;
 			}
+			printk("CAMSS: VFE: vfe_set_clock_rates - clk_name: %s, rate: %ld\n", clock->name, rate);
 		}
 	}
 
@@ -1401,6 +1402,8 @@ static int vfe_set_selection(struct v4l2_subdev *sd,
 	struct vfe_line *line = v4l2_get_subdevdata(sd);
 	struct v4l2_rect *rect;
 	int ret;
+
+	printk("CAMSS: VFE: vfe_set_selection - target: %d, pad: %d\n", sel->target, sel->pad);
 
 	if (line->id != VFE_LINE_PIX)
 		return -EINVAL;
