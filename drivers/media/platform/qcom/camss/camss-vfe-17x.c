@@ -213,11 +213,13 @@ static void vfe_global_reset(struct vfe_device *vfe)
 			 GLOBAL_RESET_CMD_RDI3;
 
 	writel_relaxed(BIT(31), vfe->base + VFE_IRQ_MASK_0);
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_global_reset | VFE_IRQ_MASK_0 | reg - 0x%x | val - %ld\n", vfe->id, VFE_IRQ_MASK_0, BIT(31));
 
 	/* Make sure IRQ mask has been written before resetting */
 	wmb();
 
 	writel_relaxed(reset_bits, vfe->base + VFE_GLOBAL_RESET_CMD);
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_global_reset | VFE_GLOBAL_RESET_CMD | reg - 0x%x | val - 0x%x\n", vfe->id, VFE_GLOBAL_RESET_CMD, reset_bits);
 }
 
 static void vfe_wm_start(struct vfe_device *vfe, u8 wm, struct vfe_line *line)
@@ -228,45 +230,57 @@ static void vfe_wm_start(struct vfe_device *vfe, u8 wm, struct vfe_line *line)
 	val = DEBUG_STATUS_CFG_STATUS0(1) |
 	      DEBUG_STATUS_CFG_STATUS0(7);
 	writel_relaxed(val, vfe->base + VFE_BUS_WM_DEBUG_STATUS_CFG);
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_start | VFE_BUS_WM_DEBUG_STATUS_CFG | reg - 0x%x | val - 0x%x | WM %d\n", vfe->id, VFE_BUS_WM_DEBUG_STATUS_CFG, val, wm);
 
 	/* BUS_WM_INPUT_IF_ADDR_SYNC_FRAME_HEADER */
 	writel_relaxed(0, vfe->base + VFE_BUS_WM_ADDR_SYNC_FRAME_HEADER);
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_start | VFE_BUS_WM_ADDR_SYNC_FRAME_HEADER | reg - 0x%x | val - 0x%x | WM %d\n", vfe->id, VFE_BUS_WM_ADDR_SYNC_FRAME_HEADER, 0, wm);
 
 	/* no clock gating at bus input */
 	val = WM_CGC_OVERRIDE_ALL;
 	writel_relaxed(val, vfe->base + VFE_BUS_WM_CGC_OVERRIDE);
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_start | VFE_BUS_WM_CGC_OVERRIDE | reg - 0x%x | val - 0x%x | WM %d\n", vfe->id, VFE_BUS_WM_CGC_OVERRIDE, val, wm);
 
 	writel_relaxed(0x0, vfe->base + VFE_BUS_WM_TEST_BUS_CTRL);
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_start | VFE_BUS_WM_TEST_BUS_CTRL | reg - 0x%x | val - 0x%x | WM %d\n", vfe->id, VFE_BUS_WM_TEST_BUS_CTRL, 0x0, wm);
 
 	/* if addr_no_sync has default value then config the addr no sync reg */
 	val = WM_ADDR_NO_SYNC_DEFAULT_VAL;
 	writel_relaxed(val, vfe->base + VFE_BUS_WM_ADDR_SYNC_NO_SYNC);
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_start | VFE_BUS_WM_ADDR_SYNC_NO_SYNC | reg - 0x%x | val - 0x%x | WM %d\n", vfe->id, VFE_BUS_WM_ADDR_SYNC_NO_SYNC, val, wm);
 
 	writel_relaxed(0xf, vfe->base + VFE_BUS_WM_BURST_LIMIT(wm));
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_start | VFE_BUS_WM_BURST_LIMIT | reg - 0x%x | val - 0x%x | WM %d\n", vfe->id, VFE_BUS_WM_BURST_LIMIT(wm), 0xf, wm);
 
 	val = WM_BUFFER_DEFAULT_WIDTH;
 	writel_relaxed(val, vfe->base + VFE_BUS_WM_BUFFER_WIDTH_CFG(wm));
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_start | VFE_BUS_WM_BUFFER_WIDTH_CFG | reg - 0x%x | val - 0x%x | WM %d\n", vfe->id, VFE_BUS_WM_BUFFER_WIDTH_CFG(wm), val, wm);
 
 	val = 0;
 	writel_relaxed(val, vfe->base + VFE_BUS_WM_BUFFER_HEIGHT_CFG(wm));
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_start | VFE_BUS_WM_BUFFER_HEIGHT_CFG | reg - 0x%x | val - 0x%x | WM %d\n", vfe->id, VFE_BUS_WM_BUFFER_HEIGHT_CFG(wm), val, wm);
 
 	val = 0;
 	writel_relaxed(val, vfe->base + VFE_BUS_WM_PACKER_CFG(wm)); // XXX 1 for PLAIN8?
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_start | VFE_BUS_WM_PACKER_CFG | reg - 0x%x | val - 0x%x | WM %d\n", vfe->id, VFE_BUS_WM_PACKER_CFG(wm), val, wm);
 
 	/* Configure stride for RDIs */
 	val = WM_STRIDE_DEFAULT_STRIDE;
 	writel_relaxed(val, vfe->base + VFE_BUS_WM_STRIDE(wm));
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_start | VFE_BUS_WM_STRIDE | reg - 0x%x | val - 0x%x | WM %d\n", vfe->id, VFE_BUS_WM_STRIDE(wm), val, wm);
 
 	/* Enable WM */
 	val = 1 << WM_CFG_EN |
 	      MODE_MIPI_RAW << WM_CFG_MODE;
 	writel_relaxed(val, vfe->base + VFE_BUS_WM_CFG(wm));
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_start | VFE_BUS_WM_CFG | reg - 0x%x | val - 0x%x | WM %d\n", vfe->id, VFE_BUS_WM_CFG(wm), val, wm);
 }
 
 static void vfe_wm_stop(struct vfe_device *vfe, u8 wm)
 {
 	/* Disable WM */
 	writel_relaxed(0, vfe->base + VFE_BUS_WM_CFG(wm));
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_stop | VFE_BUS_WM_CFG | reg - 0x%x | val - 0x%x | WM %d\n", vfe->id, VFE_BUS_WM_CFG(wm), 0, wm);
 }
 
 static void vfe_wm_update(struct vfe_device *vfe, u8 wm, u32 addr,
@@ -276,8 +290,12 @@ static void vfe_wm_update(struct vfe_device *vfe, u8 wm, u32 addr,
 		&line->video_out.active_fmt.fmt.pix_mp;
 	u32 stride = pix->plane_fmt[0].bytesperline;
 
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_update | stride - %d | pix->height - %d | WM %d\n", vfe->id, stride, pix->height, wm);
+
 	writel_relaxed(addr, vfe->base + VFE_BUS_WM_IMAGE_ADDR(wm));
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_update | VFE_BUS_WM_IMAGE_ADDR | reg - 0x%x | val - 0x%x | WM %d\n", vfe->id, VFE_BUS_WM_IMAGE_ADDR(wm), addr, wm);
 	writel_relaxed(stride * pix->height, vfe->base + VFE_BUS_WM_FRAME_INC(wm));
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_wm_update | VFE_BUS_WM_FRAME_INC | reg - 0x%x | val - %d | WM %d\n", vfe->id, VFE_BUS_WM_FRAME_INC(wm), stride * pix->height, wm);
 }
 
 static void vfe_reg_update(struct vfe_device *vfe, enum vfe_line_id line_id)
@@ -288,6 +306,7 @@ static void vfe_reg_update(struct vfe_device *vfe, enum vfe_line_id line_id)
 	wmb();
 
 	writel_relaxed(vfe->reg_update, vfe->base + VFE_REG_UPDATE_CMD);
+	printk(KERN_INFO "CAMSS: VFE%d: vfe_reg_update | VFE_REG_UPDATE_CMD | reg - 0x%x | val - 0x%x\n", vfe->id, VFE_REG_UPDATE_CMD, vfe->reg_update);
 
 	/* Enforce ordering between reg update and subsequent reg writes */
 	wmb();
