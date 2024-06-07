@@ -508,7 +508,7 @@ static u64 link_freq_to_pixel_rate(u64 f, const struct imx363_link_cfg *link_cfg
 // };
 
 static const s64 link_freq_menu_items_24[] = {
-	636000000ULL, // NOT SURE HOW TO FIND THIS VALUE
+	600000000ULL, // NOT SURE HOW TO FIND THIS VALUE
 	321000000ULL,
 };
 

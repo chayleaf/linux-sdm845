@@ -945,7 +945,7 @@
 		port {
 			imx363_ep: endpoint {
 				data-lanes = <1 2 3 4>;
-				link-frequencies = /bits/ 64 <636000000>;
+				link-frequencies = /bits/ 64 <600000000>;
 				remote-endpoint = <&csiphy0_ep>;
 			};
 		};
