@@ -915,38 +915,63 @@
 		port@0 {
 			reg = <0>;
 			csiphy0_ep: endpoint {
+				// clock-lanes = <7>;
 				data-lanes = <0 1 2 3>;
-				remote-endpoint = <&imx363_ep>;
+				remote-endpoint = <&ccs_ep>;
 			};
 		};
 	};
 };
 
 &cci_i2c0 {
-	camera@10 {
-		compatible = "sony,imx363-pdaf";
+	// camera@10 {
+	// 	compatible = "sony,imx363";
+	// 	reg = <0x10>;
+	// 	// CAM0_RST_N
+	// 	reset-gpios = <&tlmm 80 0>;
+	// 	pinctrl-names = "default";
+	// 	pinctrl-0 = <&cam0_default>;
+
+	// 	clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
+	// 	clock-names = "xvclk";
+	// 	clock-frequency = <24000000>;
+
+	// 	vif-supply = <&cam_iovdd>;
+	// 	// ldo-supply = <&cam_ldo>;
+	// 	vana-supply = <&cam0_avdd>;
+	// 	vdig-supply = <&cam0_dvdd>;
+
+	// 	status = "ok";
+
+	// 	port {
+	// 		imx363_ep: endpoint {
+	// 			data-lanes = <1 2 3 4>;
+	// 			link-frequencies = /bits/ 64 <600000000>;
+	// 			remote-endpoint = <&csiphy0_ep>;
+	// 		};
+	// 	};
+	// };
+
+	camera-sensor@10 {
+		compatible = "mipi-ccs-1.0", "mipi-ccs";
 		reg = <0x10>;
-		// CAM0_RST_N
-		reset-gpios = <&tlmm 80 0>;
+		xshutdown-gpios = <&tlmm 80 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cam0_default>;
-
+		
+		vio-supply = <&cam_iovdd>;
+		vana-supply = <&cam0_avdd>;
+		vcore-supply = <&cam0_dvdd>;
+		
 		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
 		clock-names = "xvclk";
 		clock-frequency = <24000000>;
-
-		vif-supply = <&cam_iovdd>;
-		// ldo-supply = <&cam_ldo>;
-		vana-supply = <&cam0_avdd>;
-		vdig-supply = <&cam0_dvdd>;
-
-		status = "ok";
-
 		port {
-			imx363_ep: endpoint {
+			ccs_ep: endpoint {
 				data-lanes = <1 2 3 4>;
-				link-frequencies = /bits/ 64 <600000000>;
 				remote-endpoint = <&csiphy0_ep>;
+				link-frequencies = /bits/ 64 <321000000 636000000>;
+				// bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
 			};
 		};
 	};
