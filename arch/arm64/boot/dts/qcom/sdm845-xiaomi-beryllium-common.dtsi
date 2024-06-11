@@ -697,7 +697,15 @@
 			pins = "gpio80";
 			function = "gpio";
 
-			drive-strength = <16>;
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		avdd {
+			pins = "gpio40";
+			function = "gpio";
+
+			drive-strength = <2>;
 			bias-disable;
 		};
 
@@ -705,7 +713,7 @@
 			pins = "gpio13";
 			function = "cam_mclk";
 
-			drive-strength = <16>;
+			drive-strength = <2>;
 			bias-disable;
 		};
 	};
@@ -915,64 +923,63 @@
 		port@0 {
 			reg = <0>;
 			csiphy0_ep: endpoint {
-				// clock-lanes = <7>;
 				data-lanes = <0 1 2 3>;
-				remote-endpoint = <&ccs_ep>;
+				remote-endpoint = <&imx363_ep>;
 			};
 		};
 	};
 };
 
 &cci_i2c0 {
-	// camera@10 {
-	// 	compatible = "sony,imx363";
-	// 	reg = <0x10>;
-	// 	// CAM0_RST_N
-	// 	reset-gpios = <&tlmm 80 0>;
-	// 	pinctrl-names = "default";
-	// 	pinctrl-0 = <&cam0_default>;
-
-	// 	clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
-	// 	clock-names = "xvclk";
-	// 	clock-frequency = <24000000>;
-
-	// 	vif-supply = <&cam_iovdd>;
-	// 	// ldo-supply = <&cam_ldo>;
-	// 	vana-supply = <&cam0_avdd>;
-	// 	vdig-supply = <&cam0_dvdd>;
-
-	// 	status = "ok";
-
-	// 	port {
-	// 		imx363_ep: endpoint {
-	// 			data-lanes = <1 2 3 4>;
-	// 			link-frequencies = /bits/ 64 <600000000>;
-	// 			remote-endpoint = <&csiphy0_ep>;
-	// 		};
-	// 	};
-	// };
-
-	camera-sensor@10 {
-		compatible = "mipi-ccs-1.0", "mipi-ccs";
+	camera@10 {
+		compatible = "sony,imx363";
 		reg = <0x10>;
-		xshutdown-gpios = <&tlmm 80 0>;
+		// CAM0_RST_N
+		reset-gpios = <&tlmm 80 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cam0_default>;
-		
-		vio-supply = <&cam_iovdd>;
-		vana-supply = <&cam0_avdd>;
-		vcore-supply = <&cam0_dvdd>;
-		
+
 		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
 		clock-names = "xvclk";
 		clock-frequency = <24000000>;
+
+		vif-supply = <&cam_iovdd>;
+		// ldo-supply = <&cam_ldo>;
+		vana-supply = <&cam0_avdd>;
+		vdig-supply = <&cam0_dvdd>;
+
+		status = "okay";
+
 		port {
-			ccs_ep: endpoint {
+			imx363_ep: endpoint {
 				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <636000000>;
 				remote-endpoint = <&csiphy0_ep>;
-				link-frequencies = /bits/ 64 <321000000 636000000>;
-				// bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
 			};
 		};
 	};
+
+	// camera-sensor@10 {
+	// 	compatible = "mipi-ccs-1.0", "mipi-ccs";
+	// 	reg = <0x10>;
+	// 	xshutdown-gpios = <&tlmm 80 0>;
+	// 	pinctrl-names = "default";
+	// 	pinctrl-0 = <&cam0_default>;
+		
+	// 	vio-supply = <&cam_iovdd>;
+	// 	vana-supply = <&cam0_avdd>;
+	// 	vcore-supply = <&cam0_dvdd>;
+		
+	// 	clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
+	// 	clock-names = "xvclk";
+	// 	clock-frequency = <24000000>;
+	// 	port {
+	// 		ccs_ep: endpoint {
+	// 			data-lanes = <1 2 3 4>;
+	// 			remote-endpoint = <&csiphy0_ep>;
+	// 			link-frequencies = /bits/ 64 <321000000 636000000>;
+	// 			// bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+	// 		};
+	// 	};
+	// };
 };
