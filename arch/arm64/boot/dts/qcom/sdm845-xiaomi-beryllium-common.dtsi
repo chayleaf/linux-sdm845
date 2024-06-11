@@ -923,6 +923,7 @@
 		port@0 {
 			reg = <0>;
 			csiphy0_ep: endpoint {
+				clock-lanes = <7>;
 				data-lanes = <0 1 2 3>;
 				remote-endpoint = <&imx363_ep>;
 			};
@@ -952,6 +953,7 @@
 
 		port {
 			imx363_ep: endpoint {
+				clock-lanes = <1>;
 				data-lanes = <1 2 3 4>;
 				link-frequencies = /bits/ 64 <636000000>;
 				remote-endpoint = <&csiphy0_ep>;
