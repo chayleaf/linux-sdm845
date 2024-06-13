@@ -1,0 +1,5 @@
+config-check:
+  stage: test
+  script:
+    - cat arch/arm64/configs/sdm845.config | grep CONFIG_BT_RFCOMM=m
+    - cat arch/arm64/configs/sdm845.config | grep CONFIG_BT_BNEP=m
