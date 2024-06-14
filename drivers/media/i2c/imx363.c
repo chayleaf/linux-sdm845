@@ -28,7 +28,7 @@
 // basically frame length lines? from downstream
 #define IMX363_VTS_30FPS		3136 //0c40
 // #define IMX363_VTS_30FPS_2K		0x0638
-// #define IMX363_VTS_30FPS_VGA	0x034c
+#define IMX363_VTS_30FPS_HD		1296
 #define IMX363_VTS_MAX			65525
 
 /* HBLANK control - read only */
@@ -281,39 +281,39 @@ static const struct cci_reg_sequence mipi_2300mbps_24mhz_4l[] = {
 // 	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_L, 0 },
 // };
 
-// static const struct cci_reg_sequence mipi_642mbps_24mhz_2l[] = {
-// 	{ IMX363_REG_EXCK_FREQ, 0x1800 },
-// 	{ IMX363_REG_IVTPXCK_DIV, 5 },
-// 	{ IMX363_REG_IVTSYCK_DIV, 2 },
-// 	{ IMX363_REG_PREPLLCK_VT_DIV, 4 },
-// 	{ IMX363_REG_PLL_IVT_MPY, 107 },
-// 	{ IMX363_REG_IOPPXCK_DIV, 10 },
-// 	{ IMX363_REG_IOPSYCK_DIV, 1 },
-// 	{ IMX363_REG_PREPLLCK_OP_DIV, 2 },
-// 	{ IMX363_REG_PLL_IOP_MPY, 216 },
-// 	{ IMX363_REG_PLL_MULT_DRIV, 0 },
+static const struct cci_reg_sequence mipi_642mbps_24mhz_2l[] = {
+	{ IMX363_REG_EXCK_FREQ, 0x1800 },
+	{ IMX363_REG_IVTPXCK_DIV, 5 },
+	{ IMX363_REG_IVTSYCK_DIV, 2 },
+	{ IMX363_REG_PREPLLCK_VT_DIV, 4 },
+	{ IMX363_REG_PLL_IVT_MPY, 107 },
+	{ IMX363_REG_IOPPXCK_DIV, 10 },
+	{ IMX363_REG_IOPSYCK_DIV, 1 },
+	{ IMX363_REG_PREPLLCK_OP_DIV, 2 },
+	{ IMX363_REG_PLL_IOP_MPY, 216 },
+	{ IMX363_REG_PLL_MULT_DRIV, 0 },
 
-// 	{ IMX363_REG_CSI_LANE_MODE, 1 },
-// 	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_H, 642 * 2 },
-// 	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_L, 0 },
-// };
+	{ IMX363_REG_CSI_LANE_MODE, 1 },
+	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_H, 642 * 2 },
+	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_L, 0 },
+};
 
-// static const struct cci_reg_sequence mipi_642mbps_24mhz_4l[] = {
-// 	{ IMX363_REG_EXCK_FREQ, 0x1800 },
-// 	{ IMX363_REG_IVTPXCK_DIV, 5 },
-// 	{ IMX363_REG_IVTSYCK_DIV, 2 },
-// 	{ IMX363_REG_PREPLLCK_VT_DIV, 4 },
-// 	{ IMX363_REG_PLL_IVT_MPY, 107 },
-// 	{ IMX363_REG_IOPPXCK_DIV, 10 },
-// 	{ IMX363_REG_IOPSYCK_DIV, 1 },
-// 	{ IMX363_REG_PREPLLCK_OP_DIV, 2 },
-// 	{ IMX363_REG_PLL_IOP_MPY, 216 },
-// 	{ IMX363_REG_PLL_MULT_DRIV, 0 },
+static const struct cci_reg_sequence mipi_642mbps_24mhz_4l[] = {
+	{ IMX363_REG_EXCK_FREQ, 0x1800 },
+	{ IMX363_REG_IVTPXCK_DIV, 5 },
+	{ IMX363_REG_IVTSYCK_DIV, 2 },
+	{ IMX363_REG_PREPLLCK_VT_DIV, 4 },
+	{ IMX363_REG_PLL_IVT_MPY, 107 },
+	{ IMX363_REG_IOPPXCK_DIV, 10 },
+	{ IMX363_REG_IOPSYCK_DIV, 1 },
+	{ IMX363_REG_PREPLLCK_OP_DIV, 2 },
+	{ IMX363_REG_PLL_IOP_MPY, 216 },
+	{ IMX363_REG_PLL_MULT_DRIV, 0 },
 
-// 	{ IMX363_REG_CSI_LANE_MODE, 3 },
-// 	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_H, 642 * 4 },
-// 	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_L, 0 },
-// };
+	{ IMX363_REG_CSI_LANE_MODE, 3 },
+	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_H, 642 * 4 },
+	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_L, 0 },
+};
 
 static const struct cci_reg_sequence mode_common_regs[] = {
 	//Magical IMX363 Regs & Values - Found in downstream
@@ -341,7 +341,6 @@ static const struct cci_reg_sequence mode_common_regs[] = {
 	{ CCI_REG8(0x9354), 0xaa },
 	{IMX363_REG_CSI_DT_FMT, 0x0a0a},
 	{IMX363_REG_LINE_LENGTH_PCK, IMX363_PPL_DEFAULT},
-	{IMX363_REG_FRM_LENGTH_LINES, IMX363_VTS_30FPS},
 	{IMX363_REG_X_ADD_STA, 0},
 	{IMX363_REG_Y_ADD_STA, 0},
 	{IMX363_REG_X_ADD_END, 4031},
@@ -391,6 +390,7 @@ static const struct cci_reg_sequence mode_4032x3024_regs[] = {
 	{IMX363_REG_DIG_CROP_IMAGE_HEIGHT, 3024},
 	{IMX363_REG_X_OUT_SIZE, 4032},
 	{IMX363_REG_Y_OUT_SIZE, 3024},
+	{IMX363_REG_FRM_LENGTH_LINES, IMX363_VTS_30FPS},
 };
 
 // static const struct cci_reg_sequence mode_2104_1560_regs[] = {
@@ -403,15 +403,16 @@ static const struct cci_reg_sequence mode_4032x3024_regs[] = {
 // 	{IMX363_REG_Y_OUT_SIZE, 1560},
 // };
 
-// static const struct cci_reg_sequence mode_1048_780_regs[] = {
-// 	{IMX363_REG_BINNING_MODE, 1},
-// 	{IMX363_REG_BINNING_TYPE_V, 0x14},
-// 	{IMX363_REG_SCALE_MODE, 1},
-// 	{IMX363_REG_SCALE_M, 64},
-// 	{IMX363_REG_DIG_CROP_IMAGE_HEIGHT, 780},
-// 	{IMX363_REG_X_OUT_SIZE, 1048},
-// 	{IMX363_REG_Y_OUT_SIZE, 780},
-// };
+static const struct cci_reg_sequence mode_1920_1080_regs[] = {
+	{IMX363_REG_BINNING_MODE, 1},
+	{IMX363_REG_BINNING_TYPE_V, 0x22},
+	// {IMX363_REG_SCALE_MODE, 1},
+	// {IMX363_REG_SCALE_M, 64},
+	{IMX363_REG_DIG_CROP_IMAGE_HEIGHT, 1080},
+	{IMX363_REG_X_OUT_SIZE, 1920},
+	{IMX363_REG_Y_OUT_SIZE, 1080},
+	{IMX363_REG_FRM_LENGTH_LINES, IMX363_VTS_30FPS_HD},
+};
 
 struct imx363_variant_cfg {
 	const struct cci_reg_sequence *regs;
@@ -560,40 +561,40 @@ static const struct imx363_link_freq_config link_freq_configs_24[] = {
 			},
 		}
 	},
-	// [IMX363_LINK_FREQ_640MBPS] = {
-	// 	.pixels_per_line = IMX363_PPL_DEFAULT,
-	// 	.link_cfg = {
-	// 		[IMX363_2_LANE_MODE] = {
-	// 			.lf_to_pix_rate_factor = 2 * 2,
-	// 			.reg_list = REGS(mipi_642mbps_24mhz_2l),
-	// 		},
-	// 		[IMX363_4_LANE_MODE] = {
-	// 			.lf_to_pix_rate_factor = 4,
-	// 			.reg_list = REGS(mipi_642mbps_24mhz_4l),
-	// 		},
-	// 	}
-	// },
+	[IMX363_LINK_FREQ_640MBPS] = {
+		.pixels_per_line = IMX363_PPL_DEFAULT,
+		.link_cfg = {
+			[IMX363_2_LANE_MODE] = {
+				.lf_to_pix_rate_factor = 2 * 2,
+				.reg_list = REGS(mipi_642mbps_24mhz_2l),
+			},
+			[IMX363_4_LANE_MODE] = {
+				.lf_to_pix_rate_factor = 4,
+				.reg_list = REGS(mipi_642mbps_24mhz_4l),
+			},
+		}
+	},
 };
 
 /* Mode configs */
 static const struct imx363_mode supported_modes[] = {
-	{
-		.width = 4032,
-		.height = 3024,
-		.vts_def = IMX363_VTS_30FPS,
-		.vts_min = IMX363_VTS_30FPS,
-		.reg_list = {
-			.num_of_regs = ARRAY_SIZE(mode_4032x3024_regs),
-			.regs = mode_4032x3024_regs,
-		},
-		.link_freq_index = IMX363_LINK_FREQ_2300MBPS,
-		.crop = {
-			.left = IMX363_PIXEL_ARRAY_LEFT,
-			.top = IMX363_PIXEL_ARRAY_TOP,
-			.width = IMX363_PIXEL_ARRAY_WIDTH,
-			.height = IMX363_PIXEL_ARRAY_HEIGHT,
-		},
-	},
+	// {
+	// 	.width = 4032,
+	// 	.height = 3024,
+	// 	.vts_def = IMX363_VTS_30FPS,
+	// 	.vts_min = IMX363_VTS_30FPS,
+	// 	.reg_list = {
+	// 		.num_of_regs = ARRAY_SIZE(mode_4032x3024_regs),
+	// 		.regs = mode_4032x3024_regs,
+	// 	},
+	// 	.link_freq_index = IMX363_LINK_FREQ_2300MBPS,
+	// 	.crop = {
+	// 		.left = IMX363_PIXEL_ARRAY_LEFT,
+	// 		.top = IMX363_PIXEL_ARRAY_TOP,
+	// 		.width = IMX363_PIXEL_ARRAY_WIDTH,
+	// 		.height = IMX363_PIXEL_ARRAY_HEIGHT,
+	// 	},
+	// },
 	// {
 	// 	.width = 2104,
 	// 	.height = 1560,
@@ -611,23 +612,23 @@ static const struct imx363_mode supported_modes[] = {
 	// 		.height = 3024,
 	// 	},
 	// },
-	// {
-	// 	.width = 1048,
-	// 	.height = 780,
-	// 	.vts_def = IMX363_VTS_30FPS_VGA,
-	// 	.vts_min = IMX363_VTS_30FPS_VGA,
-	// 	.reg_list = {
-	// 		.num_of_regs = ARRAY_SIZE(mode_1048_780_regs),
-	// 		.regs = mode_1048_780_regs,
-	// 	},
-	// 	.link_freq_index = IMX363_LINK_FREQ_640MBPS,
-	// 	.crop = {
-	// 		.left = IMX363_PIXEL_ARRAY_LEFT,
-	// 		.top = IMX363_PIXEL_ARRAY_TOP,
-	// 		.width = 4032,
-	// 		.height = 3024,
-	// 	},
-	// },
+	{
+		.width = 1920,
+		.height = 1080,
+		.vts_def = IMX363_VTS_30FPS_HD,
+		.vts_min = IMX363_VTS_30FPS_HD,
+		.reg_list = {
+			.num_of_regs = ARRAY_SIZE(mode_1920_1080_regs),
+			.regs = mode_1920_1080_regs,
+		},
+		.link_freq_index = IMX363_LINK_FREQ_640MBPS,
+		.crop = {
+			.left = IMX363_PIXEL_ARRAY_LEFT,
+			.top = IMX363_PIXEL_ARRAY_TOP,
+			.width = 4032,
+			.height = 3024,
+		},
+	},
 };
 
 struct imx363 {
