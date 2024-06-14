@@ -174,45 +174,6 @@ struct imx363_mode {
 	struct v4l2_rect crop;
 };
 
-/*
- * 4032x3024 @ 30 fps needs 2300Mbps/lane, 4 lanes.
- * To avoid further computation of clock settings, adopt the same per
- * lane data rate when using 2 lanes, thus allowing a maximum of 15fps.
- */
-// static const struct cci_reg_sequence mipi_2300mbps_19_2mhz_2l[] = {
-// 	{ IMX363_REG_EXCK_FREQ, 0x1333 },
-// 	{ IMX363_REG_IVTPXCK_DIV, 10 },
-// 	{ IMX363_REG_IVTSYCK_DIV, 2 },
-// 	{ IMX363_REG_PREPLLCK_VT_DIV, 3 },
-// 	{ IMX363_REG_PLL_IVT_MPY, 198 },
-// 	{ IMX363_REG_IOPPXCK_DIV, 10 },
-// 	{ IMX363_REG_IOPSYCK_DIV, 1 },
-// 	{ IMX363_REG_PREPLLCK_OP_DIV, 2 },
-// 	{ IMX363_REG_PLL_IOP_MPY, 216 },
-// 	{ IMX363_REG_PLL_MULT_DRIV, 0 },
-
-// 	{ IMX363_REG_CSI_LANE_MODE, 1 },
-// 	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_H, 2300 * 2 },
-// 	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_L, 0 },
-// };
-
-// static const struct cci_reg_sequence mipi_2300mbps_19_2mhz_4l[] = {
-// 	{ IMX363_REG_EXCK_FREQ, 0x1333 },
-// 	{ IMX363_REG_IVTPXCK_DIV, 5 },
-// 	{ IMX363_REG_IVTSYCK_DIV, 2 },
-// 	{ IMX363_REG_PREPLLCK_VT_DIV, 3 },
-// 	{ IMX363_REG_PLL_IVT_MPY, 198 },
-// 	{ IMX363_REG_IOPPXCK_DIV, 10 },
-// 	{ IMX363_REG_IOPSYCK_DIV, 1 },
-// 	{ IMX363_REG_PREPLLCK_OP_DIV, 2 },
-// 	{ IMX363_REG_PLL_IOP_MPY, 216 },
-// 	{ IMX363_REG_PLL_MULT_DRIV, 0 },
-
-// 	{ IMX363_REG_CSI_LANE_MODE, 3 },
-// 	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_H, 2300 * 4 },
-// 	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_L, 0 },
-// };
-
 static const struct cci_reg_sequence mipi_2300mbps_24mhz_2l[] = {
 	{ IMX363_REG_EXCK_FREQ, 0x1800 },
 	{ IMX363_REG_IVTPXCK_DIV, 10 },
@@ -226,8 +187,6 @@ static const struct cci_reg_sequence mipi_2300mbps_24mhz_2l[] = {
 	{ IMX363_REG_PLL_MULT_DRIV, 0 },
 
 	{ IMX363_REG_CSI_LANE_MODE, 1 },
-	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_H, 2300 * 2 },
-	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_L, 0 },
 };
 
 static const struct cci_reg_sequence mipi_2300mbps_24mhz_4l[] = {
@@ -246,40 +205,6 @@ static const struct cci_reg_sequence mipi_2300mbps_24mhz_4l[] = {
 	// { IMX363_REG_REQ_LINK_BIT_RATE_MBPS_H, 2300 * 4 },
 	// { IMX363_REG_REQ_LINK_BIT_RATE_MBPS_L, 0 },
 };
-
-// static const struct cci_reg_sequence mipi_640mbps_19_2mhz_2l[] = {
-// 	{ IMX363_REG_EXCK_FREQ, 0x1333 },
-// 	{ IMX363_REG_IVTPXCK_DIV, 5 },
-// 	{ IMX363_REG_IVTSYCK_DIV, 2 },
-// 	{ IMX363_REG_PREPLLCK_VT_DIV, 3 },
-// 	{ IMX363_REG_PLL_IVT_MPY, 100 },
-// 	{ IMX363_REG_IOPPXCK_DIV, 10 },
-// 	{ IMX363_REG_IOPSYCK_DIV, 1 },
-// 	{ IMX363_REG_PREPLLCK_OP_DIV, 2 },
-// 	{ IMX363_REG_PLL_IOP_MPY, 216 },
-// 	{ IMX363_REG_PLL_MULT_DRIV, 0 },
-
-// 	{ IMX363_REG_CSI_LANE_MODE, 1 },
-// 	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_H, 640 * 2 },
-// 	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_L, 0 },
-// };
-
-// static const struct cci_reg_sequence mipi_640mbps_19_2mhz_4l[] = {
-// 	{ IMX363_REG_EXCK_FREQ, 0x1333 },
-// 	{ IMX363_REG_IVTPXCK_DIV, 5 },
-// 	{ IMX363_REG_IVTSYCK_DIV, 2 },
-// 	{ IMX363_REG_PREPLLCK_VT_DIV, 3 },
-// 	{ IMX363_REG_PLL_IVT_MPY, 100 },
-// 	{ IMX363_REG_IOPPXCK_DIV, 10 },
-// 	{ IMX363_REG_IOPSYCK_DIV, 1 },
-// 	{ IMX363_REG_PREPLLCK_OP_DIV, 2 },
-// 	{ IMX363_REG_PLL_IOP_MPY, 216 },
-// 	{ IMX363_REG_PLL_MULT_DRIV, 0 },
-
-// 	{ IMX363_REG_CSI_LANE_MODE, 3 },
-// 	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_H, 640 * 4 },
-// 	{ IMX363_REG_REQ_LINK_BIT_RATE_MBPS_L, 0 },
-// };
 
 static const struct cci_reg_sequence mipi_642mbps_24mhz_2l[] = {
 	{ IMX363_REG_EXCK_FREQ, 0x1800 },
@@ -393,16 +318,6 @@ static const struct cci_reg_sequence mode_4032x3024_regs[] = {
 	{IMX363_REG_FRM_LENGTH_LINES, IMX363_VTS_30FPS},
 };
 
-// static const struct cci_reg_sequence mode_2104_1560_regs[] = {
-// 	{IMX363_REG_BINNING_MODE, 1},
-// 	{IMX363_REG_BINNING_TYPE_V, 0x12},
-// 	{IMX363_REG_SCALE_MODE, 1},
-// 	{IMX363_REG_SCALE_M, 32},
-// 	{IMX363_REG_DIG_CROP_IMAGE_HEIGHT, 1560},
-// 	{IMX363_REG_X_OUT_SIZE, 2104},
-// 	{IMX363_REG_Y_OUT_SIZE, 1560},
-// };
-
 static const struct cci_reg_sequence mode_1920_1080_regs[] = {
 	{IMX363_REG_BINNING_MODE, 1},
 	{IMX363_REG_BINNING_TYPE_V, 0x42},
@@ -413,33 +328,6 @@ static const struct cci_reg_sequence mode_1920_1080_regs[] = {
 	{IMX363_REG_X_OUT_SIZE, 1920},
 	{IMX363_REG_Y_OUT_SIZE, 1080},
 	{IMX363_REG_FRM_LENGTH_LINES, IMX363_VTS_30FPS_HD},
-};
-
-struct imx363_variant_cfg {
-	const struct cci_reg_sequence *regs;
-	unsigned int num_regs;
-};
-
-static const struct cci_reg_sequence imx363_cfg_regs[] = {
-	{ CCI_REG8(0x3052), 0x00 }, //not present in android downstream logs
-	{ CCI_REG8(0x4E21), 0x14 }, //not present in android downstream logs
-	{ CCI_REG8(0x7B25), 0x00 }, //not present in android downstream logs
-};
-
-static const struct imx363_variant_cfg imx363_cfg = {
-	.regs = imx363_cfg_regs,
-	.num_regs = ARRAY_SIZE(imx363_cfg_regs),
-};
-
-static const struct cci_reg_sequence imx363_pdaf_cfg_regs[] = {
-	{ CCI_REG8(0x3052), 0x01 }, //not present in android downstream logs
-	{ CCI_REG8(0x4E21), 0x10 }, //not present in android downstream logs
-	{ CCI_REG8(0x7B25), 0x01 }, //not present in android downstream logs
-};
-
-static const struct imx363_variant_cfg imx363_pdaf_cfg = {
-	.regs = imx363_pdaf_cfg_regs,
-	.num_regs = ARRAY_SIZE(imx363_pdaf_cfg_regs),
 };
 
 /*
@@ -518,36 +406,6 @@ static const s64 link_freq_menu_items_24[] = {
 
 #define REGS(_list) { .num_of_regs = ARRAY_SIZE(_list), .regs = _list, }
 
-/* Link frequency configs */
-// static const struct imx363_link_freq_config link_freq_configs_19_2[] = {
-// 	[IMX363_LINK_FREQ_2300MBPS] = {
-// 		.pixels_per_line = IMX363_PPL_DEFAULT,
-// 		.link_cfg = {
-// 			[IMX363_2_LANE_MODE] = {
-// 				.lf_to_pix_rate_factor = 2 * 2,
-// 				.reg_list = REGS(mipi_2300mbps_19_2mhz_2l),
-// 			},
-// 			[IMX363_4_LANE_MODE] = {
-// 				.lf_to_pix_rate_factor = 4,
-// 				.reg_list = REGS(mipi_2300mbps_19_2mhz_4l),
-// 			},
-// 		}
-// 	},
-// 	[IMX363_LINK_FREQ_640MBPS] = {
-// 		.pixels_per_line = IMX363_PPL_DEFAULT,
-// 		.link_cfg = {
-// 			[IMX363_2_LANE_MODE] = {
-// 				.lf_to_pix_rate_factor = 2,
-// 				.reg_list = REGS(mipi_640mbps_19_2mhz_2l),
-// 			},
-// 			[IMX363_4_LANE_MODE] = {
-// 				.lf_to_pix_rate_factor = 4,
-// 				.reg_list = REGS(mipi_640mbps_19_2mhz_4l),
-// 			},
-// 		}
-// 	},
-// };
-
 static const struct imx363_link_freq_config link_freq_configs_24[] = {
 	[IMX363_LINK_FREQ_2300MBPS] = {
 		.pixels_per_line = IMX363_PPL_DEFAULT,
@@ -596,48 +454,29 @@ static const struct imx363_mode supported_modes[] = {
 			.height = IMX363_PIXEL_ARRAY_HEIGHT,
 		},
 	},
-	// {
-	// 	.width = 2104,
-	// 	.height = 1560,
-	// 	.vts_def = IMX363_VTS_30FPS_2K,
-	// 	.vts_min = IMX363_VTS_30FPS_2K,
-	// 	.reg_list = {
-	// 		.num_of_regs = ARRAY_SIZE(mode_2104_1560_regs),
-	// 		.regs = mode_2104_1560_regs,
-	// 	},
-	// 	.link_freq_index = IMX363_LINK_FREQ_640MBPS,
-	// 	.crop = {
-	// 		.left = IMX363_PIXEL_ARRAY_LEFT,
-	// 		.top = IMX363_PIXEL_ARRAY_TOP,
-	// 		.width = 4032,
-	// 		.height = 3024,
-	// 	},
-	// },
-	// {
-	// 	.width = 1920,
-	// 	.height = 1080,
-	// 	.vts_def = IMX363_VTS_30FPS_HD,
-	// 	.vts_min = IMX363_VTS_30FPS_HD,
-	// 	.reg_list = {
-	// 		.num_of_regs = ARRAY_SIZE(mode_1920_1080_regs),
-	// 		.regs = mode_1920_1080_regs,
-	// 	},
-	// 	.link_freq_index = IMX363_LINK_FREQ_640MBPS,
-	// 	.crop = {
-	// 		.left = IMX363_PIXEL_ARRAY_LEFT,
-	// 		.top = IMX363_PIXEL_ARRAY_TOP,
-	// 		.width = 4032,
-	// 		.height = 3024,
-	// 	},
-	// },
+	{
+		.width = 1920,
+		.height = 1080,
+		.vts_def = IMX363_VTS_30FPS_HD,
+		.vts_min = IMX363_VTS_30FPS_HD,
+		.reg_list = {
+			.num_of_regs = ARRAY_SIZE(mode_1920_1080_regs),
+			.regs = mode_1920_1080_regs,
+		},
+		.link_freq_index = IMX363_LINK_FREQ_640MBPS,
+		.crop = {
+			.left = IMX363_PIXEL_ARRAY_LEFT,
+			.top = IMX363_PIXEL_ARRAY_TOP,
+			.width = 4032,
+			.height = 3024,
+		},
+	},
 };
 
 struct imx363 {
 	struct v4l2_subdev sd;
 	struct media_pad pad;
 	struct regmap *regmap;
-
-	const struct imx363_variant_cfg *variant_cfg;
 
 	struct v4l2_ctrl_handler ctrl_handler;
 	/* V4L2 Controls */
@@ -1032,14 +871,6 @@ static int imx363_start_streaming(struct imx363 *imx363)
 				  ARRAY_SIZE(mode_common_regs), NULL);
 	if (ret) {
 		dev_err(&client->dev, "%s failed to set common regs\n", __func__);
-		return ret;
-	}
-
-	ret = cci_multi_reg_write(imx363->regmap, imx363->variant_cfg->regs,
-				  imx363->variant_cfg->num_regs, NULL);
-	if (ret) {
-		dev_err(&client->dev, "%s failed to set variant config\n",
-			__func__);
 		return ret;
 	}
 
@@ -1451,10 +1282,6 @@ static int imx363_probe(struct i2c_client *client)
 
 	imx363->csi2_flags = ep.bus.mipi_csi2.flags;
 
-	imx363->variant_cfg = device_get_match_data(&client->dev);
-	if (!imx363->variant_cfg)
-		imx363->variant_cfg = &imx363_cfg;
-
 	/* request optional reset pin */
 	imx363->reset_gpio = devm_gpiod_get_optional(&client->dev, "reset",
 						     GPIOD_OUT_LOW);
@@ -1548,8 +1375,7 @@ MODULE_DEVICE_TABLE(acpi, imx363_acpi_ids);
 #endif
 
 static const struct of_device_id imx363_dt_ids[] = {
-	{ .compatible = "sony,imx363", .data = &imx363_cfg },
-	{ .compatible = "sony,imx363-pdaf", .data = &imx363_pdaf_cfg },
+	{ .compatible = "sony,imx363"},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx363_dt_ids);
