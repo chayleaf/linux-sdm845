@@ -949,6 +949,9 @@
 		vana-supply = <&cam0_avdd>;
 		vdig-supply = <&cam0_dvdd>;
 
+		orientation = <1>;
+		rotation = <270>;
+
 		status = "okay";
 
 		port {
