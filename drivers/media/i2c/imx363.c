@@ -405,7 +405,7 @@ static const struct cci_reg_sequence mode_4032x3024_regs[] = {
 
 static const struct cci_reg_sequence mode_1920_1080_regs[] = {
 	{IMX363_REG_BINNING_MODE, 1},
-	{IMX363_REG_BINNING_TYPE_V, 0x22},
+	{IMX363_REG_BINNING_TYPE_V, 0x42},
 	// {IMX363_REG_SCALE_MODE, 1},
 	// {IMX363_REG_SCALE_M, 64},
 	{IMX363_REG_DIG_CROP_IMAGE_WIDTH, 1920},
