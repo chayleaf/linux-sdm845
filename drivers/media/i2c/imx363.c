@@ -82,7 +82,7 @@
 #define IMX363_NATIVE_WIDTH			4048U
 #define IMX363_NATIVE_HEIGHT		3168U
 #define IMX363_PIXEL_ARRAY_LEFT		8U
-#define IMX363_PIXEL_ARRAY_TOP		16U
+#define IMX363_PIXEL_ARRAY_TOP		8U
 #define IMX363_PIXEL_ARRAY_WIDTH	4032U
 #define IMX363_PIXEL_ARRAY_HEIGHT	3024U
 
@@ -241,7 +241,7 @@ static const struct cci_reg_sequence mipi_642mbps_24mhz_4l[] = {
 };
 
 static const struct cci_reg_sequence mode_common_regs[] = {
-	//Magical IMX363 Regs & Values - Found in downstream
+	//Magical IMX363 Regs & Values - Found in downstream. Doesnt affect output except for the few noted. So disable.
 	// { CCI_REG8(0x31a3), 0x00 },
 	// { CCI_REG8(0x64d4), 0x01 },
 	// { CCI_REG8(0x64d5), 0xaa },
@@ -264,18 +264,11 @@ static const struct cci_reg_sequence mode_common_regs[] = {
 	// { CCI_REG8(0x934c), 0x82 },
 	// { CCI_REG8(0x9353), 0xaa },
 	// { CCI_REG8(0x9354), 0xaa },
-	{IMX363_REG_CSI_DT_FMT, 0x0a0a},
-	{IMX363_REG_LINE_LENGTH_PCK, IMX363_PPL_DEFAULT},
-	{IMX363_REG_X_EVN_INC, 1},
-	{IMX363_REG_X_ODD_INC, 1},
-	{IMX363_REG_Y_EVN_INC, 1},
-	{IMX363_REG_Y_ODD_INC, 1},
-	//Magical IMX363 Regs & Values - Found in downstream
 	// { CCI_REG8(0x30F4), 0x02 },
 	// { CCI_REG8(0x30F5), 0x80 },
-	// { CCI_REG8(0x31A5), 0x00 },
-	// { CCI_REG8(0x31A6), 0x00 },
-	// { CCI_REG8(0x560F), 0xBE },
+	// { CCI_REG8(0x31A5), 0x00 }, //causes white output
+	// { CCI_REG8(0x31A6), 0x00 }, //causes white output
+	// { CCI_REG8(0x560F), 0xBE }, //causes cropped corrupted nonsensical output
 	// { CCI_REG8(0x5856), 0x08 },
 	// { CCI_REG8(0x58D0), 0x10 },
 	// { CCI_REG8(0x734A), 0x01 },
@@ -285,19 +278,25 @@ static const struct cci_reg_sequence mode_common_regs[] = {
 	// { CCI_REG8(0x7928), 0x04 },
 	// { CCI_REG8(0x7929), 0x04 },
 	// { CCI_REG8(0x793F), 0x03 },
-	// {IMX363_REG_SCALE_MODE_EXT, 0}, //not present in android downstream logs
-	// {IMX363_REG_SCALE_M_EXT, 16}, //not present in android downstream logs
-	// {IMX363_REG_FORCE_FD_SUM, 0}, //not present in android downstream logs
-	// {IMX363_REG_FRM_LENGTH_CTL, 0}, //not present in android downstream logs
-	// {IMX363_REG_ANALOG_GAIN, 0}, //not present in android downstream logs
-	// {IMX363_REG_GR_DIGITAL_GAIN, 256}, //not present in android downstream logs
-	// {IMX363_REG_R_DIGITAL_GAIN, 256}, //not present in android downstream logs
-	// {IMX363_REG_B_DIGITAL_GAIN, 256}, //not present in android downstream logs
-	// {IMX363_REG_GB_DIGITAL_GAIN, 256}, //not present in android downstream logs
-	// {IMX363_REG_AF_WINDOW_MODE, 0}, //not present in android downstream logs
-	// {IMX363_REG_PHASE_PIX_OUTEN, 0}, //not present in android downstream logs
-	// {IMX363_REG_PDPIX_DATA_RATE, 0}, //not present in android downstream logs
-	{IMX363_REG_HDR, 0},
+	
+	// present in imx258. not present in android downstream logs. doesnt seem to affect output.
+	// {IMX363_REG_SCALE_MODE_EXT, 0}, 
+	// {IMX363_REG_SCALE_M_EXT, 16},
+	// {IMX363_REG_FORCE_FD_SUM, 1},
+	// {IMX363_REG_FRM_LENGTH_CTL, 0},
+	// {IMX363_REG_ANALOG_GAIN, 0},
+	// {IMX363_REG_GR_DIGITAL_GAIN, 256},
+	// {IMX363_REG_R_DIGITAL_GAIN, 256},
+	// {IMX363_REG_B_DIGITAL_GAIN, 256},
+	// {IMX363_REG_GB_DIGITAL_GAIN, 256},
+	// {IMX363_REG_AF_WINDOW_MODE, 0},
+	// {IMX363_REG_PHASE_PIX_OUTEN, 0},
+	// {IMX363_REG_PDPIX_DATA_RATE, 0},
+	// {IMX363_REG_HDR, 0},
+	
+	// Seems important. Probably will work even without specifying these. But let's just set it anyway.
+	{IMX363_REG_CSI_DT_FMT, 0x0a0a},
+	{IMX363_REG_LINE_LENGTH_PCK, IMX363_PPL_DEFAULT},
 };
 
 static const struct cci_reg_sequence mode_4032x3024_regs[] = {
@@ -309,6 +308,10 @@ static const struct cci_reg_sequence mode_4032x3024_regs[] = {
 	{IMX363_REG_Y_ADD_STA, 0},
 	{IMX363_REG_X_ADD_END, 4031},
 	{IMX363_REG_Y_ADD_END, 3023},
+	{IMX363_REG_X_EVN_INC, 1}, //subsampling
+	{IMX363_REG_X_ODD_INC, 1},
+	{IMX363_REG_Y_EVN_INC, 1},
+	{IMX363_REG_Y_ODD_INC, 1},
 	{IMX363_REG_DIG_CROP_X_OFFSET, 0}, // digital cropping
 	{IMX363_REG_DIG_CROP_Y_OFFSET, 0},
 	{IMX363_REG_DIG_CROP_IMAGE_WIDTH, 4032},
@@ -327,6 +330,10 @@ static const struct cci_reg_sequence mode_1920_1080_regs[] = {
 	{IMX363_REG_Y_ADD_STA, 0},
 	{IMX363_REG_X_ADD_END, 4031},
 	{IMX363_REG_Y_ADD_END, 3023},
+	{IMX363_REG_X_EVN_INC, 1}, //subsampling
+	{IMX363_REG_X_ODD_INC, 1},
+	{IMX363_REG_Y_EVN_INC, 1},
+	{IMX363_REG_Y_ODD_INC, 1},
 	{IMX363_REG_DIG_CROP_X_OFFSET, 0}, // digital cropping
 	{IMX363_REG_DIG_CROP_Y_OFFSET, 0},
 	{IMX363_REG_DIG_CROP_IMAGE_WIDTH, 1920},
