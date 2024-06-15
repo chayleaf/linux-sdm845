@@ -266,10 +266,6 @@ static const struct cci_reg_sequence mode_common_regs[] = {
 	// { CCI_REG8(0x9354), 0xaa },
 	{IMX363_REG_CSI_DT_FMT, 0x0a0a},
 	{IMX363_REG_LINE_LENGTH_PCK, IMX363_PPL_DEFAULT},
-	{IMX363_REG_X_ADD_STA, 0},
-	{IMX363_REG_Y_ADD_STA, 0},
-	{IMX363_REG_X_ADD_END, 4031},
-	{IMX363_REG_Y_ADD_END, 3023},
 	{IMX363_REG_X_EVN_INC, 1},
 	{IMX363_REG_X_ODD_INC, 1},
 	{IMX363_REG_Y_EVN_INC, 1},
@@ -289,8 +285,6 @@ static const struct cci_reg_sequence mode_common_regs[] = {
 	// { CCI_REG8(0x7928), 0x04 },
 	// { CCI_REG8(0x7929), 0x04 },
 	// { CCI_REG8(0x793F), 0x03 },
-	{IMX363_REG_DIG_CROP_X_OFFSET, 0},
-	{IMX363_REG_DIG_CROP_Y_OFFSET, 0},
 	// {IMX363_REG_SCALE_MODE_EXT, 0}, //not present in android downstream logs
 	// {IMX363_REG_SCALE_M_EXT, 16}, //not present in android downstream logs
 	// {IMX363_REG_FORCE_FD_SUM, 0}, //not present in android downstream logs
@@ -311,6 +305,12 @@ static const struct cci_reg_sequence mode_4032x3024_regs[] = {
 	{IMX363_REG_BINNING_TYPE_V, 0x11},
 	// {IMX363_REG_SCALE_MODE, 0},
 	// {IMX363_REG_SCALE_M, 16},
+	{IMX363_REG_X_ADD_STA, 0}, // analog cropping
+	{IMX363_REG_Y_ADD_STA, 0},
+	{IMX363_REG_X_ADD_END, 4031},
+	{IMX363_REG_Y_ADD_END, 3023},
+	{IMX363_REG_DIG_CROP_X_OFFSET, 0}, // digital cropping
+	{IMX363_REG_DIG_CROP_Y_OFFSET, 0},
 	{IMX363_REG_DIG_CROP_IMAGE_WIDTH, 4032},
 	{IMX363_REG_DIG_CROP_IMAGE_HEIGHT, 3024},
 	{IMX363_REG_X_OUT_SIZE, 4032},
@@ -323,6 +323,12 @@ static const struct cci_reg_sequence mode_1920_1080_regs[] = {
 	{IMX363_REG_BINNING_TYPE_V, 0x42},
 	// {IMX363_REG_SCALE_MODE, 1},
 	// {IMX363_REG_SCALE_M, 64},
+	{IMX363_REG_X_ADD_STA, 0}, // analog cropping
+	{IMX363_REG_Y_ADD_STA, 0},
+	{IMX363_REG_X_ADD_END, 4031},
+	{IMX363_REG_Y_ADD_END, 3023},
+	{IMX363_REG_DIG_CROP_X_OFFSET, 0}, // digital cropping
+	{IMX363_REG_DIG_CROP_Y_OFFSET, 0},
 	{IMX363_REG_DIG_CROP_IMAGE_WIDTH, 1920},
 	{IMX363_REG_DIG_CROP_IMAGE_HEIGHT, 1080},
 	{IMX363_REG_X_OUT_SIZE, 1920},
