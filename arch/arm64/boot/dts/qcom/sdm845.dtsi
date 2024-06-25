@@ -3988,6 +3988,20 @@
 			status = "disabled";
 		};
 
+		slim_bluetooth: slim-ngd@17240000 {
+			compatible = "qcom,slim-ngd-v2.1.0";
+			reg = <0 0x17240000 0 0x2c000>;
+			interrupts = <GIC_SPI 291 IRQ_TYPE_LEVEL_HIGH>;
+
+			dmas =	<&slimbam_bluetooth 3>, <&slimbam_bluetooth 4>;
+			dma-names = "rx", "tx";
+
+			iommus = <&apps_smmu 0x1813 0x0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 		lmh_cluster1: lmh@17d70800 {
 			compatible = "qcom,sdm845-lmh";
 			reg = <0 0x17d70800 0 0x400>;
@@ -5281,6 +5295,18 @@
 			qcom,ee = <1>;
 			qcom,num-ees = <2>;
 			iommus = <&apps_smmu 0x1806 0x0>;
+		};
+
+		slimbam_bluetooth: dma-controller@17204000 {
+			compatible = "qcom,bam-v1.7.4", "qcom,bam-v1.7.0";
+			qcom,controlled-remotely;
+			reg = <0 0x17204000 0 0x20000>;
+			num-channels = <31>;
+			interrupts = <GIC_SPI 292 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+			qcom,ee = <1>;
+			qcom,num-ees = <2>;
+			iommus = <&apps_smmu 0x1813 0x0>;
 		};
 
 		timer@17c90000 {
