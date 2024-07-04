@@ -15,6 +15,7 @@
 #include <dt-bindings/sound/qcom,q6voice.h>
 #include "sdm845.dtsi"
 #include "sdm845-wcd9340.dtsi"
+#include "sdm845-wcn3990.dtsi"
 #include "pm8998.dtsi"
 #include "pmi8998.dtsi"
 
