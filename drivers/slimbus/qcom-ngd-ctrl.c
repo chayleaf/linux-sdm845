@@ -107,8 +107,8 @@ struct ngd_reg_offset_data {
 };
 
 static const struct ngd_reg_offset_data ngd_v1_5_offset_info = {
-	.offset = 0x1000,
-	.size = 0x1000,
+	.offset = 0x800,
+	.size = 0x200,
 };
 
 enum qcom_slim_ngd_state {
@@ -1170,7 +1170,10 @@ static int qcom_slim_ngd_power_up(struct qcom_slim_ngd_ctrl *ctrl)
 	u32 laddr, rx_msgq;
 	int timeout, ret = 0;
 
+	dev_info(ctrl->dev, "qcom_slim_ngd_power_up\n");
+
 	if (ctrl->state == QCOM_SLIM_NGD_CTRL_DOWN) {
+		dev_info(ctrl->dev, "Controller state == DOWN\n");
 		timeout = wait_for_completion_timeout(&ctrl->qmi.qmi_comp, HZ);
 		if (!timeout)
 			return -EREMOTEIO;
@@ -1178,6 +1181,7 @@ static int qcom_slim_ngd_power_up(struct qcom_slim_ngd_ctrl *ctrl)
 
 	if (ctrl->state == QCOM_SLIM_NGD_CTRL_ASLEEP ||
 		ctrl->state == QCOM_SLIM_NGD_CTRL_DOWN) {
+		dev_info(ctrl->dev, "Controller state == DOWN || ASLEEP. Powering on...\n");
 		ret = qcom_slim_qmi_power_request(ctrl, true);
 		if (ret) {
 			dev_err(ctrl->dev, "SLIM QMI power request failed:%d\n",
@@ -1186,12 +1190,18 @@ static int qcom_slim_ngd_power_up(struct qcom_slim_ngd_ctrl *ctrl)
 		}
 	}
 
+	dev_info(ctrl->dev, "Getting version\n");
+
 	ctrl->ver = readl_relaxed(ctrl->base);
 	/* Version info in 16 MSbits */
 	ctrl->ver >>= 16;
 
+	dev_info(ctrl->dev, "Version: %d\n", ctrl->ver);
+
+	dev_info(ctrl->dev, "Status check?\n");
 	laddr = readl_relaxed(ngd->base + NGD_STATUS);
 	if (laddr & NGD_LADDR) {
+		dev_info(ctrl->dev, "NGD_LADDR, doing setup\n");
 		/*
 		 * external MDM restart case where ADSP itself was active framer
 		 * For example, modem restarted when playback was active
@@ -1208,6 +1218,7 @@ static int qcom_slim_ngd_power_up(struct qcom_slim_ngd_ctrl *ctrl)
 	 * Reinitialize only when registers are not retained or when enumeration
 	 * is lost for ngd.
 	 */
+	dev_info(ctrl->dev, "Reinit!\n");
 	reinit_completion(&ctrl->reconf);
 
 	writel_relaxed(DEF_NGD_INT_MASK, ngd->base + NGD_INT_EN);
@@ -1215,6 +1226,7 @@ static int qcom_slim_ngd_power_up(struct qcom_slim_ngd_ctrl *ctrl)
 
 	writel_relaxed(rx_msgq|SLIM_RX_MSGQ_TIMEOUT_VAL,
 				ngd->base + NGD_RX_MSGQ_CFG);
+	dev_info(ctrl->dev, "Performing setup...\n");
 	qcom_slim_ngd_setup(ctrl);
 
 	timeout = wait_for_completion_timeout(&ctrl->reconf, HZ);
@@ -1504,6 +1516,7 @@ static void slim_pd_status(int state, char *svc_path, void *priv)
 
 	qcom_slim_ngd_ssr_pdr_notify(ctrl, state);
 }
+
 static int of_qcom_slim_ngd_register(struct device *parent,
 				     struct qcom_slim_ngd_ctrl *ctrl)
 {

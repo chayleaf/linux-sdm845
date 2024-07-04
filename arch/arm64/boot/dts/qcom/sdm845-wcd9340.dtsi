@@ -6,7 +6,8 @@
  */
 
 &slim {
-	status = "okay";
+	/* HACK: disable as 2 SLIMBus Controllers cannot be registered in mainline yet */
+	status = "disabled";
 
 	slim@1 {
 		reg = <1>;
