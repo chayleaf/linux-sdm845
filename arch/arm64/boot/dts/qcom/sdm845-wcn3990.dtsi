@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * SDM845 SoC device tree source
+ *
+ * Copyright (c) 2024, Dylan Van Assche. All rights reserved.
+ */
+
+&slim_bluetooth {
+	status = "okay";
+
+	slim@3 {
+		reg = <3>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		wcn3990_ifd: ifd@0,0 {
+			compatible = "slim217,220";
+			reg = <0 0>;
+		};
+
+		wcn3990: codec@1,0 {
+			compatible = "slim217,220";
+			reg = <1 0>;
+			slim-ifc-dev = <&wcn3990_ifd>;
+		};
+	};
+};
