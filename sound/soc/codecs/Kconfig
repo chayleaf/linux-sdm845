@@ -277,6 +277,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_TWL6040
 	imply SND_SOC_UDA1334
 	imply SND_SOC_UDA1380
+	imply SND_SOC_WCN3990
 	imply SND_SOC_WCD9335
 	imply SND_SOC_WCD934X
 	imply SND_SOC_WCD938X_SDW
@@ -2079,6 +2080,16 @@ config SND_SOC_UDA1334
 config SND_SOC_UDA1380
 	tristate
 	depends on I2C
+
+config SND_SOC_WCN3990
+	tristate "WCN3990 Codec"
+	depends on SLIMBUS
+	select REGMAP_SLIMBUS
+	select REGMAP_IRQ
+	help
+	  The WCN3990 is a Bluetooth IC with a SLIMBus interface to allow
+	  offloading Bluetooth HFP/HSP and A2DP audio used by Qualcomm SoCs
+	  such as SDM845.
 
 config SND_SOC_WCD_CLASSH
 	tristate
