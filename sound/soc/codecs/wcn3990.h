@@ -1,4 +1,5 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+// SPDX-License-Identifier: GPL-2.0
+// Copyright (c) 2024, Dylan Van Assche
 
 #ifndef __WCN3990_H__
 #define __WCN3990_H__
@@ -23,11 +24,11 @@ enum {
 	WCN3990_BT_SLIM_RX,
 	WCN3990_BT_SPLIT_SLIM_RX,
 	WCN3990_NUM_OF_DAIS,
-}
+};
 
 enum {
 	WCN3990_PORT_TYPE_TX = 0,
 	WCN3990_PORT_TYPE_RX = 1,
-}
+};
 
 #endif /* __WCN3990_H__ */

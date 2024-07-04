@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: GPL-2.0-
 // Copyright (c) 2024, Dylan Van Assche
 
 #include <linux/module.h>
